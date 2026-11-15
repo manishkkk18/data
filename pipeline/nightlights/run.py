@@ -21,6 +21,7 @@ import pandas as pd
 import rioxarray
 import xarray as xr
 from blackmarble import BlackMarble, Product
+from blackmarble.download import BlackMarbleDownloader
 
 from .config import (
     COLLECTION,
@@ -37,6 +38,19 @@ from .config import (
 from .zonal import apply_coverage_rule, zonal_stats
 
 PRODUCT = Product.VNP46A3
+
+# NASA's server is slow per connection (~0.3 MB/s) rather than overall, so download 4
+# tiles at once instead of the library's fixed 2. Kept modest to be fair to the server.
+PARALLEL_DOWNLOADS = 4
+_library_download = BlackMarbleDownloader.download
+
+
+def _download_in_parallel(self, *args, n_jobs: int = PARALLEL_DOWNLOADS, **kwargs):
+    return _library_download(self, *args, n_jobs=n_jobs, **kwargs)
+
+
+BlackMarbleDownloader.download = _download_in_parallel
+
 STATS_DIR = STATS / PRODUCT.value
 FAILURES = STATS_DIR / "failures.json"
 MONTHLY_JSON = DATA / "monthly.json"

@@ -8,6 +8,7 @@
     "dev": "npm run data && vite",
     "build": "npm run data && tsc --noEmit && vite build",
     "typecheck": "tsc --noEmit",
+    "deploy": "bash scripts/deploy-pages.sh",
     "preview": "vite preview"
   },
   "dependencies": {
