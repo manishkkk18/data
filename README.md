@@ -3,6 +3,9 @@
 How bright each Indian district is at night, month by month, from NASA Black Marble satellite data.
 Night-time brightness is a rough proxy for economic activity, electrification and urban growth.
 
+**Live site:** https://manishkkk18.github.io/india-night-lights/ · **Project overview:** [docs/OVERVIEW.md](docs/OVERVIEW.md)
+(data, method, architecture, features, key decisions and status)
+
 - `pipeline/`: Python. Downloads NASA data and writes small static files to `data/`. See [pipeline/README.md](pipeline/README.md).
 - `web/`: Vite + React + TypeScript + MapLibre. Reads only the static files; no backend.
 
