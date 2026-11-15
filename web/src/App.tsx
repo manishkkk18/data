@@ -8,6 +8,7 @@ import Insights from "./components/Insights";
 import Compare from "./components/Compare";
 import CrossCheck from "./components/CrossCheck";
 import SwipeCompare from "./components/SwipeCompare";
+import PerfBadge from "./components/PerfBadge";
 import type { Map as MlMap } from "maplibre-gl";
 import {
   GROWTH_STOPS,
@@ -363,6 +364,7 @@ function Main({ data }: { data: AppData }) {
       />
       <CrossCheck data={data.crosscheck} preferredState={selectedId ? data.byId.get(selectedId)?.state : undefined} />
       <About monthly={m} />
+      <PerfBadge />
     </>
   );
 }
