@@ -133,7 +133,7 @@ export default function DiwaliEffect({ app, selectedId }: Props) {
           </ol>
 
           <h3 className="diwali-sub">Any district</h3>
-          {hasDistrictFile ? (
+          {
             <>
               <Search
                 districts={districtList}
@@ -149,7 +149,9 @@ export default function DiwaliEffect({ app, selectedId }: Props) {
                   <p className="diwali-card-name">
                     {district.name} <span className="muted">· {district.state}</span>
                   </p>
-                  {!districtData ? (
+                  {!hasDistrictFile ? (
+                    <p className="muted small">District-level Diwali figures are still being processed. The 8 major cities above are ready now.</p>
+                  ) : !districtData ? (
                     <p className="muted small">Loading district figures…</p>
                   ) : !dYear ? (
                     <p className="muted small">District figures for Diwali {y.year} aren't processed yet. Try another year.</p>
@@ -174,9 +176,7 @@ export default function DiwaliEffect({ app, selectedId }: Props) {
                 </div>
               )}
             </>
-          ) : (
-            <p className="muted small">District-level figures are still being processed.</p>
-          )}
+          }
         </div>
         <div>
           {near && chart ? (

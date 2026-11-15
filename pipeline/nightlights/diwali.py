@@ -23,6 +23,7 @@ Writes data/diwali.json (cities) and data/diwali_districts.json (every district)
 """
 
 import argparse
+import asyncio
 import datetime as dt
 import gc
 import json
@@ -33,6 +34,8 @@ import geopandas as gpd
 import numpy as np
 import pandas as pd
 from blackmarble import TILES, BlackMarble, Product
+from blackmarble.download import BlackMarbleDownloader
+from pqdm.threads import pqdm
 from rioxarray.merge import merge_arrays
 
 from . import run  # applies the 4-way parallel download setting; shared helpers
@@ -120,8 +123,28 @@ def delete_raw(bm: BlackMarble, day: dt.date):
             log.warning(f"  could not delete {f.name} (in use)")
 
 
+PREFETCH_JOBS = 6
+
+
+def prefetch(bm, parts: gpd.GeoDataFrame, day: dt.date):
+    """Download the night's available tiles in parallel before processing them one by one.
+
+    Fetching tile by tile through the library would download them one at a time; NASA's
+    server is slow per connection, so parallel downloads are several times faster.
+    """
+    dl = BlackMarbleDownloader(bm._token, bm.output_directory, collection=COLLECTION)
+    manifest = asyncio.run(dl.get_manifest(parts[["TileID", "geometry"]], PRODUCT, [day]))
+    links = manifest[manifest["TileID"].isin(parts["TileID"])]["downloadsLink"].tolist()
+    if links:
+        pqdm([(link, True) for link in links], dl._download_file, n_jobs=PREFETCH_JOBS, argument_type="args", disable=True)
+
+
 def fetch_night(bm, parts: gpd.GeoDataFrame, day: dt.date):
     """Radiance for the night, tile by tile. Returns (raster, missing tile ids)."""
+    try:
+        prefetch(bm, parts, day)
+    except Exception as e:  # fall back to the slower tile-by-tile downloads below
+        log.debug(f"  prefetch failed: {type(e).__name__}: {e}")
     arrays, missing = [], []
     for _, part in parts.iterrows():
         g = gpd.GeoDataFrame(geometry=[part.geometry], crs="EPSG:4326")
