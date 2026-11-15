@@ -503,3 +503,5 @@ h1, h2, h3 { font-family: var(--font-head); font-weight: 500; margin: 0; }
   .diwali { margin: 0 16px 16px; padding: 16px; }
   .diwali-body { grid-template-columns: 1fr; }
 }
+
+.few-nights { color: var(--muted); font-family: var(--font-body); font-weight: 400; font-size: 11px; }

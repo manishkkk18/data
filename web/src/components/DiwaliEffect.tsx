@@ -57,7 +57,17 @@ export default function DiwaliEffect({ data }: { data: Diwali | null }) {
             <li key={r.city}>
               <button type="button" className={`bar-row ${r.city === shownCity ? "on" : ""}`} onClick={() => setCity(r.city)} aria-pressed={r.city === shownCity}>
                 <span className="bar-name">{r.city}</span>
-                <span className="bar-value">{r.effect == null ? <span className="muted">cloudy</span> : fmtPct(r.effect, true)}</span>
+                <span className="bar-value">
+                  {r.effect == null ? (
+                    <span className="muted">cloudy</span>
+                  ) : (
+                    <>
+                      {fmtPct(r.effect, true)}
+                      {/* Fewer than 5 clear normal nights: the comparison is shakier, so say so. */}
+                      {r.clear < 5 && <span className="few-nights" title={`Only ${r.clear} clear normal nights to compare with`}> · {r.clear} nights</span>}
+                    </>
+                  )}
+                </span>
                 <span className="bar-track split" aria-hidden="true">
                   {r.effect != null && (
                     <span
@@ -87,8 +97,9 @@ export default function DiwaliEffect({ data }: { data: Diwali | null }) {
         </div>
       </div>
       <p className="muted small diwali-note">
-        Normal nights are 3–7 days either side; the days right around Diwali are left out because lights go up early. "Cloudy" means Diwali night itself or too many of the
-        normal nights were hidden by cloud, so there is no honest number. Fireworks smoke can dim the satellite's view, so a small or negative change doesn't always mean
+        Normal nights are 3–7 days either side; the days right around Diwali are left out because lights go up early. Even so, many cities light up for a week or more, so
+        these figures understate the jump. "Cloudy" means Diwali night itself or too many normal nights were hidden by cloud, so there is no honest number; "· 3 nights"
+        marks a comparison resting on fewer than 5 clear normal nights. Fireworks smoke can dim the satellite's view, so a small or negative change doesn't always mean
         fewer lights.
       </p>
     </section>
