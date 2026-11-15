@@ -26,6 +26,9 @@ API = "https://www.geoboundaries.org/api/current/gbOpen/IND/{level}/"
 WEB_TOLERANCE_DEG = 0.01  # ~1 km: 1.75 MB raw, ~0.4 MB gzipped
 WEB_DECIMALS = 3  # ~110 m vertex snapping
 
+# Spelling fixes for names as they appear in the source (after diacritics are removed).
+NAME_FIXES = {"Hydrabad": "Hyderabad"}
+
 
 def fold(s: str) -> str:
     """'Karnātaka' -> 'Karnataka' (geoBoundaries uses diacritics; most readers don't)."""
@@ -80,7 +83,7 @@ def build() -> gpd.GeoDataFrame:
     adm1["geometry"] = adm1.geometry.make_valid()
 
     df = gpd.GeoDataFrame(
-        {"name": adm2["shapeName"].map(fold).str.strip(), "source_id": adm2["shapeID"]},
+        {"name": adm2["shapeName"].map(fold).str.strip().replace(NAME_FIXES), "source_id": adm2["shapeID"]},
         geometry=adm2.geometry,
         crs=adm2.crs,
     )

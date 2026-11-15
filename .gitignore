@@ -10,3 +10,5 @@ data/raw/
 data/qa/
 *.tmp
 *.log
+web/public/data/
+.claude/
