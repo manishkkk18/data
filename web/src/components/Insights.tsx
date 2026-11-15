@@ -1,3 +1,5 @@
+import { useMemo } from "react";
+import { CITIES, cityMean, districtAreas } from "../geo";
 import { baselineIndex, fmtPct, fmtRad, latestLoaded, latestWithBaseline, monthLabel, topBrightest, topGrowth, type AppData } from "../data";
 
 type Props = { data: AppData; monthIndex: number; onPick: (id: string) => void };
@@ -11,6 +13,13 @@ export default function Insights({ data, monthIndex, onPick }: Props) {
   const growth = growthMonth != null ? topGrowth(m, growthMonth) : [];
   const maxBright = brightest[0]?.value ?? 1;
   const maxGrowth = Math.max(...growth.map((g) => g.pct), 1);
+  const areas = useMemo(() => districtAreas(data), [data]);
+  const base = growthMonth != null ? baselineIndex(m, growthMonth) : null;
+  const cities = CITIES.map((c) => {
+    const now = growthMonth != null ? cityMean(data, areas, c.ids, growthMonth) : null;
+    const then = base != null ? cityMean(data, areas, c.ids, base) : null;
+    return { ...c, now, then, pct: now != null && then != null && then > 0 ? ((now - then) / then) * 100 : null };
+  }).sort((a, b) => (b.pct ?? -Infinity) - (a.pct ?? -Infinity));
 
   return (
     <section id="insights" className="insights" aria-label="Insights">
@@ -44,6 +53,34 @@ export default function Insights({ data, monthIndex, onPick }: Props) {
             );
           })}
         </ol>
+
+        <h3 className="insights-sub">8 major cities</h3>
+        <table className="compare-table city-table">
+          <caption className="sr-only">Brightness change of 8 major cities, {growthMonth != null && base != null ? `${monthLabel(m.months[base])} to ${monthLabel(m.months[growthMonth])}` : ""}</caption>
+          <thead>
+            <tr>
+              <th scope="col">City</th>
+              <th scope="col">{base != null ? m.months[base].slice(0, 4) : "2015"}</th>
+              <th scope="col">{growthMonth != null ? m.months[growthMonth].slice(0, 4) : "Now"}</th>
+              <th scope="col">Change</th>
+            </tr>
+          </thead>
+          <tbody>
+            {cities.map((c) => (
+              <tr key={c.name}>
+                <th scope="row">
+                  <button type="button" className="link-btn city-btn" onClick={() => onPick(c.pick)}>
+                    {c.name}
+                  </button>
+                </th>
+                <td>{fmtRad(c.then)}</td>
+                <td>{fmtRad(c.now)}</td>
+                <td className={c.pct == null ? "muted" : c.pct >= 0 ? "blue" : "red"}>{c.pct == null ? "cloudy" : fmtPct(c.pct, true)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="muted small">Mean radiance, nW/cm²/sr, same month both years. Delhi (11 districts) and Mumbai (2) are area-weighted.</p>
       </article>
 
       <article className="panel card">

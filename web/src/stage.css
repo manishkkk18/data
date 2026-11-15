@@ -198,3 +198,13 @@ h1, h2, h3, .brand-name, .side-name, .story-name, .big-value, .kpi-month, .sheet
 }
 
 @media (hover: none) { .hover-hint { display: none; } }
+
+/* Insights: 8-city change table */
+.insights-sub { margin: 12px 0 0; font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+.city-table th, .city-table td { padding: 6px 4px; font-size: 13px; }
+.city-table td { font-family: var(--font-mono); }
+.city-table .city-btn { color: var(--text); font-family: var(--font-body); font-size: 14px; padding: 0; text-align: left; }
+.city-table thead th { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--muted); }
+.city-table thead th:first-child { text-align: left; }
+.city-table .city-btn:hover { color: var(--blue); }
+.red { color: var(--red); }
