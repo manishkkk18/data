@@ -25,6 +25,18 @@ export type BBox = [number, number, number, number];
 
 export type District = DistrictProps & { bbox: BBox; search: string; aliases: string[] };
 
+/** Our state trends next to ISRO Bhuvan's, built by pipeline/nightlights/crosscheck.py. */
+export type CrossCheck = {
+  generated: string;
+  bhuvan_url: string;
+  base_year: number;
+  break_year: number;
+  ours_source: Record<string, string>;
+  agreement: { from: number; to: number; spearman: number | null; states: number } | null;
+  excluded: string[];
+  states: { state: string; ours: Record<string, number>; bhuvan: Record<string, number> }[];
+};
+
 /** NASA annual composites (VNP46A4), used for the long-term line on the trend chart. */
 export type Yearly = { years: number[]; ids: string[]; mean: (number | null)[][]; valid: (number | null)[][] };
 
@@ -33,6 +45,7 @@ export type AppData = {
   outline: FeatureCollection;
   monthly: Monthly;
   yearly: Yearly | null; // optional: only once the annual run has been done
+  crosscheck: CrossCheck | null; // optional
   byId: Map<string, District>;
   index: Map<string, number>; // district id -> column in monthly arrays
 };
@@ -43,12 +56,13 @@ export async function loadData(): Promise<AppData> {
       if (!r.ok) throw new Error(`Could not load ${f} (${r.status})`);
       return r.json();
     });
-  const [districts, outline, monthly, yearly] = (await Promise.all([
+  const [districts, outline, monthly, yearly, crosscheck] = (await Promise.all([
     get("districts.geojson"),
     get("india_outline.geojson"),
     get("monthly.json"),
-    get("yearly.json").catch(() => null), // optional file
-  ])) as [DistrictFC, FeatureCollection, Monthly, Yearly | null];
+    get("yearly.json").catch(() => null), // optional files
+    get("crosscheck.json").catch(() => null),
+  ])) as [DistrictFC, FeatureCollection, Monthly, Yearly | null, CrossCheck | null];
 
   const byId = new Map<string, District>();
   for (const f of districts.features) {
@@ -57,7 +71,7 @@ export async function loadData(): Promise<AppData> {
     byId.set(p.id, { ...p, aliases, bbox: bboxOf(f.geometry), search: fold(`${p.name} ${p.state} ${aliases.join(" ")}`) });
   }
   const index = new Map(monthly.ids.map((id, i) => [id, i]));
-  return { districts, outline, monthly: fillMonthGaps(monthly), yearly, byId, index };
+  return { districts, outline, monthly: fillMonthGaps(monthly), yearly, crosscheck, byId, index };
 }
 
 /**
@@ -320,3 +334,51 @@ export const GROWTH_TICKS: [number, string][] = [
   [1, "+100%"],
   [2, "+300%"],
 ];
+
+// ---- Insights ---------------------------------------------------------------------
+
+/** The latest month that has data (the timeline may end in a month still to come). */
+export function latestLoaded(m: Monthly): number {
+  for (let i = m.months.length - 1; i >= 0; i--) if (m.loaded?.[i] !== false) return i;
+  return m.months.length - 1;
+}
+
+/** The latest processed month that also has its 2015 counterpart processed. */
+export function latestWithBaseline(m: Monthly): number | null {
+  for (let i = m.months.length - 1; i >= 0; i--) {
+    if (m.loaded?.[i] !== false && baselineIndex(m, i) != null) return i;
+  }
+  return null;
+}
+
+export function topBrightest(m: Monthly, mi: number, n = 5) {
+  return m.ids
+    .map((id, i) => ({ id, value: m.mean[mi][i] }))
+    .filter((r): r is { id: string; value: number } => r.value != null)
+    .sort((a, b) => b.value - a.value)
+    .slice(0, n);
+}
+
+/**
+ * Biggest % rise vs the same month in 2015, among districts that were already lit
+ * (>= minBase nW/cm²/sr) in 2015. Without that floor, near-dark districts going from
+ * 0.05 to 0.3 would top the list at "+500%".
+ */
+export function topGrowth(m: Monthly, mi: number, n = 5, minBase = 1) {
+  const b = baselineIndex(m, mi);
+  if (b == null) return [];
+  return m.ids
+    .map((id, i) => {
+      const now = m.mean[mi][i];
+      const then = m.mean[b][i];
+      return now == null || then == null || then < minBase ? null : { id, pct: ((now - then) / then) * 100, now, then };
+    })
+    .filter((r): r is { id: string; pct: number; now: number; then: number } => r != null)
+    .sort((a, b2) => b2.pct - a.pct)
+    .slice(0, n);
+}
+
+/** Months that actually have data, for month pickers. */
+export function loadedMonths(m: Monthly): number[] {
+  return m.months.map((_, i) => i).filter((i) => m.loaded?.[i] !== false);
+}

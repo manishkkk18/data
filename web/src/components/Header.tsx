@@ -12,8 +12,8 @@ export default function Header({ districts, onPick, compact }: Props) {
       </a>
       <nav className="nav" aria-label="Sections">
         <a href="#map" aria-current="page">Map</a>
-        <span className="nav-soon" aria-disabled="true" title="Coming in a later phase">Insights</span>
-        <span className="nav-soon" aria-disabled="true" title="Coming in a later phase">Compare</span>
+        <a href="#insights">Insights</a>
+        <a href="#compare">Compare</a>
         <a href="#about">About the data</a>
       </nav>
       <Search districts={districts} onPick={onPick} compact={compact} />
@@ -21,7 +21,7 @@ export default function Header({ districts, onPick, compact }: Props) {
   );
 }
 
-function Search({ districts, onPick, compact }: Props) {
+export function Search({ districts, onPick, compact, placeholder, label = "Search districts" }: Props & { placeholder?: string; label?: string }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -48,7 +48,7 @@ function Search({ districts, onPick, compact }: Props) {
 
   return (
     <div className="search">
-      <label htmlFor={`${listId}-input`} className="sr-only">Search districts</label>
+      <label htmlFor={`${listId}-input`} className="sr-only">{label}</label>
       <svg className="search-icon" viewBox="0 0 20 20" aria-hidden="true">
         <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
         <path d="M14 14l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
@@ -56,7 +56,7 @@ function Search({ districts, onPick, compact }: Props) {
       <input
         id={`${listId}-input`}
         type="search"
-        placeholder={compact ? "Search" : "Search a district"}
+        placeholder={placeholder ?? (compact ? "Search" : "Search a district")}
         autoComplete="off"
         role="combobox"
         aria-expanded={open && results.length > 0}

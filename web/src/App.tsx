@@ -4,6 +4,11 @@ import MapView, { type ColorMode, type DistrictValue, type FlyRequest, type Hove
 import LayerSwitcher, { type BaseLayer } from "./components/LayerSwitcher";
 import SidePanel from "./components/SidePanel";
 import About from "./components/About";
+import Insights from "./components/Insights";
+import Compare from "./components/Compare";
+import CrossCheck from "./components/CrossCheck";
+import SwipeCompare from "./components/SwipeCompare";
+import type { Map as MlMap } from "maplibre-gl";
 import {
   GROWTH_STOPS,
   GROWTH_TICKS,
@@ -13,6 +18,8 @@ import {
   fmtPct,
   growthLog2,
   growthPct,
+  latestLoaded,
+  loadedMonths,
   fmtRad,
   loadData,
   monthLabel,
@@ -59,21 +66,48 @@ function Main({ data }: { data: AppData }) {
   const [mode, setMode] = useState<ColorMode>("radiance");
   const [base, setBase] = useState<BaseLayer>("districts");
   const [threeD, setThreeD] = useState(false);
+  const [compareId, setCompareId] = useState<string | null>(null);
+  const [swipe, setSwipe] = useState<{ before: number; after: number } | null>(null);
+  const [mainMap, setMainMap] = useState<MlMap | null>(null);
 
   const summary = useMemo(() => summarise(m, monthIndex, (id) => data.byId.get(id)?.state ?? ""), [m, monthIndex, data]);
   const baseline = baselineIndex(m, monthIndex);
   const hasBaseline = baseline != null;
-  const growthMode = mode === "growth" && hasBaseline;
+  const growthMode = mode === "growth" && hasBaseline && !swipe;
+  const mapMonth = swipe ? swipe.before : monthIndex; // while swiping, the main map shows "before"
   const values = useMemo(() => {
     const out = new Map<string, DistrictValue>();
     m.ids.forEach((id, i) => {
-      const mean = m.mean[monthIndex][i];
-      const growth = growthMode ? growthLog2(m, i, monthIndex) : null;
+      const mean = m.mean[mapMonth][i];
+      const growth = growthMode ? growthLog2(m, i, mapMonth) : null;
       // In growth mode a district is a gap if either month is missing.
       out.set(id, { mean, growth, gap: growthMode ? growth == null : mean == null });
     });
     return out;
-  }, [m, monthIndex, growthMode]);
+  }, [m, mapMonth, growthMode]);
+  const afterValues = useMemo(() => {
+    const out = new Map<string, DistrictValue>();
+    if (!swipe) return out;
+    m.ids.forEach((id, i) => {
+      const mean = m.mean[swipe.after][i];
+      out.set(id, { mean, growth: null, gap: mean == null });
+    });
+    return out;
+  }, [m, swipe]);
+  const months = useMemo(() => loadedMonths(m), [m]);
+  const startSwipe = () => {
+    // Default: January 2015 against the latest month (earliest processed month if Jan 2015 isn't in yet).
+    const jan2015 = m.months.indexOf("2015-01");
+    const before = jan2015 >= 0 && m.loaded?.[jan2015] !== false ? jan2015 : months[0];
+    setThreeD(false);
+    setBase("districts");
+    setPlaying(false);
+    setSwipe({ before, after: latestLoaded(m) });
+  };
+  const goToCompare = () => {
+    document.getElementById("compare")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setSheetOpen(false);
+  };
   const monthMissing = m.loaded?.[monthIndex] === false;
 
   const districtList = useMemo(() => [...data.byId.values()].sort((a, b) => a.name.localeCompare(b.name)), [data]);
@@ -118,7 +152,7 @@ function Main({ data }: { data: AppData }) {
           <div className="map-top">
             <div className="stat-month">
               <span className="eyebrow">Month</span>
-              <span className="month">{monthLabel(m.months[monthIndex])}</span>
+              <span className="month">{swipe ? "Before / after" : monthLabel(m.months[monthIndex])}</span>
             </div>
             <div className="stat">
               <span className="eyebrow">Avg radiance</span>
@@ -166,15 +200,49 @@ function Main({ data }: { data: AppData }) {
               onHover={setHover}
               onLoaded={() => setMapLoading(false)}
               mode={growthMode ? "growth" : "radiance"}
-              base={base}
-              threeD={threeD}
+              base={swipe ? "districts" : base}
+              threeD={swipe ? false : threeD}
+              compareId={compareId}
+              onMap={setMainMap}
               onSelect={(id) => {
                 selectAndFly(id);
                 if (id && isMobile) setSheetOpen(false);
               }}
             />
-            <LayerSwitcher base={base} threeD={threeD} onBase={setBase} onThreeD={setThreeD} />
-            {monthMissing && !mapLoading && (
+            {swipe && mainMap && (
+              <SwipeCompare
+                main={mainMap}
+                districts={data.districts}
+                outline={data.outline}
+                after={afterValues}
+                beforeLabel={monthLabel(m.months[swipe.before], true)}
+                afterLabel={monthLabel(m.months[swipe.after], true)}
+              />
+            )}
+            <LayerSwitcher
+              base={base}
+              threeD={threeD}
+              onBase={setBase}
+              onThreeD={setThreeD}
+              disabled={!!swipe}
+              extra={
+                <button
+                  type="button"
+                  className={`layers-btn ${swipe ? "active" : ""}`}
+                  aria-pressed={!!swipe}
+                  disabled={months.length < 2 || mapLoading}
+                  title={months.length < 2 ? "Needs at least two processed months" : undefined}
+                  onClick={() => (swipe ? setSwipe(null) : startSwipe())}
+                >
+                  <svg viewBox="0 0 20 20" aria-hidden="true">
+                    <rect x="2" y="3" width="16" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
+                    <path d="M10 1v18" stroke="currentColor" strokeWidth="1.6" />
+                  </svg>
+                  <span>Before / after</span>
+                </button>
+              }
+            />
+            {monthMissing && !mapLoading && !swipe && (
               <div className="map-notice" role="status">
                 No data for {monthLabel(m.months[monthIndex])}: not processed yet, or unavailable from NASA.
               </div>
@@ -204,6 +272,28 @@ function Main({ data }: { data: AppData }) {
             )}
           </div>
 
+          {swipe ? (
+            <div className="map-bottom swipe-bar">
+              <label className="select">
+                <span className="eyebrow">Before (left)</span>
+                <select value={swipe.before} onChange={(e) => setSwipe({ ...swipe, before: Number(e.target.value) })}>
+                  {months.map((i) => (
+                    <option key={i} value={i}>{monthLabel(m.months[i], true)}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="select">
+                <span className="eyebrow">After (right)</span>
+                <select value={swipe.after} onChange={(e) => setSwipe({ ...swipe, after: Number(e.target.value) })}>
+                  {months.map((i) => (
+                    <option key={i} value={i}>{monthLabel(m.months[i], true)}</option>
+                  ))}
+                </select>
+              </label>
+              <button type="button" className="btn" onClick={() => setSwipe(null)}>Done</button>
+              <Legend growth={false} />
+            </div>
+          ) : (
           <div className="map-bottom">
             <button
               type="button"
@@ -231,6 +321,7 @@ function Main({ data }: { data: AppData }) {
               </p>
             )}
           </div>
+          )}
         </section>
 
         <SidePanel
@@ -245,8 +336,32 @@ function Main({ data }: { data: AppData }) {
             setPlaying(false);
             setMonthIndex(i);
           }}
+          onCompare={goToCompare}
         />
       </main>
+      <Insights data={data} monthIndex={monthIndex} onPick={(id) => {
+        selectAndFly(id);
+        document.getElementById("map")?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }} />
+      <Compare
+        data={data}
+        monthIndex={monthIndex}
+        summary={summary}
+        aId={selectedId}
+        bId={compareId}
+        onPickA={(id) => selectAndFly(id)}
+        onPickB={setCompareId}
+        onSwap={() => {
+          const a = selectedId;
+          setSelectedId(compareId);
+          setCompareId(a);
+        }}
+        onPickMonth={(i) => {
+          setPlaying(false);
+          setMonthIndex(i);
+        }}
+      />
+      <CrossCheck data={data.crosscheck} preferredState={selectedId ? data.byId.get(selectedId)?.state : undefined} />
       <About monthly={m} />
     </>
   );

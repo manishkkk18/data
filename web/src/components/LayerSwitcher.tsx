@@ -1,4 +1,4 @@
-import { useId, useState } from "react";
+import { useId, useState, type ReactNode } from "react";
 
 export type BaseLayer = "districts" | "night" | "day";
 
@@ -13,14 +13,16 @@ type Props = {
   threeD: boolean;
   onBase: (b: BaseLayer) => void;
   onThreeD: (on: boolean) => void;
+  extra?: ReactNode; // shown next to the Layers button
+  disabled?: boolean;
 };
 
-export default function LayerSwitcher({ base, threeD, onBase, onThreeD }: Props) {
+export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, disabled }: Props) {
   const [open, setOpen] = useState(false);
   const id = useId();
   return (
     <div className="layers">
-      {open && (
+      {open && !disabled && (
         <div className="layers-panel" id={`${id}-panel`}>
           <fieldset>
             <legend>Map shows</legend>
@@ -47,13 +49,24 @@ export default function LayerSwitcher({ base, threeD, onBase, onThreeD }: Props)
           </p>
         </div>
       )}
-      <button type="button" className="layers-btn" aria-expanded={open} aria-controls={`${id}-panel`} onClick={() => setOpen((o) => !o)}>
+      <div className="layers-row">
+      <button
+        type="button"
+        className="layers-btn"
+        aria-expanded={open}
+        aria-controls={`${id}-panel`}
+        disabled={disabled}
+        title={disabled ? "Not available during before/after swipe" : undefined}
+        onClick={() => setOpen((o) => !o)}
+      >
         <svg viewBox="0 0 20 20" aria-hidden="true">
           <path d="M10 2l8 4-8 4-8-4z" fill="currentColor" />
           <path d="M2 10l8 4 8-4M2 14l8 4 8-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
         </svg>
         <span>Layers{threeD && base === "districts" ? " · 3D" : ""}</span>
       </button>
+      {extra}
+      </div>
     </div>
   );
 }

@@ -11,7 +11,7 @@ import { GROWTH_STOPS, RAD_STOPS, type BBox, type DistrictFC } from "../data";
 import type { BaseLayer } from "./LayerSwitcher";
 
 // OpenFreeMap: free, no API key, no view limits. Attribution comes from the style.
-const STYLE_URL = "https://tiles.openfreemap.org/styles/dark";
+export const STYLE_URL = "https://tiles.openfreemap.org/styles/dark";
 const INDIA: BBox = [68.1, 6.7, 97.4, 37.1];
 
 export type DistrictValue = { mean: number | null; growth: number | null; gap: boolean };
@@ -32,6 +32,8 @@ type Props = {
   mode: ColorMode;
   base: BaseLayer;
   threeD: boolean;
+  compareId?: string | null; // second district in the compare view (dashed outline)
+  onMap?: (map: maplibregl.Map) => void; // gives the swipe view the live map to follow
 };
 
 // NASA GIBS imagery (free, no key). Layer IDs from the GIBS WMTS GetCapabilities.
@@ -127,6 +129,7 @@ export default function MapView(props: Props) {
       addDataLayers(map, cb.current.districts, cb.current.outline);
       bindInteractions(map, cb);
       setReady(true);
+      cb.current.onMap?.(map);
     });
 
     return () => {
@@ -140,14 +143,7 @@ export default function MapView(props: Props) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    for (const [id, v] of props.values) {
-      const lrad = v.mean != null ? Math.log10(Math.max(v.mean, 0.01)) : null;
-      // Only genuinely bright districts (above ~8 nW) get a halo.
-      const glow = lrad == null ? 0 : Math.min(Math.max((lrad - 0.9) / 1.0, 0), 1) * 0.5;
-      // 3D height grows with the square root of brightness so cities don't dwarf all else.
-      const h = v.gap || v.mean == null ? 0 : Math.sqrt(v.mean) * 60000; // Delhi ~470 km tall at country zoom
-      map.setFeatureState({ source: "districts", id }, { lrad, gap: v.gap, glow, g: v.growth, h });
-    }
+    pushValues(map, props.values);
   }, [props.values, ready]);
 
   // Which layers show: district colours (flat or 3D) or a NASA GIBS image.
@@ -167,6 +163,13 @@ export default function MapView(props: Props) {
       });
     }
   }, [props.base, props.threeD, props.mode, ready]);
+
+  // Dashed outline on the district being compared.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    map.setFilter("district-compare", ["==", ["get", "id"], props.compareId ?? ""]);
+  }, [props.compareId, ready]);
 
   // Blue outline on the selected district.
   useEffect(() => {
@@ -190,7 +193,19 @@ export default function MapView(props: Props) {
   return <div ref={container} className="map" role="region" aria-label="Map of Indian districts coloured by night-time brightness" />;
 }
 
-function tuneBasemap(map: maplibregl.Map) {
+/** Write each district's numbers for the month into feature-state (no geometry re-upload). */
+export function pushValues(map: maplibregl.Map, values: Map<string, DistrictValue>) {
+  for (const [id, v] of values) {
+    const lrad = v.mean != null ? Math.log10(Math.max(v.mean, 0.01)) : null;
+    // Only genuinely bright districts (above ~8 nW) get a halo.
+    const glow = lrad == null ? 0 : Math.min(Math.max((lrad - 0.9) / 1.0, 0), 1) * 0.5;
+    // 3D height grows with the square root of brightness so cities don't dwarf all else.
+    const h = v.gap || v.mean == null ? 0 : Math.sqrt(v.mean) * 60000; // Delhi ~470 km tall at country zoom
+    map.setFeatureState({ source: "districts", id }, { lrad, gap: v.gap, glow, g: v.growth, h });
+  }
+}
+
+export function tuneBasemap(map: maplibregl.Map) {
   const style = map.getStyle();
   for (const layer of style.layers ?? []) {
     // The basemap's borders come from OpenStreetMap and don't match India's official
@@ -206,7 +221,7 @@ function tuneBasemap(map: maplibregl.Map) {
   }
 }
 
-function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: FeatureCollection) {
+export function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: FeatureCollection) {
   // maxzoom 11: MapLibre pre-cuts the districts only down to city zoom (shading is gone
   // by 12.5) instead of its default 18, which roughly halves the first-load work.
   map.addSource("districts", { type: "geojson", data: districts, promoteId: "id", maxzoom: 11, buffer: 64, tolerance: 0.45 });
@@ -301,6 +316,13 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
     },
   });
   map.addLayer({
+    id: "district-compare",
+    type: "line",
+    source: "districts",
+    filter: ["==", ["get", "id"], ""],
+    paint: { "line-color": "#E8ECF5", "line-width": 2, "line-dasharray": [2, 1.5] },
+  });
+  map.addLayer({
     id: "district-selected",
     type: "line",
     source: "districts",
@@ -313,7 +335,7 @@ function setVisible(map: maplibregl.Map, id: string, on: boolean) {
   if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
 }
 
-function applyLayers(map: maplibregl.Map, base: BaseLayer, threeD: boolean, mode: ColorMode) {
+export function applyLayers(map: maplibregl.Map, base: BaseLayer, threeD: boolean, mode: ColorMode) {
   const districts = base === "districts";
   const flat = districts && !threeD;
   const color = mode === "growth" ? GROWTH_COLOR : RAD_COLOR;

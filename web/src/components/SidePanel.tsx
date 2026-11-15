@@ -14,9 +14,10 @@ type Props = {
   onToggle: () => void;
   onClear: () => void;
   onPickMonth: (i: number) => void;
+  onCompare: () => void;
 };
 
-export default function SidePanel({ data, monthIndex, summary, selectedId, expanded, onToggle, onClear, onPickMonth }: Props) {
+export default function SidePanel({ data, monthIndex, summary, selectedId, expanded, onToggle, onClear, onPickMonth, onCompare }: Props) {
   const m = data.monthly;
   const d = selectedId ? data.byId.get(selectedId) : undefined;
   const col = d ? data.index.get(d.id) : undefined;
@@ -89,7 +90,7 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
             </Suspense>
 
             <div className="side-actions">
-              <button type="button" className="btn" disabled title="Coming in a later phase">Compare with…</button>
+              <button type="button" className="btn" onClick={onCompare}>Compare with…</button>
               <button type="button" className="btn" onClick={() => downloadCsv(data, d.id)}>Download CSV</button>
             </div>
           </>
