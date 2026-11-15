@@ -10,6 +10,7 @@ re-running a month after a crash doesn't re-download anything already fetched.
 
 import argparse
 import datetime as dt
+import gc
 import json
 import logging
 import traceback
@@ -70,6 +71,7 @@ def fetch_raster(bm: BlackMarble, aoi: gpd.GeoDataFrame, month: dt.date):
 # We keep only the one layer we use, clipped to India and stored compactly:
 # radiance x10 as uint16 (the source is already in 0.1 steps, so nothing is lost).
 NODATA_U16 = 65535
+BLACK_MARBLE_CRS = "EPSG:4326"  # the library drops it from its output; tiles are always lat/lon
 
 
 def cache_path(month: dt.date):
@@ -80,7 +82,7 @@ def save_cache(rast: xr.DataArray, month: dt.date):
     CACHE.mkdir(parents=True, exist_ok=True)
     enc = np.clip(np.round(rast.values * 10), 0, NODATA_U16 - 1)
     enc = np.where(np.isnan(rast.values), NODATA_U16, enc).astype("uint16")
-    out = rast.copy(data=enc).rio.write_nodata(NODATA_U16)
+    out = rast.copy(data=enc).rio.write_crs(BLACK_MARBLE_CRS).rio.write_nodata(NODATA_U16)
     tmp = cache_path(month).with_suffix(".tmp.tif")
     out.rio.to_raster(tmp, compress="DEFLATE", predictor=2, tiled=True)
     tmp.replace(cache_path(month))
@@ -89,23 +91,28 @@ def save_cache(rast: xr.DataArray, month: dt.date):
 def load_cache(month: dt.date) -> xr.DataArray:
     da = rioxarray.open_rasterio(cache_path(month)).squeeze(drop=True)
     vals = np.where(da.values == NODATA_U16, np.nan, da.values / 10).astype("float32")
-    return da.copy(data=vals).rio.write_nodata(np.nan)
+    return da.copy(data=vals).rio.write_crs(BLACK_MARBLE_CRS).rio.write_nodata(np.nan)
 
 
 def delete_raw(bm: BlackMarble, month: dt.date):
     """Remove this month's NASA tiles (and the library's per-tile GeoTIFFs)."""
+    gc.collect()  # on Windows, files still referenced by xarray can't be deleted
     stamp = f".A{month.year}{month.timetuple().tm_yday:03d}."
     for f in bm.output_directory.glob(f"{PRODUCT.value}{stamp}*"):
-        f.unlink(missing_ok=True)
+        try:
+            f.unlink(missing_ok=True)
+        except PermissionError:  # cleanup must never fail a month; retried next run
+            log.warning(f"  could not delete {f.name} (in use); will retry next run")
 
 
 def get_raster(bm, aoi, month: dt.date, keep_raw: bool) -> xr.DataArray:
-    if cache_path(month).exists():
-        return load_cache(month)
-    rast = fetch_raster(bm, aoi, month)
-    save_cache(rast, month)
+    if not cache_path(month).exists():
+        rast = fetch_raster(bm, aoi, month)
+        save_cache(rast, month)
+        rast.close()
+        del rast  # release the library's open GeoTIFFs before deleting them
     if not keep_raw:
-        delete_raw(bm, month)
+        delete_raw(bm, month)  # also tidies leftovers from an earlier interrupted run
     return load_cache(month)  # use exactly what's cached, so reruns are identical
 
 
