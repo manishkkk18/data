@@ -159,7 +159,6 @@ jobs:
           print("diwali written")
           PY
           python -m nightlights.crosscheck --refresh || echo "Bhuvan unavailable; keeping the previous cross-check"
-          ls data 2>/dev/null; ls ../data
       - name: Commit
         id: commit
         run: |
