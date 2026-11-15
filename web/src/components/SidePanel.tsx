@@ -1,5 +1,6 @@
 import { changePct, fmtPct, fmtRad, monthLabel, type AppData, type MonthSummary } from "../data";
 import { lazy, Suspense } from "react";
+import StoryCards from "./StoryCards";
 
 // The chart library is ~110 KB gzipped; load it only once someone opens a district,
 // so the first map view isn't slowed down.
@@ -15,9 +16,11 @@ type Props = {
   onClear: () => void;
   onPickMonth: (i: number) => void;
   onCompare: () => void;
+  onPickStory: (id: string) => void; // a story card was tapped: select + fly
+  onShare: () => void;
 };
 
-export default function SidePanel({ data, monthIndex, summary, selectedId, expanded, onToggle, onClear, onPickMonth, onCompare }: Props) {
+export default function SidePanel({ data, monthIndex, summary, selectedId, expanded, onToggle, onClear, onPickMonth, onCompare, onPickStory, onShare }: Props) {
   const m = data.monthly;
   const d = selectedId ? data.byId.get(selectedId) : undefined;
   const col = d ? data.index.get(d.id) : undefined;
@@ -32,14 +35,17 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
   const ch1 = col != null ? changePct(m, col, monthIndex, 1) : null;
   const ch5 = col != null ? changePct(m, col, monthIndex, 5) : null;
   const needsHistory = m.months.length < 13;
+  // Plain-language context for the number: where it sits among districts, and against India.
+  const brighterThan = rank && summary.withData > 1 ? Math.round(((summary.withData - rank) / (summary.withData - 1)) * 100) : null;
+  const multiple = mean != null && summary.avg ? mean / summary.avg : null;
 
   return (
     <aside className="side panel" aria-label="District details" data-expanded={expanded}>
       <button className="sheet-handle" type="button" aria-expanded={expanded} onClick={onToggle}>
         <span className="sheet-grip" aria-hidden="true" />
         <span className="sheet-peek">
-          <span className="sheet-title">{d ? d.name : "India"}</span>
-          <span className="sheet-value">{d ? fmtRad(mean) : fmtRad(summary.avg)}</span>
+          <span className="sheet-title">{d ? d.name : "Stories from the data"}</span>
+          <span className="sheet-value">{d ? fmtRad(mean ?? est) : ""}</span>
         </span>
         <span className="sr-only">{expanded ? "Collapse details" : "Expand details"}</span>
       </button>
@@ -78,9 +84,24 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
                 No clear view this month: only {fmtPct(valid)} of the district was observed (clouds). We show a gap rather than guess.
               </p>
             ) : (
-              <p className="muted small">
-                {fmtPct(lit)} of the district is lit · {fmtPct(valid)} observed
-              </p>
+              <>
+                <p className="plain">
+                  {brighterThan != null && (
+                    <>
+                      Brighter than <b>{brighterThan}%</b> of districts
+                    </>
+                  )}
+                  {multiple != null && (
+                    <>
+                      {" · "}
+                      <b>{multiple >= 10 ? multiple.toFixed(0) : multiple.toFixed(1)}×</b> the national average
+                    </>
+                  )}
+                </p>
+                <p className="muted small">
+                  {fmtPct(lit)} of the district is lit · {fmtPct(valid)} observed
+                </p>
+              </>
             )}
 
             <div className="tiles">
@@ -98,29 +119,16 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
               <TrendChart data={data} districtId={d.id} monthIndex={monthIndex} onPickMonth={onPickMonth} />
             </Suspense>
 
-            <div className="side-actions">
+            <div className="side-actions three">
               <button type="button" className="btn" onClick={onCompare}>Compare with…</button>
               <button type="button" className="btn" onClick={() => downloadCsv(data, d.id)}>Download CSV</button>
+              <button type="button" className="btn" onClick={onShare}>
+                Share
+              </button>
             </div>
           </>
         ) : (
-          <>
-            <h2 className="side-name">India</h2>
-            <p className="muted">{monthLabel(month)}</p>
-            <div className="big-number">
-              <span className="big-value">{fmtRad(summary.avg)}</span>
-              <span className="big-unit">nW/cm²/sr national average</span>
-            </div>
-            <div className="tiles two">
-              <Tile label="Districts with data" value={`${summary.withData}`} hint={`of ${summary.withData + summary.gaps}`} />
-              {m.loaded?.[monthIndex] === false ? (
-                <Tile label="Month status" value="No data" hint="not processed yet" />
-              ) : (
-                <Tile label="Cloud gaps" value={`${summary.gaps}`} hint="shown hatched" />
-              )}
-            </div>
-            <p className="muted small hint">Tap or click a district on the map, or search for one above, to see its numbers.</p>
-          </>
+          <StoryCards data={data} monthIndex={monthIndex} summary={summary} onPick={onPickStory} />
         )}
       </div>
     </aside>

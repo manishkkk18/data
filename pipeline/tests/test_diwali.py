@@ -68,3 +68,23 @@ def test_build_json_gives_each_district_its_own_effect(tmp_path, monkeypatch):
     assert y["clear_baseline_nights"][0] == len(BASELINE)
     assert len(y["nights"]) == 2 * WINDOW + 1 and y["nights"]["0"] == [20.0, None]
     assert next(v for v in cities["years"] if v["year"] == 2025)["effect"]["Delhi"] == pytest.approx(0.0)
+
+
+def test_leaderboard_skips_dim_and_thin_comparisons(tmp_path, monkeypatch):
+    import pandas as pd
+    from nightlights import diwali
+    monkeypatch.setattr(diwali, "STATS_DIR", tmp_path / "india")
+    monkeypatch.setattr(diwali, "CITY_ONLY_DIR", tmp_path / "old")
+    (tmp_path / "india").mkdir()
+    ids = ["lit--city", "dim--village", "lit--town"]
+    for o, day in diwali.nights(2025):
+        rows = [
+            {"id": "lit--city", "mean_rad": 30.0 if o == 0 else 20.0},  # +50%, lit
+            {"id": "dim--village", "mean_rad": 0.4 if o == 0 else 0.1},  # +300%, but dim
+            {"id": "lit--town", "mean_rad": 8.0 if o == 0 else 5.0},  # +60%, lit
+        ] + [{"id": c, "mean_rad": 1.0} for c in diwali.CITIES]
+        pd.DataFrame(rows).assign(date=day.isoformat(), valid_pct=100, missing_tiles="").to_csv(tmp_path / "india" / f"{day}.csv", index=False)
+    cities, _ = diwali.build_json(ids)
+    top = next(v for v in cities["years"] if v["year"] == 2025)["district_top"]
+    assert [t["id"] for t in top] == ["lit--town", "lit--city"]
+    assert top[0]["effect"] == pytest.approx(60.0)

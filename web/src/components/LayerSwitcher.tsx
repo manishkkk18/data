@@ -15,9 +15,11 @@ type Props = {
   onThreeD: (on: boolean) => void;
   extra?: ReactNode; // shown next to the Layers button
   disabled?: boolean;
+  orbit?: boolean;
+  onOrbit?: (on: boolean) => void;
 };
 
-export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, disabled }: Props) {
+export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, disabled, orbit, onOrbit }: Props) {
   const [open, setOpen] = useState(false);
   const id = useId();
   return (
@@ -44,6 +46,22 @@ export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, d
               <span className="layer-note">{base === "districts" ? "Districts rise by brightness" : "Only with district brightness"}</span>
             </span>
           </label>
+          {onOrbit && (
+            <label className={`switch ${!(base === "districts" && threeD) ? "disabled" : ""}`}>
+              <input
+                type="checkbox"
+                role="switch"
+                checked={!!orbit}
+                disabled={!(base === "districts" && threeD)}
+                onChange={(e) => onOrbit(e.target.checked)}
+              />
+              <span className="switch-track" aria-hidden="true" />
+              <span>
+                <span className="layer-label">Slow orbit</span>
+                <span className="layer-note">{threeD ? "Circle the skyline; touch the map to stop" : "Turn on 3D first"}</span>
+              </span>
+            </label>
+          )}
           <p className="layers-credit">
             Satellite layers: <a href="https://earthdata.nasa.gov/eosdis/science-system-description/eosdis-components/gibs" target="_blank" rel="noopener">NASA GIBS</a>
           </p>

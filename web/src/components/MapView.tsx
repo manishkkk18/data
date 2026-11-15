@@ -9,6 +9,7 @@ import type { ExpressionSpecification } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
 import { GROWTH_STOPS, RAD_STOPS, type BBox, type DistrictFC } from "../data";
 import type { BaseLayer } from "./LayerSwitcher";
+import type { Highlight } from "./Legend";
 
 // OpenFreeMap: free, no API key, no view limits. Attribution comes from the style.
 export const STYLE_URL = "https://tiles.openfreemap.org/styles/dark";
@@ -34,6 +35,9 @@ type Props = {
   base: BaseLayer;
   threeD: boolean;
   compareId?: string | null; // second district in the compare view (dashed outline)
+  highlight?: Highlight; // legend band being hovered: dim everything outside it
+  orbit?: boolean; // slow auto-rotation of the 3D skyline
+  onOrbitStop?: () => void; // the user grabbed the map, so the orbit stops
   onMap?: (map: maplibregl.Map) => void; // gives the swipe view the live map to follow
 };
 
@@ -150,6 +154,49 @@ export default function MapView(props: Props) {
     pushValues(map, props.values);
   }, [props.values, ready]);
 
+  // Legend hover: dim every district outside the hovered colour band.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const flat = props.base === "districts" && !props.threeD;
+    if (!flat) return;
+    if (!props.highlight) {
+      map.setPaintProperty("district-fill", "fill-opacity", fadeOpacity(0.9));
+      return;
+    }
+    const { key, lo, hi } = props.highlight;
+    const v: ExpressionSpecification = ["coalesce", ["feature-state", key], -999];
+    map.setPaintProperty("district-fill", "fill-opacity", ["case", ["all", [">=", v, lo], ["<", v, hi]], 0.95, 0.12]);
+  }, [props.highlight, props.base, props.threeD, ready]);
+
+  // Slow auto-orbit for the 3D skyline; any drag, zoom or rotate by the user stops it.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || !props.orbit || !props.threeD || reducedMotion()) return;
+    let raf = 0;
+    let last = performance.now();
+    const spin = (t: number) => {
+      map.setBearing(map.getBearing() + ((t - last) / 1000) * 3); // 3° per second
+      last = t;
+      raf = requestAnimationFrame(spin);
+    };
+    raf = requestAnimationFrame(spin);
+    const stop = (e: { originalEvent?: Event }) => {
+      if (e.originalEvent) cb.current.onOrbitStop?.();
+    };
+    map.on("dragstart", stop);
+    map.on("zoomstart", stop);
+    map.on("rotatestart", stop);
+    map.on("pitchstart", stop);
+    return () => {
+      cancelAnimationFrame(raf);
+      map.off("dragstart", stop);
+      map.off("zoomstart", stop);
+      map.off("rotatestart", stop);
+      map.off("pitchstart", stop);
+    };
+  }, [props.orbit, props.threeD, ready]);
+
   // Which layers show: district colours (flat or 3D) or a NASA GIBS image.
   const prev3D = useRef(false);
   useEffect(() => {
@@ -205,8 +252,11 @@ export function pushValues(map: maplibregl.Map, values: Map<string, DistrictValu
     const lrad = shown != null ? Math.log10(Math.max(shown, 0.01)) : null;
     // Only genuinely bright districts (above ~8 nW) get a halo.
     const glow = lrad == null || est ? 0 : Math.min(Math.max((lrad - 0.9) / 1.0, 0), 1) * 0.5;
-    // 3D height grows with the square root of brightness so cities don't dwarf all else.
-    const h = v.gap || v.mean == null ? 0 : Math.sqrt(v.mean) * 60000; // Delhi ~470 km tall at country zoom
+    // 3D height: log of brightness, cubed. Log keeps dark rural districts from vanishing;
+    // cubing exaggerates the top so metros tower over everything else
+    // (Delhi ~520 km, a 2 nW district ~75 km, a 0.1 nW district under 1 km at country zoom).
+    const lr = v.gap || v.mean == null ? 0 : Math.max(0, Math.log10(v.mean / 0.05));
+    const h = lr ** 3 * 18000;
     map.setFeatureState({ source: "districts", id }, { lrad, gap: v.gap, est, glow, g: v.growth, h });
   }
 }
@@ -355,7 +405,7 @@ export function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outlin
         "fill-extrusion-height": [
           "interpolate", ["linear"], ["zoom"],
           4, ["coalesce", ["feature-state", "h"], 0],
-          9, ["*", ["coalesce", ["feature-state", "h"], 0], 0.15],
+          9, ["*", ["coalesce", ["feature-state", "h"], 0], 0.12],
         ],
         "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0.92, 9, 0.85, 11, 0],
         "fill-extrusion-vertical-gradient": true,

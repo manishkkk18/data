@@ -69,6 +69,9 @@ DIWALI = {
 WINDOW = 7  # nights either side
 BASELINE = [o for o in range(-WINDOW, WINDOW + 1) if abs(o) >= 3]
 MIN_BASELINE_NIGHTS = 3
+LEADER_MIN_NIGHTS = 5  # clear normal nights behind a leaderboard entry
+LEADER_MIN_BASE = 2.0  # nW/cm²/sr on a normal night: lit districts only
+NOT_A_DISTRICT = {"ladakh--data-not-available"}  # source placeholder, not a district
 
 # Cities as sets of districts (ids from data/districts.geojson).
 CITIES = {
@@ -223,11 +226,22 @@ def build_json(district_ids: list[str]) -> tuple[dict, dict]:
         if not any(district_ids[0] in df.index for df in have.values()):
             continue
         d_nights = {str(o): [val(df, i) for i in district_ids] for o, df in sorted(have.items())}
-        effects, clear = [], []
+        effects, clear, top = [], [], []
         for k, i in enumerate(district_ids):
-            e, n = effect_for({int(o): v[k] for o, v in d_nights.items()})
+            vals = {int(o): v[k] for o, v in d_nights.items()}
+            e, n = effect_for(vals)
             effects.append(None if e is None else round(e, 1))
             clear.append(n)
+            base = [vals[o] for o in BASELINE if vals.get(o) is not None]
+            med = float(np.median(base)) if base else 0.0
+            # Leaders need a solid comparison and a lit district, so dim places swinging
+            # from 0.1 to 0.4 ("+300%") don't top the list.
+            if e is not None and n >= LEADER_MIN_NIGHTS and med >= LEADER_MIN_BASE and i not in NOT_A_DISTRICT:
+                top.append({"id": i, "effect": round(e, 1), "night": vals[0], "base": round(med, 2), "clear": n})
+        top.sort(key=lambda r: -r["effect"])
+        # A short leaderboard in the small cities file, so the site can show it without
+        # loading the full per-district file.
+        cities["years"][-1]["district_top"] = top[:5]
         dists["years"].append({"year": year, "date": DIWALI[year], "unavailable": unavailable, "effect": effects,
                                "clear_baseline_nights": clear, "nights": d_nights})
     return cities, dists

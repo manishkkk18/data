@@ -51,6 +51,8 @@ export type Diwali = {
     unavailable: number[];
     effect: Record<string, number | null>; // % vs median of normal nights
     clear_baseline_nights: Record<string, number>;
+    // top districts that year (lit, >= 5 clear normal nights), from the pipeline
+    district_top?: { id: string; effect: number; night: number; base: number; clear: number }[];
   }[];
 };
 
