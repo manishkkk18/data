@@ -1,7 +1,7 @@
 // Copy the pipeline's small output files into public/ so Vite serves and bundles them.
-import { copyFileSync, existsSync, mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 
-const required = ["districts.geojson", "india_outline.geojson", "monthly.json"];
+const required = ["districts.geojson", "india_outline.geojson", "india_outline_detail.geojson", "monthly.json"];
 const optional = ["yearly.json", "crosscheck.json", "diwali.json"]; // appear once the annual run / cross-check have been done
 const out = new URL("../public/data/", import.meta.url);
 mkdirSync(out, { recursive: true });
@@ -12,4 +12,7 @@ for (const f of [...required, ...optional]) {
   copyFileSync(src, new URL(f, out));
   n++;
 }
-console.log(`copied ${n} data files to public/data`);
+// The app reads this to know which optional files exist, instead of fetching and failing.
+const present = optional.filter((f) => existsSync(new URL(`../../data/${f}`, import.meta.url)));
+writeFileSync(new URL("manifest.json", out), JSON.stringify({ files: present }));
+console.log(`copied ${n} data files to public/data (optional: ${present.join(", ") || "none"})`);

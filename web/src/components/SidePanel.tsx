@@ -24,6 +24,7 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
   const month = m.months[monthIndex];
 
   const mean = col != null ? m.mean[monthIndex][col] : null;
+  const est = col != null && mean == null ? (m.est?.[monthIndex][col] ?? null) : null;
   const lit = col != null ? m.lit[monthIndex][col] : null;
   const valid = col != null ? m.valid[monthIndex][col] : null;
   const rank = d ? summary.rank.get(d.id) : undefined;
@@ -59,10 +60,18 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
             </div>
 
             <div className="big-number">
-              <span className="big-value">{fmtRad(mean)}</span>
-              <span className="big-unit">nW/cm²/sr · {monthLabel(month)}</span>
+              <span className={`big-value ${est != null ? "estimate" : ""}`}>{fmtRad(mean ?? est)}</span>
+              <span className="big-unit">
+                nW/cm²/sr · {monthLabel(month)}
+                {est != null && <span className="est-badge">NASA estimate</span>}
+              </span>
             </div>
-            {mean == null && m.loaded?.[monthIndex] === false ? (
+            {est != null ? (
+              <p className="gap-note">
+                Cloudy month: only {fmtPct(valid)} of the district was observed. This is NASA's estimate, filled in from earlier months, so it isn't used in
+                ranks, changes or insights.
+              </p>
+            ) : mean == null && m.loaded?.[monthIndex] === false ? (
               <p className="gap-note">No data for this month: not processed yet, or unavailable from NASA.</p>
             ) : mean == null ? (
               <p className="gap-note">
@@ -103,7 +112,7 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
               <span className="big-unit">nW/cm²/sr national average</span>
             </div>
             <div className="tiles two">
-              <Tile label="Districts with data" value={`${summary.withData}`} hint={`of ${m.ids.length}`} />
+              <Tile label="Districts with data" value={`${summary.withData}`} hint={`of ${summary.withData + summary.gaps}`} />
               {m.loaded?.[monthIndex] === false ? (
                 <Tile label="Month status" value="No data" hint="not processed yet" />
               ) : (
@@ -136,9 +145,9 @@ function downloadCsv(data: AppData, id: string) {
   const col = data.index.get(id)!;
   const cell = (v: number | null) => (v == null ? "" : String(v));
   const rows = [
-    "district,state,month,mean_radiance_nW_cm2_sr,sum_of_lights,lit_pct,observed_pct",
+    "district,state,month,mean_radiance_nW_cm2_sr,lit_pct,observed_pct,nasa_estimate_when_cloudy",
     ...m.months.map((mo, i) =>
-      [`"${d.name}"`, `"${d.state}"`, mo, cell(m.mean[i][col]), cell(m.sum[i][col]), cell(m.lit[i][col]), cell(m.valid[i][col])].join(","),
+      [`"${d.name}"`, `"${d.state}"`, mo, cell(m.mean[i][col]), cell(m.lit[i][col]), cell(m.valid[i][col]), cell(m.est?.[i][col] ?? null)].join(","),
     ),
   ];
   const url = URL.createObjectURL(new Blob([rows.join("\n")], { type: "text/csv" }));

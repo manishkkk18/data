@@ -20,7 +20,10 @@ import geopandas as gpd
 import httpx
 import shapely
 
-from .config import BOUNDARIES_RAW, DISTRICTS_FULL, DISTRICTS_WEB, OUTLINE_WEB
+from .config import BOUNDARIES_RAW, DATA, DISTRICTS_FULL, DISTRICTS_WEB, OUTLINE_WEB
+
+OUTLINE_DETAIL = DATA / "india_outline_detail.geojson"  # ~170 m, loaded by the map only when zoomed in
+DETAIL_TOLERANCE_DEG = 0.0015
 
 # Pinned to the exact geoBoundaries release used to build the district IDs, so an
 # automated run can never pick up a newer release and silently change districts.
@@ -113,7 +116,21 @@ def build() -> gpd.GeoDataFrame:
             }
         )
     )
+    write_detail_outline(df)
     return df
+
+
+def write_detail_outline(df: gpd.GeoDataFrame):
+    """India's outline from the full-detail districts, simplified to ~170 m (~100 KB gzipped).
+
+    The ~1 km outline is fine at country zoom but can sit up to ~1 km off the true
+    border and coast up close; the map swaps to this one when zoomed in.
+    """
+    outline = shapely.coverage_union_all(df.geometry.to_numpy())
+    outline = shapely.set_precision(outline.simplify(DETAIL_TOLERANCE_DEG), 1e-4)
+    OUTLINE_DETAIL.write_text(
+        json.dumps({"type": "FeatureCollection", "features": [{"type": "Feature", "properties": {}, "geometry": shapely.geometry.mapping(outline)}]})
+    )
 
 
 if __name__ == "__main__":

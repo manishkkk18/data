@@ -12,7 +12,9 @@ export type Monthly = {
   ids: string[];
   months: string[]; // "YYYY-MM"
   mean: (number | null)[][]; // [month][district], null = gap
-  sum: (number | null)[][];
+  sum?: (number | null)[][]; // older files only
+  national_avg?: (number | null)[]; // newer files: total light / total observed area, per month
+  est?: (number | null)[][]; // NASA's gap-filled estimate, only where `mean` is a gap
   lit: (number | null)[][];
   valid: (number | null)[][];
   /** Added on load: false for months in the timeline that have no processed data. */
@@ -72,24 +74,41 @@ export async function loadData(): Promise<AppData> {
       if (!r.ok) throw new Error(`Could not load ${f} (${r.status})`);
       return r.json();
     });
+  // Optional files are listed in manifest.json by the build, so we only ask for files
+  // that exist (no 404s in the console for, say, yearly data not produced yet).
+  const manifest = get("manifest.json").catch(() => ({ files: [] as string[] })) as Promise<{ files: string[] }>;
+  const optional = (f: string) => manifest.then((m) => (m.files.includes(f) ? get(f) : null));
   const [districts, outline, monthly, yearly, crosscheck, diwali] = (await Promise.all([
     get("districts.geojson"),
     get("india_outline.geojson"),
     get("monthly.json"),
-    get("yearly.json").catch(() => null), // optional files
-    get("crosscheck.json").catch(() => null),
-    get("diwali.json").catch(() => null),
+    optional("yearly.json"),
+    optional("crosscheck.json"),
+    optional("diwali.json"),
   ])) as [DistrictFC, FeatureCollection, Monthly, Yearly | null, CrossCheck | null, Diwali | null];
 
   const byId = new Map<string, District>();
   for (const f of districts.features) {
     const p = f.properties;
     const aliases = ALIASES[p.id] ?? [];
-    byId.set(p.id, { ...p, aliases, bbox: bboxOf(f.geometry), search: fold(`${p.name} ${p.state} ${aliases.join(" ")}`) });
+    const shown = { ...p, ...DISPLAY_OVERRIDES[p.id] };
+    if (DISPLAY_OVERRIDES[p.id]) f.properties = { ...f.properties, ...DISPLAY_OVERRIDES[p.id] };
+    byId.set(p.id, { ...shown, aliases, bbox: bboxOf(f.geometry), search: fold(`${shown.name} ${shown.state} ${aliases.join(" ")}`) });
   }
   const index = new Map(monthly.ids.map((id, i) => [id, i]));
   return { districts, outline, monthly: fillMonthGaps(monthly), yearly, crosscheck, diwali, byId, index };
 }
+
+/**
+ * Areas inside India's official outline that the boundary source has no district data
+ * for. The source covers Gilgit-Baltistan, PoK, Shaksgam and Siachen with one placeholder
+ * named "Data Not Available" (filed under Ladakh). We show it under a clear name, keep its
+ * shading, and leave it out of ranks and insights since it isn't a district.
+ */
+export const NOT_A_DISTRICT = new Set(["ladakh--data-not-available"]);
+const DISPLAY_OVERRIDES: Record<string, { name: string; state: string }> = {
+  "ladakh--data-not-available": { name: "Gilgit-Baltistan & PoK (no district data)", state: "Ladakh / Jammu and Kashmir" },
+};
 
 /**
  * Other names people search for. Keys are district ids; the source uses older or
@@ -168,7 +187,9 @@ export function fillMonthGaps(m: Monthly): Monthly {
     ...m,
     months: all,
     mean: pick(m.mean),
-    sum: pick(m.sum),
+    sum: m.sum ? pick(m.sum) : undefined,
+    est: m.est ? pick(m.est) : undefined,
+    national_avg: m.national_avg ? all.map((k) => (at.has(k) ? m.national_avg![at.get(k)!] : null)) : undefined,
     lit: pick(m.lit),
     valid: pick(m.valid),
     loaded: all.map((k) => at.has(k)),
@@ -207,16 +228,16 @@ export type MonthSummary = {
 
 export function summarise(m: Monthly, mi: number, stateOf: (id: string) => string = () => ""): MonthSummary {
   const mean = m.mean[mi];
-  const sum = m.sum[mi];
+  const sum = m.sum?.[mi];
   let totalSum = 0;
   let totalPixels = 0;
   const ranked: [string, number][] = [];
   m.ids.forEach((id, i) => {
     const v = mean[i];
-    if (v == null) return;
+    if (v == null || NOT_A_DISTRICT.has(id)) return;
     ranked.push([id, v]);
-    const s = sum[i];
-    // mean = sum / observed pixels, so pixels = sum / mean (skip fully dark districts)
+    const s = sum?.[i];
+    // older files: mean = sum / observed pixels, so pixels = sum / mean
     if (s != null && v > 0) {
       totalSum += s;
       totalPixels += s / v;
@@ -238,17 +259,17 @@ export function summarise(m: Monthly, mi: number, stateOf: (id: string) => strin
   let brighter: number | null = null;
   if (base != null) {
     brighter = 0;
-    m.ids.forEach((_, i) => {
+    m.ids.forEach((id, i) => {
       const now = mean[i];
       const then = m.mean[base][i];
-      if (now != null && then != null && now > then) brighter! += 1;
+      if (!NOT_A_DISTRICT.has(id) && now != null && then != null && now > then) brighter! += 1;
     });
   }
 
   return {
-    avg: totalPixels > 0 ? totalSum / totalPixels : null,
+    avg: m.national_avg?.[mi] ?? (totalPixels > 0 ? totalSum / totalPixels : null),
     withData: ranked.length,
-    gaps: m.ids.length - ranked.length,
+    gaps: m.ids.filter((id) => !NOT_A_DISTRICT.has(id)).length - ranked.length,
     rank,
     stateRank,
     brighterThan2015: brighter,
@@ -371,7 +392,7 @@ export function latestWithBaseline(m: Monthly): number | null {
 export function topBrightest(m: Monthly, mi: number, n = 5) {
   return m.ids
     .map((id, i) => ({ id, value: m.mean[mi][i] }))
-    .filter((r): r is { id: string; value: number } => r.value != null)
+    .filter((r): r is { id: string; value: number } => r.value != null && !NOT_A_DISTRICT.has(r.id))
     .sort((a, b) => b.value - a.value)
     .slice(0, n);
 }
@@ -388,7 +409,7 @@ export function topGrowth(m: Monthly, mi: number, n = 5, minBase = 1) {
     .map((id, i) => {
       const now = m.mean[mi][i];
       const then = m.mean[b][i];
-      return now == null || then == null || then < minBase ? null : { id, pct: ((now - then) / then) * 100, now, then };
+      return now == null || then == null || then < minBase || NOT_A_DISTRICT.has(id) ? null : { id, pct: ((now - then) / then) * 100, now, then };
     })
     .filter((r): r is { id: string; pct: number; now: number; then: number } => r != null)
     .sort((a, b2) => b2.pct - a.pct)

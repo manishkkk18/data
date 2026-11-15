@@ -7,7 +7,7 @@ const MONTHLY = "#C98424";
 const YEARLY = "#2FA39A";
 const MARKER = "#6EA8FF"; // blue = selection, per the design spec
 
-type Row = { i: number; month: string; m: number | null; y: number | null; status: "ok" | "cloud" | "missing" };
+type Row = { i: number; month: string; m: number | null; e: number | null; y: number | null; status: "ok" | "cloud" | "missing" };
 
 type Props = { data: AppData; districtId: string; monthIndex: number; onPickMonth: (i: number) => void };
 
@@ -27,6 +27,7 @@ export default function TrendChart({ data, districtId, monthIndex, onPickMonth }
         i,
         month,
         m: v,
+        e: v == null && col != null ? (m.est?.[i][col] ?? null) : null,
         // The annual value is drawn across its whole year; a missing year stays empty.
         y: yearlyByYear.get(Number(month.slice(0, 4))) ?? null,
         status: v != null ? "ok" : missing ? "missing" : "cloud",
@@ -53,6 +54,7 @@ export default function TrendChart({ data, districtId, monthIndex, onPickMonth }
         <span className="trend-title">Brightness over time</span>
         <span className="trend-legend">
           <span><i style={{ background: MONTHLY }} aria-hidden="true" /> Monthly</span>
+          {rows.some((r) => r.e != null) && <span><i className="ring" style={{ borderColor: MONTHLY }} aria-hidden="true" /> NASA estimate</span>}
           {hasYearly && <span><i style={{ background: YEARLY }} aria-hidden="true" /> Yearly (NASA annual)</span>}
         </span>
       </figcaption>
@@ -98,7 +100,7 @@ export default function TrendChart({ data, districtId, monthIndex, onPickMonth }
                     <strong>{monthLabel(r.month)}</strong>
                     <span>
                       Monthly:{" "}
-                      {r.status === "ok" ? <b>{fmtRad(r.m)}</b> : r.status === "cloud" ? "gap (clouds)" : "no data"}
+                      {r.status === "ok" ? <b>{fmtRad(r.m)}</b> : r.e != null ? <>cloudy · NASA estimate <b>{fmtRad(r.e)}</b></> : r.status === "cloud" ? "gap (clouds)" : "no data"}
                     </span>
                     {r.y != null && (
                       <span>
@@ -129,6 +131,22 @@ export default function TrendChart({ data, districtId, monthIndex, onPickMonth }
               activeDot={{ r: 4, stroke: "#121829", strokeWidth: 2, fill: MONTHLY }}
               isAnimationActive={false}
             />
+            {/* Cloudy months: NASA's estimate as hollow dots, never joined to the line. */}
+            <Line
+              type="linear"
+              dataKey="e"
+              stroke="none"
+              connectNulls={false}
+              isAnimationActive={false}
+              activeDot={false}
+              dot={(p: { cx?: number; cy?: number; index?: number }) =>
+                rows[p.index ?? -1]?.e != null && p.cx != null && p.cy != null ? (
+                  <circle key={`e${p.index}`} cx={p.cx} cy={p.cy} r={3} fill="#121829" stroke={MONTHLY} strokeWidth={1.5} />
+                ) : (
+                  <g key={`e${p.index}`} />
+                )
+              }
+            />
             {hasYearly && (
               <Line type="stepAfter" dataKey="y" stroke={YEARLY} strokeWidth={2} dot={false} activeDot={false} connectNulls={false} isAnimationActive={false} />
             )}
@@ -136,7 +154,7 @@ export default function TrendChart({ data, districtId, monthIndex, onPickMonth }
           </ComposedChart>
         </ResponsiveContainer>
       </div>
-      <p className="trend-note muted">nW/cm²/sr · breaks are cloudy or not-yet-loaded months · click to jump to a month</p>
+      <p className="trend-note muted">nW/cm²/sr · breaks are cloudy or not-yet-loaded months; hollow dots are NASA's estimate for cloudy months · click to jump to a month</p>
     </figure>
   );
 }

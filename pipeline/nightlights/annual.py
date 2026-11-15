@@ -53,7 +53,8 @@ def save_cache(rast: xr.DataArray, year: int):
 
 
 def load_cache(year: int) -> xr.DataArray:
-    da = rioxarray.open_rasterio(cache_path(year)).squeeze(drop=True)
+    with rioxarray.open_rasterio(cache_path(year)) as src:
+        da = src.squeeze(drop=True).load()
     vals = np.where(da.values == NODATA_U16, np.nan, da.values / 10).astype("float32")
     return da.copy(data=vals).rio.write_crs(run.BLACK_MARBLE_CRS).rio.write_nodata(np.nan)
 

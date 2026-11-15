@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Header from "./components/Header";
 import MapView, { type ColorMode, type DistrictValue, type FlyRequest, type HoverInfo } from "./components/MapView";
 import LayerSwitcher, { type BaseLayer } from "./components/LayerSwitcher";
@@ -83,8 +83,10 @@ function Main({ data }: { data: AppData }) {
     m.ids.forEach((id, i) => {
       const mean = m.mean[mapMonth][i];
       const growth = growthMode ? growthLog2(m, i, mapMonth) : null;
-      // In growth mode a district is a gap if either month is missing.
-      out.set(id, { mean, growth, gap: growthMode ? growth == null : mean == null });
+      // In growth mode a district is a gap if either month is missing; estimates are
+      // shown only on the radiance map, never in growth.
+      const est = growthMode ? null : (m.est?.[mapMonth][i] ?? null);
+      out.set(id, { mean, growth, est, gap: growthMode ? growth == null : mean == null });
     });
     return out;
   }, [m, mapMonth, growthMode]);
@@ -93,7 +95,7 @@ function Main({ data }: { data: AppData }) {
     if (!swipe) return out;
     m.ids.forEach((id, i) => {
       const mean = m.mean[swipe.after][i];
-      out.set(id, { mean, growth: null, gap: mean == null });
+      out.set(id, { mean, growth: null, est: m.est?.[swipe.after][i] ?? null, gap: mean == null });
     });
     return out;
   }, [m, swipe]);
@@ -118,7 +120,8 @@ function Main({ data }: { data: AppData }) {
 
   // Fit padding: on phones the bottom sheet covers the lower part of the map.
   // Values clear the overlays drawn on top of the map (stats bar, slider, legend).
-  const padding = isMobile ? { top: 190, bottom: 170, left: 28, right: 56 } : { top: 120, bottom: 130, left: 60, right: 70 };
+  // The top and bottom overlays are translucent, so India may run under them a little.
+  const padding = isMobile ? { top: 112, bottom: 120, left: 8, right: 44 } : { top: 60, bottom: 76, left: 16, right: 56 };
 
   const selectAndFly = useCallback(
     (id: string | null) => {
@@ -274,11 +277,16 @@ function Main({ data }: { data: AppData }) {
               <div className="tooltip" style={{ left: hover.x + 14, top: hover.y + 14 }} role="status">
                 <strong>{hovered.name}</strong>
                 <span className="muted">{hovered.state}</span>
-                {m.mean[monthIndex][hoverCol] == null ? (
+                {m.mean[monthIndex][hoverCol] == null && m.est?.[monthIndex][hoverCol] != null && !growthMode ? (
+                  <span>
+                    NASA estimate <b className="amber">{fmtRad(m.est[monthIndex][hoverCol])}</b> · cloudy month, only {fmtPct(m.valid[monthIndex][hoverCol])} observed
+                  </span>
+                ) : m.mean[monthIndex][hoverCol] == null ? (
                   <span>{monthMissing ? "No data this month" : `No clear data (${fmtPct(m.valid[monthIndex][hoverCol])} observed)`}</span>
                 ) : (
                   <span>
-                    <b className="amber">{fmtRad(m.mean[monthIndex][hoverCol])}</b> nW/cm²/sr · rank #{summary.rank.get(hovered.id)}
+                    <b className="amber">{fmtRad(m.mean[monthIndex][hoverCol])}</b> nW/cm²/sr
+                    {summary.rank.get(hovered.id) ? ` · rank #${summary.rank.get(hovered.id)}` : ""}
                   </span>
                 )}
                 {growthMode && (
@@ -391,17 +399,29 @@ function Main({ data }: { data: AppData }) {
   );
 }
 
-function TimeSlider({ months, value, compact, onChange }: { months: string[]; value: number; compact?: boolean; onChange: (i: number) => void }) {
-  const firstYear = Number(months[0].slice(0, 4));
-  const years = months
+function TimeSlider({ months, value, onChange }: { months: string[]; value: number; compact?: boolean; onChange: (i: number) => void }) {
+  // Space year labels by the slider's actual width: at least ~44 px apart, so they never
+  // collide however narrow the screen or the map panel gets.
+  const ref = useRef<HTMLDivElement>(null);
+  const [width, setWidth] = useState(600);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width));
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
+  const pxPerYear = (width * 12) / Math.max(months.length, 1);
+  const step = Math.max(1, Math.ceil(44 / pxPerYear));
+  const starts = months
     .map((mo, i) => ({ year: mo.slice(0, 4), i }))
     .filter((y, k, arr) => k === 0 || y.year !== arr[k - 1].year)
-    .filter((y, k, arr) => !(k === 0 && arr[1] && arr[1].i - y.i < 6))
-    // On phones label every other year so the ticks don't collide.
-    .filter((y) => !compact || (Number(y.year) - firstYear) % 2 === 1);
+    .filter((y, k, arr) => !(k === 0 && arr[1] && arr[1].i - y.i < 6)); // skip a stub first year
+  const anchor = Number(starts[0]?.year ?? 0);
+  const years = starts.filter((y) => (Number(y.year) - anchor) % step === 0);
   const single = months.length < 2;
   return (
-    <div className="slider">
+    <div className="slider" ref={ref}>
       <label htmlFor="month-slider" className="sr-only">Month</label>
       <input
         id="month-slider"
@@ -469,7 +489,8 @@ function Legend({ growth }: { growth: boolean }) {
       </div>
       <div className="legend-foot">
         <span className="muted">nW/cm²/sr, log scale</span>
-        <span className="legend-gap"><i aria-hidden="true" /> No clear data</span>
+        <span className="legend-gap"><i className="est" aria-hidden="true" /> NASA estimate</span>
+        <span className="legend-gap"><i aria-hidden="true" /> No data</span>
       </div>
     </div>
   );

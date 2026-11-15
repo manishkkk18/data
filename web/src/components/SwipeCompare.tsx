@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import * as maplibregl from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
-import { addDataLayers, applyLayers, pushValues, STYLE_URL, tuneBasemap, type DistrictValue } from "./MapView";
+import { addDataLayers, applyLayers, enableDetailOutline, pushValues, STYLE_URL, tuneBasemap, type DistrictValue } from "./MapView";
 import type { DistrictFC } from "../data";
 
 type Props = {
@@ -44,6 +44,7 @@ export default function SwipeCompare({ main, districts, outline, after, beforeLa
       tuneBasemap(map);
       addDataLayers(map, districts, outline);
       applyLayers(map, "districts", false, "radiance");
+      enableDetailOutline(map);
       setReady(true);
     });
     const follow = () => map.jumpTo({ center: main.getCenter(), zoom: main.getZoom(), bearing: main.getBearing(), pitch: main.getPitch() });

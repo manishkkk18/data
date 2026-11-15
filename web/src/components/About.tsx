@@ -21,8 +21,13 @@ export default function About({ monthly }: { monthly: Monthly }) {
         <div>
           <h3>Honest gaps</h3>
           <p>
-            Clouds hide the ground, especially in monsoon months. NASA fills some cloudy pixels from past data; we drop those, and if
-            less than {monthly.min_valid_pct}% of a district was actually observed, we show it hatched instead of guessing.
+            Clouds hide the ground, especially in monsoon months (and snow hides the high Himalaya in winter). NASA fills cloudy pixels
+            in from earlier months; we never count those as observed. If less than {monthly.min_valid_pct}% of a district was actually seen,
+            its value is a gap.
+          </p>
+          <p>
+            Where NASA has a fill-in estimate for a gap, the map shows it with a light hatch and the panel labels it "NASA estimate". Estimates
+            are never used in ranks, changes, growth or insights. Districts with no estimate either are dark-hatched.
           </p>
           <p>Night lights track electrification and urban activity, but also gas flares and festivals. Treat them as a proxy, not GDP.</p>
         </div>
@@ -31,8 +36,12 @@ export default function About({ monthly }: { monthly: Monthly }) {
           <p>
             District boundaries: <a href="https://www.geoboundaries.org/" target="_blank" rel="noopener">geoBoundaries</a> (from the
             Government of India's Local Government Directory via Pathways Data, 2021, ODbL). India's outline follows the official national
-            outline, including all of Jammu & Kashmir and Ladakh; the basemap's own (OpenStreetMap) borders are hidden. 735 districts; districts created after 2021 are counted
-            within their parent district.
+            outline, including all of Jammu &amp; Kashmir and Ladakh (Gilgit-Baltistan, PoK, Aksai Chin, Shaksgam and Siachen) and Arunachal
+            Pradesh. The basemap's own (OpenStreetMap) borders are hidden at every zoom; zoomed in, a more detailed (~170 m) outline is used.
+          </p>
+          <p>
+            734 districts; districts created after 2021 are counted within their parent district. The source has no district data for
+            Gilgit-Baltistan and PoK, so that area is shown as one unit and left out of ranks and insights.
           </p>
         </div>
         <div>

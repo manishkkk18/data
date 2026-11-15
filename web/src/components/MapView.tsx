@@ -14,7 +14,8 @@ import type { BaseLayer } from "./LayerSwitcher";
 export const STYLE_URL = "https://tiles.openfreemap.org/styles/dark";
 const INDIA: BBox = [68.1, 6.7, 97.4, 37.1];
 
-export type DistrictValue = { mean: number | null; growth: number | null; gap: boolean };
+// est = NASA's gap-filled estimate, shown (hatched) only where the observed value is a gap
+export type DistrictValue = { mean: number | null; growth: number | null; gap: boolean; est?: number | null };
 export type ColorMode = "radiance" | "growth";
 export type HoverInfo = { id: string; x: number; y: number };
 export type FlyRequest = { bbox: BBox; n: number };
@@ -63,6 +64,7 @@ const GROWTH_COLOR: ExpressionSpecification = [
 ] as ExpressionSpecification;
 
 const isGap: ExpressionSpecification = ["boolean", ["feature-state", "gap"], false];
+const isEst: ExpressionSpecification = ["boolean", ["feature-state", "est"], false];
 
 export default function MapView(props: Props) {
   const container = useRef<HTMLDivElement>(null);
@@ -83,6 +85,7 @@ export default function MapView(props: Props) {
       pixelRatio: Math.min(window.devicePixelRatio, 2), // keeps phones smooth
     });
     mapRef.current = map;
+    if (import.meta.env.DEV) (window as unknown as { __map?: maplibregl.Map }).__map = map;
 
     // Timing marks for load-speed work (visible in DevTools > Performance, or
     // performance.getEntriesByType("mark")).
@@ -128,6 +131,7 @@ export default function MapView(props: Props) {
       tuneBasemap(map);
       addDataLayers(map, cb.current.districts, cb.current.outline);
       bindInteractions(map, cb);
+      enableDetailOutline(map);
       setReady(true);
       cb.current.onMap?.(map);
     });
@@ -196,12 +200,14 @@ export default function MapView(props: Props) {
 /** Write each district's numbers for the month into feature-state (no geometry re-upload). */
 export function pushValues(map: maplibregl.Map, values: Map<string, DistrictValue>) {
   for (const [id, v] of values) {
-    const lrad = v.mean != null ? Math.log10(Math.max(v.mean, 0.01)) : null;
+    const shown = v.mean ?? (v.gap ? v.est ?? null : null);
+    const est = v.mean == null && v.est != null && v.gap;
+    const lrad = shown != null ? Math.log10(Math.max(shown, 0.01)) : null;
     // Only genuinely bright districts (above ~8 nW) get a halo.
-    const glow = lrad == null ? 0 : Math.min(Math.max((lrad - 0.9) / 1.0, 0), 1) * 0.5;
+    const glow = lrad == null || est ? 0 : Math.min(Math.max((lrad - 0.9) / 1.0, 0), 1) * 0.5;
     // 3D height grows with the square root of brightness so cities don't dwarf all else.
     const h = v.gap || v.mean == null ? 0 : Math.sqrt(v.mean) * 60000; // Delhi ~470 km tall at country zoom
-    map.setFeatureState({ source: "districts", id }, { lrad, gap: v.gap, glow, g: v.growth, h });
+    map.setFeatureState({ source: "districts", id }, { lrad, gap: v.gap, est, glow, g: v.growth, h });
   }
 }
 
@@ -212,6 +218,15 @@ export function tuneBasemap(map: maplibregl.Map) {
     // map. We hide them all and draw India's outline from our own boundary data.
     if (layer.id.startsWith("boundary_")) map.setLayoutProperty(layer.id, "visibility", "none");
   }
+  // Basemap labels in English, falling back to the local name where there's no English one
+  // (the style otherwise prints Latin + local script, e.g. "PAKISTAN / پاکستان").
+  for (const layer of style.layers ?? []) {
+    if (layer.type !== "symbol") continue;
+    const field = map.getLayoutProperty(layer.id, "text-field");
+    if (field && JSON.stringify(field).includes('"name')) {
+      map.setLayoutProperty(layer.id, "text-field", ["coalesce", ["get", "name:en"], ["get", "name_en"], ["get", "name:latin"], ["get", "name"]]);
+    }
+  }
   if (map.getLayer("background")) map.setPaintProperty("background", "background-color", "#0B0F1A");
   if (map.getLayer("water")) map.setPaintProperty("water", "fill-color", "#0D1424");
   try {
@@ -221,12 +236,46 @@ export function tuneBasemap(map: maplibregl.Map) {
   }
 }
 
+const DETAIL_ZOOM = 6.5;
+const OUTLINE_PAINT = {
+  "line-color": "#9AA3B8",
+  "line-opacity": 0.75,
+  "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.6, 8, 1.4, 12, 2],
+} as maplibregl.LineLayerSpecification["paint"];
+
+/**
+ * India's outline at ~170 m detail, fetched the first time the map is zoomed past
+ * regional level, so the border stays accurate up close without slowing first load.
+ */
+export function enableDetailOutline(map: maplibregl.Map) {
+  let started = false;
+  const check = () => {
+    if (started || map.getZoom() < DETAIL_ZOOM - 0.5) return;
+    started = true;
+    map.off("zoomend", check);
+    fetch(`${import.meta.env.BASE_URL}data/india_outline_detail.geojson`)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(String(r.status)))))
+      .then((data) => {
+        if (!map.getStyle() || map.getSource("india-outline-detail")) return;
+        map.addSource("india-outline-detail", { type: "geojson", data });
+        map.addLayer({ id: "india-outline-detail", type: "line", source: "india-outline-detail", minzoom: DETAIL_ZOOM, paint: OUTLINE_PAINT }, "district-hover");
+      })
+      .catch(() => {
+        started = false; // try again on the next zoom
+        map.on("zoomend", check);
+      });
+  };
+  map.on("zoomend", check);
+  check();
+}
+
 export function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: FeatureCollection) {
   // maxzoom 11: MapLibre pre-cuts the districts only down to city zoom (shading is gone
   // by 12.5) instead of its default 18, which roughly halves the first-load work.
   map.addSource("districts", { type: "geojson", data: districts, promoteId: "id", maxzoom: 11, buffer: 64, tolerance: 0.45 });
   map.addSource("india-outline", { type: "geojson", data: outline });
   map.addImage("hatch", hatchPattern(), { pixelRatio: 2 });
+  map.addImage("hatch-est", estimatePattern(), { pixelRatio: 2 });
 
   // Draw under the basemap's rivers, roads and labels so streets show through when
   // the shading fades out at city zoom.
@@ -243,7 +292,26 @@ export function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outlin
       source: "districts",
       paint: {
         "fill-pattern": "hatch",
-        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 3, ["case", isGap, 1, 0], 10.5, ["case", isGap, 0.5, 0], 12.5, 0],
+        "fill-opacity": [
+          "interpolate", ["linear"], ["zoom"],
+          3, ["case", ["all", isGap, ["!", isEst]], 1, 0],
+          10.5, ["case", ["all", isGap, ["!", isEst]], 0.5, 0],
+          12.5, 0,
+        ],
+      },
+    },
+    before,
+  );
+  // Districts coloured from NASA's estimate get a light hatch on top, so they never pass
+  // for observed values.
+  map.addLayer(
+    {
+      id: "district-est",
+      type: "fill",
+      source: "districts",
+      paint: {
+        "fill-pattern": "hatch-est",
+        "fill-opacity": ["interpolate", ["linear"], ["zoom"], 3, ["case", isEst, 1, 0], 10.5, ["case", isEst, 0.5, 0], 12.5, 0],
       },
     },
     before,
@@ -299,6 +367,7 @@ export function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outlin
     id: "india-outline",
     type: "line",
     source: "india-outline",
+    maxzoom: DETAIL_ZOOM, // closer in, the ~170 m outline takes over (enableDetailOutline)
     paint: {
       "line-color": "#9AA3B8",
       "line-opacity": 0.75,
@@ -344,6 +413,7 @@ export function applyLayers(map: maplibregl.Map, base: BaseLayer, threeD: boolea
   map.setPaintProperty("district-fill", "fill-color", color);
   map.setPaintProperty("district-fill", "fill-opacity", flat ? fadeOpacity(0.9) : 0);
   setVisible(map, "district-gap", flat);
+  setVisible(map, "district-est", flat && mode === "radiance");
   setVisible(map, "district-glow", flat && mode === "radiance");
   setVisible(map, "district-3d", districts && threeD);
   map.setPaintProperty("district-3d", "fill-extrusion-color", color);
@@ -385,10 +455,33 @@ function bindInteractions(map: maplibregl.Map, cb: React.RefObject<Props>) {
     map.getCanvas().style.cursor = "";
     cb.current.onHover(null);
   });
+  // A double-click zooms the map. MapLibre reports its two clicks first, so a click only
+  // selects once 250 ms pass without a second one.
+  let pending: ReturnType<typeof setTimeout> | undefined;
   map.on("click", (e) => {
+    clearTimeout(pending);
     const f = map.queryRenderedFeatures(e.point, { layers: ["district-fill"] })[0];
-    cb.current.onSelect((f?.properties?.id as string) ?? null);
+    const id = (f?.properties?.id as string) ?? null;
+    pending = setTimeout(() => cb.current.onSelect(id), 250);
   });
+  map.on("dblclick", () => clearTimeout(pending));
+}
+
+/** Light diagonal lines over a transparent background: "this colour is NASA's estimate". */
+function estimatePattern(): ImageData {
+  const size = 16;
+  const c = document.createElement("canvas");
+  c.width = c.height = size;
+  const ctx = c.getContext("2d")!;
+  ctx.strokeStyle = "rgba(232,236,245,0.55)";
+  ctx.lineWidth = 1.5;
+  ctx.beginPath();
+  for (const o of [-size, 0, size]) {
+    ctx.moveTo(o, size);
+    ctx.lineTo(o + size, 0);
+  }
+  ctx.stroke();
+  return ctx.getImageData(0, 0, size, size);
 }
 
 /** Diagonal hatching for "no clear data" districts. */
