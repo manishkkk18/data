@@ -36,9 +36,22 @@ export default function About({ monthly }: { monthly: Monthly }) {
           </p>
         </div>
         <div>
+          <h3>Growth and map layers</h3>
+          <p>
+            "Growth since 2015" compares each district with the same calendar month in 2015, so seasonal swings cancel out. For the map
+            colours a small offset (0.3 nW/cm²/sr) is added to both months so near-dark districts don't swing wildly; the tooltip shows the
+            plain % change.
+          </p>
+          <p>
+            Extra layers come from <a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a>: the Black Marble
+            2016 night-lights image (VIIRS_Black_Marble) and VIIRS NOAA-20 true colour for 21 Feb 2026, a clear day over India. Both stop at
+            roughly 300–500 m detail and are not tied to the month on the slider.
+          </p>
+        </div>
+        <div>
           <h3>Credits</h3>
           <p>
-            Basemap: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> ©{" "}
+            Satellite imagery: NASA GIBS. Basemap: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> ©{" "}
             <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>, data ©{" "}
             <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. Processed with
             the World Bank's blackmarblepy and exactextract.

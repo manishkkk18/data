@@ -1,12 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Header from "./components/Header";
-import MapView, { type DistrictValue, type FlyRequest, type HoverInfo } from "./components/MapView";
+import MapView, { type ColorMode, type DistrictValue, type FlyRequest, type HoverInfo } from "./components/MapView";
+import LayerSwitcher, { type BaseLayer } from "./components/LayerSwitcher";
 import SidePanel from "./components/SidePanel";
 import About from "./components/About";
 import {
+  GROWTH_STOPS,
+  GROWTH_TICKS,
   LEGEND_TICKS,
   RAD_STOPS,
+  baselineIndex,
   fmtPct,
+  growthLog2,
+  growthPct,
   fmtRad,
   loadData,
   monthLabel,
@@ -49,16 +55,26 @@ function Main({ data }: { data: AppData }) {
   const [hover, setHover] = useState<HoverInfo | null>(null);
   const [fly, setFly] = useState<FlyRequest | null>(null);
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [mapLoading, setMapLoading] = useState(true);
+  const [mode, setMode] = useState<ColorMode>("radiance");
+  const [base, setBase] = useState<BaseLayer>("districts");
+  const [threeD, setThreeD] = useState(false);
 
   const summary = useMemo(() => summarise(m, monthIndex), [m, monthIndex]);
+  const baseline = baselineIndex(m, monthIndex);
+  const hasBaseline = baseline != null;
+  const growthMode = mode === "growth" && hasBaseline;
   const values = useMemo(() => {
     const out = new Map<string, DistrictValue>();
     m.ids.forEach((id, i) => {
       const mean = m.mean[monthIndex][i];
-      out.set(id, { mean, gap: mean == null });
+      const growth = growthMode ? growthLog2(m, i, monthIndex) : null;
+      // In growth mode a district is a gap if either month is missing.
+      out.set(id, { mean, growth, gap: growthMode ? growth == null : mean == null });
     });
     return out;
-  }, [m, monthIndex]);
+  }, [m, monthIndex, growthMode]);
+  const monthMissing = m.loaded?.[monthIndex] === false;
 
   const districtList = useMemo(() => [...data.byId.values()].sort((a, b) => a.name.localeCompare(b.name)), [data]);
 
@@ -91,7 +107,6 @@ function Main({ data }: { data: AppData }) {
   }, [playing, m.months.length]);
 
   const canPlay = m.months.length > 1;
-  const hasBaseline = summary.brighterThan2015 != null;
   const hovered = hover ? data.byId.get(hover.id) : undefined;
   const hoverCol = hover ? data.index.get(hover.id) : undefined;
 
@@ -114,13 +129,26 @@ function Main({ data }: { data: AppData }) {
               <span className="stat-value blue">{hasBaseline ? summary.brighterThan2015 : "–"}</span>
             </div>
             <div className="toggle" role="radiogroup" aria-label="Colour districts by">
-              <button type="button" role="radio" aria-checked="true" className="on">Radiance</button>
               <button
                 type="button"
                 role="radio"
-                aria-checked="false"
+                aria-checked={!growthMode}
+                className={!growthMode ? "on" : ""}
+                onClick={() => setMode("radiance")}
+              >
+                Radiance
+              </button>
+              <button
+                type="button"
+                role="radio"
+                aria-checked={growthMode}
+                className={growthMode ? "on" : ""}
                 disabled={!hasBaseline}
-                title={hasBaseline ? undefined : "Available once 2015 data is loaded"}
+                title={hasBaseline ? undefined : "Needs the same month in 2015"}
+                onClick={() => {
+                  setMode("growth");
+                  setBase("districts");
+                }}
               >
                 Growth since 2015
               </button>
@@ -136,20 +164,40 @@ function Main({ data }: { data: AppData }) {
               fly={fly}
               padding={padding}
               onHover={setHover}
+              onLoaded={() => setMapLoading(false)}
+              mode={growthMode ? "growth" : "radiance"}
+              base={base}
+              threeD={threeD}
               onSelect={(id) => {
                 selectAndFly(id);
                 if (id && isMobile) setSheetOpen(false);
               }}
             />
+            <LayerSwitcher base={base} threeD={threeD} onBase={setBase} onThreeD={setThreeD} />
+            {monthMissing && !mapLoading && (
+              <div className="map-notice" role="status">
+                No data for {monthLabel(m.months[monthIndex])}: not processed yet, or unavailable from NASA.
+              </div>
+            )}
+            {mapLoading && (
+              <div className="map-loading" role="status">
+                <span className="spinner" aria-hidden="true" /> Loading districts…
+              </div>
+            )}
             {hovered && hover && hoverCol != null && !isMobile && (
               <div className="tooltip" style={{ left: hover.x + 14, top: hover.y + 14 }} role="status">
                 <strong>{hovered.name}</strong>
                 <span className="muted">{hovered.state}</span>
                 {m.mean[monthIndex][hoverCol] == null ? (
-                  <span>No clear data ({fmtPct(m.valid[monthIndex][hoverCol])} observed)</span>
+                  <span>{monthMissing ? "No data this month" : `No clear data (${fmtPct(m.valid[monthIndex][hoverCol])} observed)`}</span>
                 ) : (
                   <span>
                     <b className="amber">{fmtRad(m.mean[monthIndex][hoverCol])}</b> nW/cm²/sr · rank #{summary.rank.get(hovered.id)}
+                  </span>
+                )}
+                {growthMode && (
+                  <span>
+                    <b className="blue">{fmtPct(growthPct(m, hoverCol, monthIndex), true)}</b> since {monthLabel(m.months[baseline!], true)}
                   </span>
                 )}
               </div>
@@ -174,8 +222,14 @@ function Main({ data }: { data: AppData }) {
                 <svg viewBox="0 0 20 20" aria-hidden="true"><path d="M6 4l10 6-10 6z" /></svg>
               )}
             </button>
-            <TimeSlider months={m.months} value={monthIndex} onChange={(i) => { setPlaying(false); setMonthIndex(i); }} />
-            <Legend />
+            <TimeSlider months={m.months} value={monthIndex} compact={isMobile} onChange={(i) => { setPlaying(false); setMonthIndex(i); }} />
+            {base === "districts" ? (
+              <Legend growth={growthMode} />
+            ) : (
+              <p className="legend legend-note muted">
+                {base === "night" ? "NASA Black Marble 2016 image" : "NASA true colour, 21 Feb 2026"}. District colours are hidden; outlines stay.
+              </p>
+            )}
           </div>
         </section>
 
@@ -194,10 +248,14 @@ function Main({ data }: { data: AppData }) {
   );
 }
 
-function TimeSlider({ months, value, onChange }: { months: string[]; value: number; onChange: (i: number) => void }) {
+function TimeSlider({ months, value, compact, onChange }: { months: string[]; value: number; compact?: boolean; onChange: (i: number) => void }) {
+  const firstYear = Number(months[0].slice(0, 4));
   const years = months
     .map((mo, i) => ({ year: mo.slice(0, 4), i }))
-    .filter((y, k, arr) => k === 0 || y.year !== arr[k - 1].year);
+    .filter((y, k, arr) => k === 0 || y.year !== arr[k - 1].year)
+    .filter((y, k, arr) => !(k === 0 && arr[1] && arr[1].i - y.i < 6))
+    // On phones label every other year so the ticks don't collide.
+    .filter((y) => !compact || (Number(y.year) - firstYear) % 2 === 1);
   const single = months.length < 2;
   return (
     <div className="slider">
@@ -228,7 +286,32 @@ function TimeSlider({ months, value, onChange }: { months: string[]; value: numb
   );
 }
 
-function Legend() {
+function Legend({ growth }: { growth: boolean }) {
+  if (growth) {
+    const lo = GROWTH_STOPS[0][0];
+    const hi = GROWTH_STOPS[GROWTH_STOPS.length - 1][0];
+    const pos = (v: number) => ((v - lo) / (hi - lo)) * 100;
+    const gradient = `linear-gradient(90deg, ${GROWTH_STOPS.map(([v, c]) => `${c} ${pos(v).toFixed(1)}%`).join(", ")})`;
+    return (
+      <div className="legend" aria-label="Legend: change in brightness since the same month in 2015">
+        <div className="legend-bar" style={{ background: gradient }} />
+        <div className="legend-ticks" aria-hidden="true">
+          {GROWTH_TICKS.map(([v, t]) => (
+            <span
+              key={t}
+              style={{ left: `${pos(v)}%`, transform: pos(v) <= 0 ? "none" : pos(v) >= 100 ? "translateX(-100%)" : undefined }}
+            >
+              {t}
+            </span>
+          ))}
+        </div>
+        <div className="legend-foot">
+          <span className="muted">vs same month in 2015</span>
+          <span className="legend-gap"><i aria-hidden="true" /> No data</span>
+        </div>
+      </div>
+    );
+  }
   const lo = Math.log10(RAD_STOPS[0][0]);
   const hi = Math.log10(RAD_STOPS[RAD_STOPS.length - 1][0]);
   const pos = (v: number) => ((Math.log10(v) - lo) / (hi - lo)) * 100;

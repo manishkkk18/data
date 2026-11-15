@@ -7,6 +7,11 @@
     <meta name="description" content="How bright each Indian district is at night, month by month, from NASA Black Marble satellite data." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <title>India Night Lights</title>
+    <!-- Start the data downloads and basemap connection while the app code loads. -->
+    <link rel="preconnect" href="https://tiles.openfreemap.org" crossorigin />
+    <link rel="preload" href="%BASE_URL%data/districts.geojson" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="%BASE_URL%data/monthly.json" as="fetch" crossorigin="anonymous" />
+    <link rel="preload" href="%BASE_URL%data/india_outline.geojson" as="fetch" crossorigin="anonymous" />
   </head>
   <body>
     <div id="root"></div>

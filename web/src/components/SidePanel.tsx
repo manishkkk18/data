@@ -54,7 +54,9 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
               <span className="big-value">{fmtRad(mean)}</span>
               <span className="big-unit">nW/cm²/sr · {monthLabel(month)}</span>
             </div>
-            {mean == null ? (
+            {mean == null && m.loaded?.[monthIndex] === false ? (
+              <p className="gap-note">No data for this month: not processed yet, or unavailable from NASA.</p>
+            ) : mean == null ? (
               <p className="gap-note">
                 No clear view this month: only {fmtPct(valid)} of the district was observed (clouds). We show a gap rather than guess.
               </p>
@@ -89,7 +91,11 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
             </div>
             <div className="tiles two">
               <Tile label="Districts with data" value={`${summary.withData}`} hint={`of ${m.ids.length}`} />
-              <Tile label="Cloud gaps" value={`${summary.gaps}`} hint="shown hatched" />
+              {m.loaded?.[monthIndex] === false ? (
+                <Tile label="Month status" value="No data" hint="not processed yet" />
+              ) : (
+                <Tile label="Cloud gaps" value={`${summary.gaps}`} hint="shown hatched" />
+              )}
             </div>
             <p className="muted small hint">Tap or click a district on the map, or search for one above, to see its numbers.</p>
           </>

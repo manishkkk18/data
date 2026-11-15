@@ -15,6 +15,8 @@ export type Monthly = {
   sum: (number | null)[][];
   lit: (number | null)[][];
   valid: (number | null)[][];
+  /** Added on load: false for months in the timeline that have no processed data. */
+  loaded?: boolean[];
 };
 
 export type DistrictProps = { id: string; name: string; state: string };
@@ -49,7 +51,41 @@ export async function loadData(): Promise<AppData> {
     byId.set(p.id, { ...p, bbox: bboxOf(f.geometry), search: fold(`${p.name} ${p.state}`) });
   }
   const index = new Map(monthly.ids.map((id, i) => [id, i]));
-  return { districts, outline, monthly, byId, index };
+  return { districts, outline, monthly: fillMonthGaps(monthly), byId, index };
+}
+
+/**
+ * Make the timeline continuous: every calendar month from the first to the last one
+ * processed. Months with no data get all-null rows, so the map shows them as gaps
+ * instead of silently skipping from, say, March to June.
+ */
+export function fillMonthGaps(m: Monthly): Monthly {
+  if (m.months.length === 0) return { ...m, loaded: [] };
+  const all: string[] = [];
+  let [y, mo] = m.months[0].split("-").map(Number);
+  const last = m.months[m.months.length - 1];
+  for (;;) {
+    const key = `${y}-${String(mo).padStart(2, "0")}`;
+    all.push(key);
+    if (key >= last) break;
+    mo += 1;
+    if (mo > 12) {
+      mo = 1;
+      y += 1;
+    }
+  }
+  const at = new Map(m.months.map((k, i) => [k, i]));
+  const empty = m.ids.map(() => null);
+  const pick = (rows: (number | null)[][]) => all.map((k) => (at.has(k) ? rows[at.get(k)!] : empty));
+  return {
+    ...m,
+    months: all,
+    mean: pick(m.mean),
+    sum: pick(m.sum),
+    lit: pick(m.lit),
+    valid: pick(m.valid),
+    loaded: all.map((k) => at.has(k)),
+  };
 }
 
 export function fold(s: string) {
@@ -125,7 +161,32 @@ export function summarise(m: Monthly, mi: number): MonthSummary {
 export function baselineIndex(m: Monthly, mi: number): number | null {
   const month = m.months[mi].slice(5);
   const i = m.months.indexOf(`2015-${month}`);
-  return i >= 0 && i !== mi ? i : null;
+  return i >= 0 && i !== mi && m.loaded?.[i] !== false ? i : null;
+}
+
+/** Actual % change vs the same month in 2015. */
+export function growthPct(m: Monthly, col: number, mi: number): number | null {
+  const b = baselineIndex(m, mi);
+  if (b == null) return null;
+  const now = m.mean[mi][col];
+  const then = m.mean[b][col];
+  if (now == null || then == null || then <= 0) return null;
+  return ((now - then) / then) * 100;
+}
+
+/**
+ * Change for colouring the map, as log2 of the ratio (0 = no change, 1 = doubled).
+ * A small offset keeps near-dark districts, where 0.02 -> 0.06 would read as "+200%",
+ * from swamping the map with noise.
+ */
+export const GROWTH_OFFSET = 0.3;
+export function growthLog2(m: Monthly, col: number, mi: number): number | null {
+  const b = baselineIndex(m, mi);
+  if (b == null) return null;
+  const now = m.mean[mi][col];
+  const then = m.mean[b][col];
+  if (now == null || then == null) return null;
+  return Math.log2((now + GROWTH_OFFSET) / (then + GROWTH_OFFSET));
 }
 
 /** % change vs the same month `years` earlier, or null if either side is missing. */
@@ -176,3 +237,19 @@ export const RAD_STOPS: [number, string][] = [
 ];
 
 export const LEGEND_TICKS = [0.1, 1, 10, 50];
+
+// Growth since 2015, by log2 ratio: dimmer = red, unchanged = slate, brighter = blue.
+export const GROWTH_STOPS: [number, string][] = [
+  [-1, "#FF7A7A"],
+  [-0.3, "#7A3F4A"],
+  [0, "#262C40"],
+  [0.4, "#2F4C85"],
+  [1, "#6EA8FF"],
+  [2, "#D6E6FF"],
+];
+export const GROWTH_TICKS: [number, string][] = [
+  [-1, "−50%"],
+  [0, "0"],
+  [1, "+100%"],
+  [2, "+300%"],
+];
