@@ -1,5 +1,9 @@
 import { changePct, fmtPct, fmtRad, monthLabel, type AppData, type MonthSummary } from "../data";
-import TrendChart from "./TrendChart";
+import { lazy, Suspense } from "react";
+
+// The chart library is ~110 KB gzipped; load it only once someone opens a district,
+// so the first map view isn't slowed down.
+const TrendChart = lazy(() => import("./TrendChart"));
 
 type Props = {
   data: AppData;
@@ -80,7 +84,9 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
               />
             </div>
 
-            <TrendChart data={data} districtId={d.id} monthIndex={monthIndex} onPickMonth={onPickMonth} />
+            <Suspense fallback={<div className="chart-placeholder"><p className="muted small">Loading chart…</p></div>}>
+              <TrendChart data={data} districtId={d.id} monthIndex={monthIndex} onPickMonth={onPickMonth} />
+            </Suspense>
 
             <div className="side-actions">
               <button type="button" className="btn" disabled title="Coming in a later phase">Compare with…</button>
