@@ -367,7 +367,7 @@ h1, h2, h3 { font-family: var(--font-head); font-weight: 500; margin: 0; }
 
 /* ---- Before/after swipe ------------------------------------------------------- */
 .swipe { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
-.swipe-map { position: absolute; inset: 0; }
+.swipe > .swipe-map { position: absolute; inset: 0; } /* beats .maplibregl-map { position: relative } */
 .swipe-map .maplibregl-canvas { outline: none; }
 .swipe-line { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: var(--blue); box-shadow: 0 0 12px rgba(110, 168, 255, 0.6); }
 .swipe-handle {

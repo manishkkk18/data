@@ -66,7 +66,14 @@ export default function SwipeCompare({ main, districts, outline, after, beforeLa
 
   return (
     <div className="swipe" ref={wrap}>
-      <div className="swipe-map" ref={container} style={{ clipPath: `inset(0 0 0 ${pos}%)` }} aria-hidden="true" />
+      {/* Inline position: MapLibre's stylesheet sets .maplibregl-map { position: relative },
+          which in the production CSS order would collapse this container to zero height. */}
+      <div
+        className="swipe-map"
+        ref={container}
+        style={{ position: "absolute", inset: 0, clipPath: `inset(0 0 0 ${pos}%)` }}
+        aria-hidden="true"
+      />
       <span className="swipe-label left">{beforeLabel}</span>
       <span className="swipe-label right">{afterLabel}</span>
       <div className="swipe-line" style={{ left: `${pos}%` }} aria-hidden="true" />
