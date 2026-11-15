@@ -48,6 +48,13 @@ bash backfill.sh
 #    ~1.1 GB per year; run after the monthly backfill. Writes data/yearly.json.
 $PY -X utf8 -m nightlights.annual --start 2015 --end 2025
 
+# 5. Cross-check against ISRO Bhuvan's state figures. Writes data/crosscheck.json.
+$PY -X utf8 -m nightlights.crosscheck --refresh
+
+# 6. Diwali effect for 8 major cities from NASA's daily product (~1 GB per year).
+#    Writes data/diwali.json. Add the new year's date to DIWALI in diwali.py each year.
+$PY -X utf8 -m nightlights.diwali --years 2015-2026
+
 # Tests
 $PY -X utf8 -m pytest -q
 ```

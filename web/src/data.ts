@@ -37,6 +37,21 @@ export type CrossCheck = {
   states: { state: string; ours: Record<string, number>; bhuvan: Record<string, number> }[];
 };
 
+/** Diwali-night brightness for major cities, from pipeline/nightlights/diwali.py. */
+export type Diwali = {
+  window: number;
+  baseline_offsets: number[];
+  cities: string[];
+  years: {
+    year: number;
+    date: string;
+    nights: Record<string, Record<string, number | null>>; // offset -> city -> radiance
+    unavailable: number[];
+    effect: Record<string, number | null>; // % vs median of normal nights
+    clear_baseline_nights: Record<string, number>;
+  }[];
+};
+
 /** NASA annual composites (VNP46A4), used for the long-term line on the trend chart. */
 export type Yearly = { years: number[]; ids: string[]; mean: (number | null)[][]; valid: (number | null)[][] };
 
@@ -46,6 +61,7 @@ export type AppData = {
   monthly: Monthly;
   yearly: Yearly | null; // optional: only once the annual run has been done
   crosscheck: CrossCheck | null; // optional
+  diwali: Diwali | null; // optional
   byId: Map<string, District>;
   index: Map<string, number>; // district id -> column in monthly arrays
 };
@@ -56,13 +72,14 @@ export async function loadData(): Promise<AppData> {
       if (!r.ok) throw new Error(`Could not load ${f} (${r.status})`);
       return r.json();
     });
-  const [districts, outline, monthly, yearly, crosscheck] = (await Promise.all([
+  const [districts, outline, monthly, yearly, crosscheck, diwali] = (await Promise.all([
     get("districts.geojson"),
     get("india_outline.geojson"),
     get("monthly.json"),
     get("yearly.json").catch(() => null), // optional files
     get("crosscheck.json").catch(() => null),
-  ])) as [DistrictFC, FeatureCollection, Monthly, Yearly | null, CrossCheck | null];
+    get("diwali.json").catch(() => null),
+  ])) as [DistrictFC, FeatureCollection, Monthly, Yearly | null, CrossCheck | null, Diwali | null];
 
   const byId = new Map<string, District>();
   for (const f of districts.features) {
@@ -71,7 +88,7 @@ export async function loadData(): Promise<AppData> {
     byId.set(p.id, { ...p, aliases, bbox: bboxOf(f.geometry), search: fold(`${p.name} ${p.state} ${aliases.join(" ")}`) });
   }
   const index = new Map(monthly.ids.map((id, i) => [id, i]));
-  return { districts, outline, monthly: fillMonthGaps(monthly), yearly, crosscheck, byId, index };
+  return { districts, outline, monthly: fillMonthGaps(monthly), yearly, crosscheck, diwali, byId, index };
 }
 
 /**

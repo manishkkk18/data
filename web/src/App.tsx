@@ -9,6 +9,7 @@ import Compare from "./components/Compare";
 import CrossCheck from "./components/CrossCheck";
 import SwipeCompare from "./components/SwipeCompare";
 import PerfBadge from "./components/PerfBadge";
+import DiwaliEffect from "./components/DiwaliEffect";
 import type { Map as MlMap } from "maplibre-gl";
 import {
   GROWTH_STOPS,
@@ -344,6 +345,7 @@ function Main({ data }: { data: AppData }) {
         selectAndFly(id);
         document.getElementById("map")?.scrollIntoView({ behavior: "smooth", block: "start" });
       }} />
+      <DiwaliEffect data={data.diwali} />
       <Compare
         data={data}
         monthIndex={monthIndex}

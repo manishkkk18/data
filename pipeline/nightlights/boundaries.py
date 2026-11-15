@@ -22,7 +22,9 @@ import shapely
 
 from .config import BOUNDARIES_RAW, DISTRICTS_FULL, DISTRICTS_WEB, OUTLINE_WEB
 
-API = "https://www.geoboundaries.org/api/current/gbOpen/IND/{level}/"
+# Pinned to the exact geoBoundaries release used to build the district IDs, so an
+# automated run can never pick up a newer release and silently change districts.
+SOURCE = "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/IND/{level}/geoBoundaries-IND-{level}.geojson"
 WEB_TOLERANCE_DEG = 0.01  # ~1 km: 1.75 MB raw, ~0.4 MB gzipped
 WEB_DECIMALS = 3  # ~110 m vertex snapping
 
@@ -43,8 +45,7 @@ def download(level: str) -> gpd.GeoDataFrame:
     path = BOUNDARIES_RAW / f"IND_{level}.geojson"
     if not path.exists():
         BOUNDARIES_RAW.mkdir(parents=True, exist_ok=True)
-        meta = httpx.get(API.format(level=level), timeout=60, follow_redirects=True).json()
-        r = httpx.get(meta["gjDownloadURL"], timeout=300, follow_redirects=True)
+        r = httpx.get(SOURCE.format(level=level), timeout=300, follow_redirects=True)
         r.raise_for_status()
         path.write_bytes(r.content)
     return gpd.read_file(path)

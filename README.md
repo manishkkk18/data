@@ -20,10 +20,30 @@ npm run build    # static site in web/dist
 `npm run dev` and `npm run build` first copy `data/districts.geojson`, `data/india_outline.geojson` and
 `data/monthly.json` into `web/public/data/`.
 
-## Deploy (Vercel)
+## Deploy (GitHub Pages)
 
-Import the repo in Vercel and set **Root Directory** to `web`. The framework preset (Vite) supplies
-`npm run build` and the `dist` output folder.
+The site lives at https://manishkkk18.github.io/india-night-lights/ and is served from the `gh-pages`
+branch. To publish by hand:
+
+```bash
+cd web
+npm run deploy
+```
+
+## Monthly refresh (GitHub Action)
+
+`.github/workflows/refresh.yml` runs on the 18th of each month (and on demand from the Actions tab).
+It processes the most recent three months that don't have data yet, refreshes the Bhuvan cross-check,
+commits the small output files and redeploys the site. Raw NASA files never touch the repo.
+
+One-time setup:
+
+1. Add the NASA token as a repository secret named `EARTHDATA_TOKEN`
+   (GitHub → repo → Settings → Secrets and variables → Actions → New repository secret).
+2. Run it once by hand: Actions → "Monthly data refresh" → Run workflow.
+
+District boundaries are pinned to geoBoundaries release `9469f09`, so automated runs can never
+change district IDs.
 
 ## Credits
 
