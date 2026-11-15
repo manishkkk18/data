@@ -278,6 +278,11 @@ def main():
     p.add_argument("--force", action="store_true", help="recompute months that already have a CSV (re-downloads months cached before quality flags were kept)")
     p.add_argument("--qa", action="store_true", help="write a sanity-check PNG per month")
     p.add_argument("--keep-raw", action="store_true", help="keep NASA HDF5 tiles (~1 GB/month)")
+    p.add_argument(
+        "--fill-estimates",
+        action="store_true",
+        help="also redo months processed before NASA estimates were kept (their CSV lacks est_mean_rad)",
+    )
     args = p.parse_args()
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
@@ -298,12 +303,13 @@ def main():
     for i, m in enumerate(todo, 1):
         key = m.strftime("%Y-%m")
         out = STATS_DIR / f"{key}.csv"
-        if out.exists() and not args.force:
+        needs_estimates = args.fill_estimates and out.exists() and "est_mean_rad" not in out.read_text(encoding="utf-8").splitlines()[0]
+        if out.exists() and not args.force and not needs_estimates:
             log.info(f"[{i}/{len(todo)}] {key}: already done, skipping")
             continue
         log.info(f"[{i}/{len(todo)}] {key}: processing")
         try:
-            df = process_month(bm, aoi, districts, m, keep_raw=args.keep_raw, refetch_old=args.force)
+            df = process_month(bm, aoi, districts, m, keep_raw=args.keep_raw, refetch_old=args.force or needs_estimates)
             write_atomic(df, out)
             clear_failure(key)
             done += 1
