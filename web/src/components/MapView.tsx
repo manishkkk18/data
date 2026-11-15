@@ -99,19 +99,34 @@ export default function MapView(props: Props) {
     const flyIn = () => {
       if (flown || mapRef.current !== map) return; // map may have been removed meanwhile
       flown = true;
-      // Opening: the globe, then a fly-in to India once there's something to see.
-      const pad = cb.current.padding;
-      if (reducedMotion()) map.fitBounds(INDIA, { padding: pad, duration: 0 });
-      else map.fitBounds(INDIA, { padding: pad, duration: 3800, essential: true });
-    };
-    map.on("sourcedata", function onData(e) {
-      if (e.sourceId === "districts" && e.isSourceLoaded) {
-        performance.mark("districts-loaded");
-        map.off("sourcedata", onData);
-        cb.current.onLoaded?.();
-        setTimeout(flyIn, 250);
+      // Opening: the globe, then a fly-in to India once there's something to see,
+      // or straight to the district a shared link asked for (tilted if it asked for 3D).
+      const { padding: pad, fly, base, threeD } = cb.current;
+      const tilt = base === "districts" && threeD ? { pitch: 55, bearing: -15 } : {};
+      const duration = reducedMotion() ? 0 : 3800;
+      if (fly) {
+        map.fitBounds(fly.bbox, { padding: pad, maxZoom: 9.5, essential: true, duration, ...tilt });
+        return;
       }
-    });
+      // All of India fits better flat; tilt into the skyline once it's framed.
+      map.fitBounds(INDIA, { padding: pad, essential: true, duration, pitch: 0, bearing: 0 });
+      if ("pitch" in tilt) map.once("moveend", () => map.easeTo({ ...tilt, duration: reducedMotion() ? 0 : 1400 }));
+    };
+    let loaded = false;
+    const onLoaded = () => {
+      if (loaded || mapRef.current !== map) return;
+      loaded = true;
+      performance.mark("districts-loaded");
+      map.off("sourcedata", onData);
+      cb.current.onLoaded?.();
+      setTimeout(flyIn, 250);
+    };
+    function onData(e: maplibregl.MapSourceDataEvent) {
+      if (e.sourceId === "districts" && e.isSourceLoaded) onLoaded();
+    }
+    map.on("sourcedata", onData);
+    // With only the 3D layer showing, that event can be missed; the first idle frame is a safe backstop.
+    map.once("idle", onLoaded);
     const fallback = setTimeout(flyIn, 4000); // don't hold the opening forever on a slow device
     map.once("idle", () => performance.mark("map-idle"));
     map.once("load", () => performance.mark("map-load"));
@@ -405,7 +420,8 @@ export function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outlin
         "fill-extrusion-height": [
           "interpolate", ["linear"], ["zoom"],
           4, ["coalesce", ["feature-state", "h"], 0],
-          9, ["*", ["coalesce", ["feature-state", "h"], 0], 0.12],
+          6.5, ["*", ["coalesce", ["feature-state", "h"], 0], 0.25],
+          9, ["*", ["coalesce", ["feature-state", "h"], 0], 0.025],
         ],
         "fill-extrusion-opacity": ["interpolate", ["linear"], ["zoom"], 3, 0.92, 9, 0.85, 11, 0],
         "fill-extrusion-vertical-gradient": true,
