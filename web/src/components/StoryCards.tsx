@@ -44,7 +44,7 @@ export default function StoryCards({ data, monthIndex, summary, onPick }: Props)
     dTop &&
       dYear && {
         id: dTop.id,
-        kicker: `Diwali effect leader, ${dYear.year}`,
+        kicker: `Diwali effect leader, ${dYear.year} (all districts)`,
         value: fmtPct(dTop.effect, true),
         unit: "",
         line: `on Diwali night vs a normal night (${fmtRad(dTop.night)} vs ${fmtRad(dTop.base)})`,

@@ -101,7 +101,7 @@ export default function DiwaliEffect({ app, selectedId }: Props) {
 
       <div className="diwali-body">
         <div className="diwali-left">
-          <h3 className="diwali-sub">Major cities</h3>
+          <h3 className="diwali-sub">8 major cities</h3>
           <ol className="bars diverging" aria-label={`Diwali night brightness change by city, ${y.year}`}>
             {sorted.map((r) => {
               const on = shown.kind === "city" && shown.name === r.city;
@@ -131,6 +131,34 @@ export default function DiwaliEffect({ app, selectedId }: Props) {
               );
             })}
           </ol>
+
+          {(y.district_top?.length ?? 0) > 0 && (
+            <>
+              <h3 className="diwali-sub">Biggest jumps, all districts</h3>
+              <ol className="bars diverging" aria-label={`Districts with the biggest Diwali night brightening, ${y.year}`}>
+                {y.district_top!.map((r) => {
+                  const d = app.byId.get(r.id);
+                  if (!d) return null;
+                  const on = shown.kind === "district" && shown.id === r.id;
+                  const topMax = Math.max(...y.district_top!.map((t) => t.effect), 1);
+                  return (
+                    <li key={r.id}>
+                      <button type="button" className={`bar-row ${on ? "on" : ""}`} onClick={() => setFocus({ kind: "district", id: r.id })} aria-pressed={on}>
+                        <span className="bar-name">
+                          {d.name} <span className="muted">{d.state}</span>
+                        </span>
+                        <span className="bar-value">{fmtPct(r.effect, true)}</span>
+                        <span className="bar-track" aria-hidden="true">
+                          <span className="bar-fill blue-fill" style={{ width: `${(r.effect / topMax) * 100}%` }} />
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+              <p className="muted small diwali-top-note">Lit districts only (normal night at least 2 nW/cm²/sr, 5+ clear normal nights), so very dark places with big percentage swings don't top the list.</p>
+            </>
+          )}
 
           <h3 className="diwali-sub">Any district</h3>
           {
