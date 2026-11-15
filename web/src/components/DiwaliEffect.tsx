@@ -1,5 +1,6 @@
 import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import { fmtPct, type Diwali } from "../data";
+import { track } from "../analytics";
 
 const DiwaliChart = lazy(() => import("./DiwaliChart"));
 
@@ -40,7 +41,10 @@ export default function DiwaliEffect({ data }: { data: Diwali | null }) {
         </div>
         <div className="year-pills" role="radiogroup" aria-label="Year">
           {years.map((v) => (
-            <button key={v.year} type="button" role="radio" aria-checked={v.year === y.year} className={v.year === y.year ? "on" : ""} onClick={() => setYear(v.year)}>
+            <button key={v.year} type="button" role="radio" aria-checked={v.year === y.year} className={v.year === y.year ? "on" : ""} onClick={() => {
+              setYear(v.year);
+              track("diwali-year");
+            }}>
               {v.year}
             </button>
           ))}

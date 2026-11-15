@@ -10,6 +10,7 @@ import CrossCheck from "./components/CrossCheck";
 import SwipeCompare from "./components/SwipeCompare";
 import PerfBadge from "./components/PerfBadge";
 import DiwaliEffect from "./components/DiwaliEffect";
+import { track } from "./analytics";
 import type { Map as MlMap } from "maplibre-gl";
 import {
   GROWTH_STOPS,
@@ -105,6 +106,7 @@ function Main({ data }: { data: AppData }) {
     setBase("districts");
     setPlaying(false);
     setSwipe({ before, after: latestLoaded(m) });
+    track("swipe-on");
   };
   const goToCompare = () => {
     document.getElementById("compare")?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -148,7 +150,14 @@ function Main({ data }: { data: AppData }) {
 
   return (
     <>
-      <Header districts={districtList} onPick={(id) => selectAndFly(id)} compact={isMobile} />
+      <Header
+        districts={districtList}
+        onPick={(id) => {
+          selectAndFly(id);
+          track("search");
+        }}
+        compact={isMobile}
+      />
       <main className="main">
         <section id="map" className="map-panel panel" aria-label="Night lights map">
           <div className="map-top">
@@ -184,6 +193,7 @@ function Main({ data }: { data: AppData }) {
                 onClick={() => {
                   setMode("growth");
                   setBase("districts");
+                  track("growth-mode");
                 }}
               >
                 Growth since 2015
@@ -224,8 +234,14 @@ function Main({ data }: { data: AppData }) {
             <LayerSwitcher
               base={base}
               threeD={threeD}
-              onBase={setBase}
-              onThreeD={setThreeD}
+              onBase={(b) => {
+                setBase(b);
+                if (b !== "districts") track(`layer-${b}`);
+              }}
+              onThreeD={(on) => {
+                setThreeD(on);
+                if (on) track("3d-on");
+              }}
               disabled={!!swipe}
               extra={
                 <button
@@ -302,6 +318,7 @@ function Main({ data }: { data: AppData }) {
               className="play"
               onClick={() => {
                 if (!playing && monthIndex >= m.months.length - 1) setMonthIndex(0);
+                if (!playing) track("play");
                 setPlaying((p) => !p);
               }}
               disabled={!canPlay}
@@ -353,7 +370,10 @@ function Main({ data }: { data: AppData }) {
         aId={selectedId}
         bId={compareId}
         onPickA={(id) => selectAndFly(id)}
-        onPickB={setCompareId}
+        onPickB={(id) => {
+          setCompareId(id);
+          if (id) track("compare");
+        }}
         onSwap={() => {
           const a = selectedId;
           setSelectedId(compareId);

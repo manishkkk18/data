@@ -54,7 +54,7 @@ export default function About({ monthly }: { monthly: Monthly }) {
             Satellite imagery: NASA GIBS. Basemap: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> ©{" "}
             <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>, data ©{" "}
             <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. Processed with
-            the World Bank's blackmarblepy and exactextract.
+            the World Bank's blackmarblepy and exactextract. Visits are counted anonymously with GoatCounter (no cookies).
           </p>
         </div>
       </div>
