@@ -370,7 +370,7 @@ function Main({ data }: { data: AppData }) {
         selectAndFly(id);
         document.getElementById("map")?.scrollIntoView({ behavior: "smooth", block: "start" });
       }} />
-      <DiwaliEffect data={data.diwali} />
+      <DiwaliEffect app={data} selectedId={selectedId} />
       <Compare
         data={data}
         monthIndex={monthIndex}

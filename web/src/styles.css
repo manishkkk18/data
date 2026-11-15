@@ -515,3 +515,13 @@ h1, h2, h3 { font-family: var(--font-head); font-weight: 500; margin: 0; }
   border: 1px dashed var(--muted); color: var(--muted);
 }
 .trend-legend i.ring { width: 8px; height: 8px; border-radius: 50%; background: transparent; border: 1.5px solid; }
+
+/* Diwali: cities + any district */
+.diwali-left { display: grid; gap: 10px; align-content: start; }
+.diwali-sub { font-size: 13px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; margin: 4px 0 0; font-family: var(--font-body); font-weight: 500; }
+.diwali-left .search { width: 100%; margin: 0; }
+.diwali-card { padding: 12px 14px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); display: grid; gap: 4px; }
+.diwali-card p { margin: 0; }
+.diwali-card-name { font-family: var(--font-head); font-size: 16px; }
+.diwali-card-value { font-family: var(--font-head); font-size: 22px; }
+.red { color: var(--red); }

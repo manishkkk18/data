@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { CartesianGrid, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { fmtRad, type Diwali } from "../data";
+import { fmtRad } from "../data";
 import { COLOR_A, MARKER } from "./chartColors";
 
 type Row = { o: number; date: string; v: number | null; status: "clear" | "cloudy" | "no file" };
@@ -9,21 +9,30 @@ function shortDate(iso: string) {
   return new Date(`${iso}T00:00:00Z`).toLocaleDateString("en-IN", { day: "numeric", month: "short", timeZone: "UTC" });
 }
 
-export default function DiwaliChart({ data, year, city }: { data: Diwali; year: number; city: string }) {
-  const y = data.years.find((v) => v.year === year)!;
+type Props = {
+  window: number;
+  baselineOffsets: number[];
+  date: string; // Diwali night, ISO
+  year: number;
+  label: string; // city or district name
+  nights: Record<string, number | null>; // offset -> radiance (missing key = no NASA file)
+};
+
+export default function DiwaliChart({ window: win, baselineOffsets, date: diwaliDate, year, label: city, nights }: Props) {
+  const data = { window: win, baseline_offsets: baselineOffsets };
   const { rows, median } = useMemo(() => {
-    const d0 = new Date(`${y.date}T00:00:00Z`).getTime();
+    const d0 = new Date(`${diwaliDate}T00:00:00Z`).getTime();
     const rows: Row[] = [];
-    for (let o = -data.window; o <= data.window; o++) {
+    for (let o = -win; o <= win; o++) {
       const date = new Date(d0 + o * 86400000).toISOString().slice(0, 10);
-      const night = y.nights[String(o)];
-      const v = night ? (night[city] ?? null) : null;
-      rows.push({ o, date, v, status: !night ? "no file" : v == null ? "cloudy" : "clear" });
+      const has = String(o) in nights;
+      const v = has ? (nights[String(o)] ?? null) : null;
+      rows.push({ o, date, v, status: !has ? "no file" : v == null ? "cloudy" : "clear" });
     }
-    const base = data.baseline_offsets.map((o) => rows.find((r) => r.o === o)?.v).filter((v): v is number => v != null).sort((a, b) => a - b);
+    const base = baselineOffsets.map((o) => rows.find((r) => r.o === o)?.v).filter((v): v is number => v != null).sort((a, b) => a - b);
     const median = base.length ? (base.length % 2 ? base[(base.length - 1) / 2] : (base[base.length / 2 - 1] + base[base.length / 2]) / 2) : null;
     return { rows, median };
-  }, [data, y, city]);
+  }, [win, baselineOffsets, diwaliDate, nights]);
 
   const dot = (p: { cx?: number; cy?: number; index?: number }) => {
     const r = rows[p.index ?? -1];

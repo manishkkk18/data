@@ -1,8 +1,8 @@
-"""The Diwali effect: how much brighter major cities are on Diwali night.
+"""The Diwali effect: how much brighter each district (and 8 major cities) is on Diwali night.
 
 Uses NASA's daily product (VNP46A2, moonlight- and angle-corrected radiance) for the
-nights around Diwali each year. A city's value for a night is its mean radiance over
-its districts, from pixels NASA rates as good quality (cloudy/poor pixels dropped).
+nights around Diwali each year. A district's or city's value for a night is its mean
+radiance from pixels NASA rates as good quality (cloudy/poor pixels dropped).
 
   effect = Diwali night / median of normal nights - 1
 
@@ -11,12 +11,15 @@ out of the baseline because lights go up early (Dhanteras, Choti Diwali) and sta
 (Bhai Dooj). If Diwali night was cloudy, or fewer than 3 baseline nights were clear,
 the effect is reported as missing rather than guessed.
 
-Daily files are ~35 MB per tile and the 8 cities need 3 tiles, so a year costs ~1 GB
-of downloads. Each night is checkpointed, so runs are resumable; raw files are deleted
-after each night.
+All of India needs 11 daily tiles (~35 MB each), so a year costs ~4.7 GB of downloads.
+NASA is sometimes missing a tile on a night; tiles are fetched one by one so a missing
+tile only blanks its own area. Each night is checkpointed (resumable) and raw files
+are deleted after each night.
 
   python -m nightlights.diwali --years 2025
   python -m nightlights.diwali --years 2015-2026
+
+Writes data/diwali.json (cities) and data/diwali_districts.json (every district).
 """
 
 import argparse
@@ -29,9 +32,10 @@ import traceback
 import geopandas as gpd
 import numpy as np
 import pandas as pd
-from blackmarble import BlackMarble, Product
+from blackmarble import TILES, BlackMarble, Product
+from rioxarray.merge import merge_arrays
 
-from . import run  # noqa: F401  (applies the 4-way parallel download setting)
+from . import run  # applies the 4-way parallel download setting; shared helpers
 from .config import COLLECTION, DATA, DISTRICTS_FULL, LIT_THRESHOLD, MIN_VALID_PCT, RAW, STATS, get_token
 from .zonal import apply_coverage_rule, zonal_stats
 
@@ -39,8 +43,10 @@ PRODUCT = Product.VNP46A2
 VARIABLE = "DNB_BRDF-Corrected_NTL"  # Collection 2 daily radiance, not gap-filled
 # Daily quality flags: 0/1 high quality, 2 poor (outlier, likely cloud), 255 fill.
 DAILY_DROP_FLAGS = [2, 255]
-STATS_DIR = STATS / PRODUCT.value
+STATS_DIR = STATS / "VNP46A2_india"  # one CSV per night: every district + the cities
+CITY_ONLY_DIR = STATS / PRODUCT.value  # older city-only checkpoints (used as a fallback)
 OUT = DATA / "diwali.json"
+OUT_DISTRICTS = DATA / "diwali_districts.json"
 
 # Lakshmi Puja (main Diwali night). All fall on or next to a new moon.
 DIWALI = {
@@ -87,9 +93,22 @@ def city_polygons(districts: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return gpd.GeoDataFrame(rows, crs=districts.crs)
 
 
+def zones(districts: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """Every district plus the 8 cities, measured in one pass over each night's raster."""
+    d = districts[["id", "geometry"]].copy()
+    return gpd.GeoDataFrame(pd.concat([d, city_polygons(districts)], ignore_index=True), crs=districts.crs)
+
+
 def nights(year: int) -> list[tuple[int, dt.date]]:
     d0 = dt.date.fromisoformat(DIWALI[year])
     return [(o, d0 + dt.timedelta(days=o)) for o in range(-WINDOW, WINDOW + 1)]
+
+
+def tile_parts(aoi: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    """India split along NASA's 10° tiles, each part shrunk a hair so it touches one tile only."""
+    parts = gpd.overlay(aoi.to_crs("EPSG:4326"), TILES, how="intersection")
+    parts["geometry"] = parts.buffer(-0.001)
+    return parts[~parts.is_empty].reset_index(drop=True)
 
 
 def delete_raw(bm: BlackMarble, day: dt.date):
@@ -101,18 +120,37 @@ def delete_raw(bm: BlackMarble, day: dt.date):
             log.warning(f"  could not delete {f.name} (in use)")
 
 
-def process_night(bm, cities: gpd.GeoDataFrame, day: dt.date) -> pd.DataFrame:
+def fetch_night(bm, parts: gpd.GeoDataFrame, day: dt.date):
+    """Radiance for the night, tile by tile. Returns (raster, missing tile ids)."""
+    arrays, missing = [], []
+    for _, part in parts.iterrows():
+        g = gpd.GeoDataFrame(geometry=[part.geometry], crs="EPSG:4326")
+        try:
+            ds = bm.raster(gdf=g, product_id=PRODUCT, date_range=day, variable=VARIABLE)
+            da = ds[VARIABLE].isel(time=0) if "time" in ds[VARIABLE].dims else ds[VARIABLE]
+            arrays.append(da.load().copy().rio.write_crs(run.BLACK_MARBLE_CRS).rio.write_nodata(np.nan))
+            ds.close()
+        except KeyboardInterrupt:
+            raise
+        except Exception as e:  # usually that tile isn't in NASA's archive for the night
+            missing.append(part["TileID"])
+            log.debug(f"  tile {part['TileID']} unavailable: {type(e).__name__}: {e}")
+    if not arrays:
+        raise ValueError(f"no tiles available for {day}")
+    merged = arrays[0] if len(arrays) == 1 else merge_arrays(arrays, nodata=np.nan)
+    return merged.rio.write_crs(run.BLACK_MARBLE_CRS), missing
+
+
+def process_night(bm, parts, zone_gdf, day: dt.date) -> pd.DataFrame:
     try:
-        ds = bm.raster(gdf=cities, product_id=PRODUCT, date_range=day, variable=VARIABLE)
-        rast = ds[VARIABLE].isel(time=0) if "time" in ds[VARIABLE].dims else ds[VARIABLE]
-        rast = rast.rio.write_crs(run.BLACK_MARBLE_CRS)
-        df = apply_coverage_rule(zonal_stats(rast, cities, lit_threshold=LIT_THRESHOLD))
-        rast.close()
-        del rast, ds
+        rast, missing = fetch_night(bm, parts, day)
+        df = apply_coverage_rule(zonal_stats(rast, zone_gdf, lit_threshold=LIT_THRESHOLD))
+        del rast
     finally:
         delete_raw(bm, day)
     df.insert(1, "date", day.isoformat())
-    return df
+    df["missing_tiles"] = ",".join(missing)
+    return df[["id", "date", "mean_rad", "valid_pct", "missing_tiles"]]
 
 
 def effect_for(values: dict[int, float | None]) -> tuple[float | None, int]:
@@ -124,46 +162,52 @@ def effect_for(values: dict[int, float | None]) -> tuple[float | None, int]:
     return (night / med - 1) * 100 if med > 0 else None, len(base)
 
 
-def build_json() -> dict:
-    out = {
-        "product": PRODUCT.value,
-        "collection": COLLECTION,
-        "variable": VARIABLE,
-        "window": WINDOW,
-        "baseline_offsets": BASELINE,
-        "min_valid_pct": MIN_VALID_PCT,
-        "cities": list(CITIES),
-        "generated": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
-        "years": [],
-    }
+def read_night(day: dt.date) -> pd.DataFrame | None:
+    f = STATS_DIR / f"{day.isoformat()}.csv"
+    if f.exists():
+        return pd.read_csv(f).set_index("id")
+    old = CITY_ONLY_DIR / f"{day.isoformat()}.csv"  # city-only checkpoint from the first version
+    return pd.read_csv(old).set_index("id") if old.exists() else None
+
+
+def val(df: pd.DataFrame, key: str) -> float | None:
+    if key not in df.index or pd.isna(df.loc[key, "mean_rad"]):
+        return None
+    return round(float(df.loc[key, "mean_rad"]), 2)
+
+
+def build_json(district_ids: list[str]) -> tuple[dict, dict]:
+    now = dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds")
+    common = {"product": PRODUCT.value, "collection": COLLECTION, "variable": VARIABLE, "window": WINDOW,
+              "baseline_offsets": BASELINE, "min_valid_pct": MIN_VALID_PCT, "generated": now}
+    cities = {**common, "cities": list(CITIES), "years": []}
+    dists = {**common, "ids": district_ids, "years": []}
     for year in sorted(DIWALI):
-        per_night: dict[int, dict[str, float | None]] = {}
-        unavailable = []
-        for o, day in nights(year):
-            f = STATS_DIR / f"{day.isoformat()}.csv"
-            if not f.exists():
-                unavailable.append(o)
-                continue
-            df = pd.read_csv(f).set_index("id")
-            per_night[o] = {c: (None if pd.isna(df.loc[c, "mean_rad"]) else round(float(df.loc[c, "mean_rad"]), 2)) for c in CITIES if c in df.index}
-        if not per_night:
+        per_night = {o: read_night(day) for o, day in nights(year)}
+        have = {o: df for o, df in per_night.items() if df is not None}
+        if not have:
             continue
-        effects, clear = {}, {}
+        unavailable = [o for o, df in per_night.items() if df is None]
+        # Cities
+        c_nights = {str(o): {c: val(df, c) for c in CITIES} for o, df in sorted(have.items())}
+        c_eff, c_clear = {}, {}
         for c in CITIES:
-            e, n = effect_for({o: v.get(c) for o, v in per_night.items()})
-            effects[c] = None if e is None else round(e, 1)
-            clear[c] = n
-        out["years"].append(
-            {
-                "year": year,
-                "date": DIWALI[year],
-                "nights": {str(o): v for o, v in sorted(per_night.items())},
-                "unavailable": unavailable,
-                "effect": effects,
-                "clear_baseline_nights": clear,
-            }
-        )
-    return out
+            e, n = effect_for({o: val(df, c) for o, df in have.items()})
+            c_eff[c], c_clear[c] = (None if e is None else round(e, 1)), n
+        cities["years"].append({"year": year, "date": DIWALI[year], "nights": c_nights, "unavailable": unavailable,
+                                "effect": c_eff, "clear_baseline_nights": c_clear})
+        # Districts: only from all-India checkpoints
+        if not any(district_ids[0] in df.index for df in have.values()):
+            continue
+        d_nights = {str(o): [val(df, i) for i in district_ids] for o, df in sorted(have.items())}
+        effects, clear = [], []
+        for k, i in enumerate(district_ids):
+            e, n = effect_for({int(o): v[k] for o, v in d_nights.items()})
+            effects.append(None if e is None else round(e, 1))
+            clear.append(n)
+        dists["years"].append({"year": year, "date": DIWALI[year], "unavailable": unavailable, "effect": effects,
+                               "clear_baseline_nights": clear, "nights": d_nights})
+    return cities, dists
 
 
 def parse_years(s: str) -> list[int]:
@@ -171,6 +215,14 @@ def parse_years(s: str) -> list[int]:
         a, b = s.split("-")
         return list(range(int(a), int(b) + 1))
     return [int(y) for y in s.split(",")]
+
+
+def write_outputs(district_ids: list[str]):
+    cities, dists = build_json(district_ids)
+    OUT.write_text(json.dumps(cities, separators=(",", ":"), ensure_ascii=False))
+    if dists["years"]:
+        OUT_DISTRICTS.write_text(json.dumps(dists, separators=(",", ":"), ensure_ascii=False))
+    return cities, dists
 
 
 def main():
@@ -181,7 +233,9 @@ def main():
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     STATS_DIR.mkdir(parents=True, exist_ok=True)
-    cities = city_polygons(gpd.read_file(DISTRICTS_FULL))
+    districts = gpd.read_file(DISTRICTS_FULL)
+    zone_gdf = zones(districts)
+    parts = tile_parts(run.area_of_interest(districts))
     bm = BlackMarble(
         token=get_token(),
         output_directory=RAW / "blackmarble" / PRODUCT.value,
@@ -193,27 +247,27 @@ def main():
         if year not in DIWALI:
             log.warning(f"No Diwali date listed for {year}; skipping")
             continue
-        log.info(f"Diwali {year} ({DIWALI[year]})")
+        log.info(f"Diwali {year} ({DIWALI[year]}), {len(parts)} tiles per night")
         for o, day in nights(year):
             out = STATS_DIR / f"{day.isoformat()}.csv"
             if out.exists() and not args.force:
                 continue
             try:
-                df = process_night(bm, cities, day)
+                df = process_night(bm, parts, zone_gdf, day)
                 run.write_atomic(df, out)
-                ok = df["mean_rad"].notna().sum()
-                log.info(f"  {day} ({o:+d}): {ok}/{len(df)} cities clear")
+                d = df[~df["id"].isin(CITIES)]
+                miss = df["missing_tiles"].iloc[0]
+                log.info(f"  {day} ({o:+d}): {d['mean_rad'].notna().sum()}/{len(d)} districts clear" + (f", missing tiles {miss}" if miss else ""))
             except KeyboardInterrupt:
                 raise
-            except Exception as e:  # usually a missing NASA tile for that night; retried next run
+            except Exception as e:  # nothing at all for that night; retried next run
                 log.warning(f"  {day} ({o:+d}): unavailable ({type(e).__name__}: {str(e).splitlines()[0][:120]})")
                 log.debug(traceback.format_exc())
 
-    data = build_json()
-    OUT.write_text(json.dumps(data, separators=(",", ":"), ensure_ascii=False))
-    for y in data["years"]:
+    cities, dists = write_outputs(districts["id"].tolist())
+    for y in cities["years"]:
         log.info(f"{y['year']}: " + ", ".join(f"{c} {'n/a' if v is None else f'{v:+.0f}%'}" for c, v in y["effect"].items()))
-    log.info(f"wrote {OUT.relative_to(DATA.parent)}")
+    log.info(f"wrote {OUT.relative_to(DATA.parent)}" + (f" and {OUT_DISTRICTS.relative_to(DATA.parent)}" if dists["years"] else ""))
 
 
 if __name__ == "__main__":

@@ -54,6 +54,21 @@ export type Diwali = {
   }[];
 };
 
+/** Diwali effect for every district (pipeline/nightlights/diwali.py), loaded on demand. */
+export type DiwaliDistricts = {
+  window: number;
+  baseline_offsets: number[];
+  ids: string[];
+  years: {
+    year: number;
+    date: string;
+    unavailable: number[];
+    effect: (number | null)[]; // per district, aligned with ids
+    clear_baseline_nights: number[];
+    nights: Record<string, (number | null)[]>; // offset -> per district
+  }[];
+};
+
 /** NASA annual composites (VNP46A4), used for the long-term line on the trend chart. */
 export type Yearly = { years: number[]; ids: string[]; mean: (number | null)[][]; valid: (number | null)[][] };
 
@@ -64,6 +79,7 @@ export type AppData = {
   yearly: Yearly | null; // optional: only once the annual run has been done
   crosscheck: CrossCheck | null; // optional
   diwali: Diwali | null; // optional
+  optionalFiles: string[]; // optional data files present in this build (manifest.json)
   byId: Map<string, District>;
   index: Map<string, number>; // district id -> column in monthly arrays
 };
@@ -96,7 +112,7 @@ export async function loadData(): Promise<AppData> {
     byId.set(p.id, { ...shown, aliases, bbox: bboxOf(f.geometry), search: fold(`${shown.name} ${shown.state} ${aliases.join(" ")}`) });
   }
   const index = new Map(monthly.ids.map((id, i) => [id, i]));
-  return { districts, outline, monthly: fillMonthGaps(monthly), yearly, crosscheck, diwali, byId, index };
+  return { districts, outline, monthly: fillMonthGaps(monthly), yearly, crosscheck, diwali, optionalFiles: (await manifest).files, byId, index };
 }
 
 /**
