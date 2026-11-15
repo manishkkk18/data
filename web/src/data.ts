@@ -23,12 +23,16 @@ export type DistrictProps = { id: string; name: string; state: string };
 export type DistrictFC = FeatureCollection<Geometry, DistrictProps>;
 export type BBox = [number, number, number, number];
 
-export type District = DistrictProps & { bbox: BBox; search: string };
+export type District = DistrictProps & { bbox: BBox; search: string; aliases: string[] };
+
+/** NASA annual composites (VNP46A4), used for the long-term line on the trend chart. */
+export type Yearly = { years: number[]; ids: string[]; mean: (number | null)[][]; valid: (number | null)[][] };
 
 export type AppData = {
   districts: DistrictFC;
   outline: FeatureCollection;
   monthly: Monthly;
+  yearly: Yearly | null; // optional: only once the annual run has been done
   byId: Map<string, District>;
   index: Map<string, number>; // district id -> column in monthly arrays
 };
@@ -39,20 +43,72 @@ export async function loadData(): Promise<AppData> {
       if (!r.ok) throw new Error(`Could not load ${f} (${r.status})`);
       return r.json();
     });
-  const [districts, outline, monthly] = (await Promise.all([
+  const [districts, outline, monthly, yearly] = (await Promise.all([
     get("districts.geojson"),
     get("india_outline.geojson"),
     get("monthly.json"),
-  ])) as [DistrictFC, FeatureCollection, Monthly];
+    get("yearly.json").catch(() => null), // optional file
+  ])) as [DistrictFC, FeatureCollection, Monthly, Yearly | null];
 
   const byId = new Map<string, District>();
   for (const f of districts.features) {
     const p = f.properties;
-    byId.set(p.id, { ...p, bbox: bboxOf(f.geometry), search: fold(`${p.name} ${p.state}`) });
+    const aliases = ALIASES[p.id] ?? [];
+    byId.set(p.id, { ...p, aliases, bbox: bboxOf(f.geometry), search: fold(`${p.name} ${p.state} ${aliases.join(" ")}`) });
   }
   const index = new Map(monthly.ids.map((id, i) => [id, i]));
-  return { districts, outline, monthly: fillMonthGaps(monthly), byId, index };
+  return { districts, outline, monthly: fillMonthGaps(monthly), yearly, byId, index };
 }
+
+/**
+ * Other names people search for. Keys are district ids; the source uses older or
+ * different spellings (Bangalore, Gurgaon, Ahmadabad) or names the district rather
+ * than its main city (Ernakulam for Kochi).
+ */
+const ALIASES: Record<string, string[]> = {
+  "karnataka--bangalore": ["Bengaluru", "Bengaluru Urban"],
+  "karnataka--bangalore-rural": ["Bengaluru Rural"],
+  "karnataka--mysore": ["Mysuru"],
+  "karnataka--gulbarga": ["Kalaburagi"],
+  "karnataka--belgaum": ["Belagavi"],
+  "karnataka--shimoga": ["Shivamogga"],
+  "karnataka--tumkur": ["Tumakuru"],
+  "karnataka--chikmagalur": ["Chikkamagaluru"],
+  "karnataka--dakshina-kannada": ["Mangaluru", "Mangalore"],
+  "karnataka--dharwad": ["Hubli", "Hubballi"],
+  "haryana--gurgaon": ["Gurugram"],
+  "haryana--mewat": ["Nuh"],
+  "gujarat--ahmadabad": ["Ahmedabad", "Amdavad"],
+  "gujarat--vadodara": ["Baroda"],
+  "uttar-pradesh--allahabad": ["Prayagraj"],
+  "uttar-pradesh--faizabad": ["Ayodhya"],
+  "uttar-pradesh--gautam-buddha-nagar": ["Noida", "Greater Noida"],
+  "uttar-pradesh--kanpur-nagar": ["Kanpur"],
+  "madhya-pradesh--hoshangabad": ["Narmadapuram"],
+  "maharashtra--aurangabad": ["Chhatrapati Sambhajinagar"],
+  "maharashtra--osmanabad": ["Dharashiv"],
+  "maharashtra--ahmadnagar": ["Ahilyanagar", "Ahmednagar"],
+  "maharashtra--mumbai": ["Bombay"],
+  "maharashtra--pune": ["Poona"],
+  "maharashtra--raigarh": ["Raigad"],
+  "telangana--hyderabad": ["Secunderabad"],
+  "kerala--ernakulam": ["Kochi", "Cochin"],
+  "kerala--thiruvananthapuram": ["Trivandrum"],
+  "kerala--kozhikode": ["Calicut"],
+  "kerala--thrissur": ["Trichur"],
+  "tamil-nadu--chennai": ["Madras"],
+  "tamil-nadu--tiruchirappalli": ["Trichy"],
+  "tamil-nadu--kancheepuram": ["Kanchipuram"],
+  "west-bengal--kolkata": ["Calcutta"],
+  "andhra-pradesh--visakhapatnam": ["Vizag"],
+  "odisha--khordha": ["Bhubaneswar", "Khurda"],
+  "assam--kamrup-metropolitan": ["Guwahati"],
+  "meghalaya--east-khasi-hills": ["Shillong"],
+  "tripura--west-tripura": ["Agartala"],
+  "arunachal-pradesh--papum-pare": ["Itanagar"],
+  "goa--north-goa": ["Panaji", "Panjim"],
+  "punjab--sahibzada-ajit-singh-nagar": ["Mohali"],
+};
 
 /**
  * Make the timeline continuous: every calendar month from the first to the last one
@@ -114,10 +170,11 @@ export type MonthSummary = {
   withData: number;
   gaps: number;
   rank: Map<string, number>; // 1 = brightest
+  stateRank: Map<string, [number, number]>; // [rank within state, districts with data in state]
   brighterThan2015: number | null; // null when there's no 2015 baseline yet
 };
 
-export function summarise(m: Monthly, mi: number): MonthSummary {
+export function summarise(m: Monthly, mi: number, stateOf: (id: string) => string = () => ""): MonthSummary {
   const mean = m.mean[mi];
   const sum = m.sum[mi];
   let totalSum = 0;
@@ -136,6 +193,15 @@ export function summarise(m: Monthly, mi: number): MonthSummary {
   });
   ranked.sort((a, b) => b[1] - a[1]);
   const rank = new Map(ranked.map(([id], i) => [id, i + 1]));
+  const stateCounts = new Map<string, number>();
+  const stateRank = new Map<string, [number, number]>();
+  for (const [id] of ranked) {
+    const st = stateOf(id);
+    const r = (stateCounts.get(st) ?? 0) + 1;
+    stateCounts.set(st, r);
+    stateRank.set(id, [r, 0]);
+  }
+  for (const [id, v] of stateRank) v[1] = stateCounts.get(stateOf(id)) ?? 0;
 
   const base = baselineIndex(m, mi);
   let brighter: number | null = null;
@@ -153,6 +219,7 @@ export function summarise(m: Monthly, mi: number): MonthSummary {
     withData: ranked.length,
     gaps: m.ids.length - ranked.length,
     rank,
+    stateRank,
     brighterThan2015: brighter,
   };
 }

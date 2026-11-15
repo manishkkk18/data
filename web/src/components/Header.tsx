@@ -33,7 +33,7 @@ function Search({ districts, onPick, compact }: Props) {
     const starts: District[] = [];
     const contains: District[] = [];
     for (const d of districts) {
-      if (fold(d.name).startsWith(term)) starts.push(d);
+      if (fold(d.name).startsWith(term) || d.aliases.some((a) => fold(a).startsWith(term))) starts.push(d);
       else if (d.search.includes(term)) contains.push(d);
       if (starts.length >= 8) break;
     }
@@ -93,7 +93,10 @@ function Search({ districts, onPick, compact }: Props) {
               }}
               onMouseEnter={() => setActive(i)}
             >
-              <span>{d.name}</span>
+              <span>
+                {d.name}
+                {matchedAlias(d, q) && <span className="muted"> · {matchedAlias(d, q)}</span>}
+              </span>
               <span className="muted">{d.state}</span>
             </li>
           ))}
@@ -101,6 +104,13 @@ function Search({ districts, onPick, compact }: Props) {
       )}
     </div>
   );
+}
+
+/** The alternative name the user typed, if that's how this district matched. */
+function matchedAlias(d: District, q: string) {
+  const term = fold(q.trim());
+  if (!term || fold(d.name).includes(term)) return null;
+  return d.aliases.find((a) => fold(a).includes(term)) ?? null;
 }
 
 function Logo() {

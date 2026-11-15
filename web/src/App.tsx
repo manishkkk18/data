@@ -60,7 +60,7 @@ function Main({ data }: { data: AppData }) {
   const [base, setBase] = useState<BaseLayer>("districts");
   const [threeD, setThreeD] = useState(false);
 
-  const summary = useMemo(() => summarise(m, monthIndex), [m, monthIndex]);
+  const summary = useMemo(() => summarise(m, monthIndex, (id) => data.byId.get(id)?.state ?? ""), [m, monthIndex, data]);
   const baseline = baselineIndex(m, monthIndex);
   const hasBaseline = baseline != null;
   const growthMode = mode === "growth" && hasBaseline;
@@ -241,6 +241,10 @@ function Main({ data }: { data: AppData }) {
           expanded={sheetOpen}
           onToggle={() => setSheetOpen((o) => !o)}
           onClear={() => setSelectedId(null)}
+          onPickMonth={(i) => {
+            setPlaying(false);
+            setMonthIndex(i);
+          }}
         />
       </main>
       <About monthly={m} />

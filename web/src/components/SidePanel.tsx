@@ -1,4 +1,5 @@
 import { changePct, fmtPct, fmtRad, monthLabel, type AppData, type MonthSummary } from "../data";
+import TrendChart from "./TrendChart";
 
 type Props = {
   data: AppData;
@@ -8,9 +9,10 @@ type Props = {
   expanded: boolean; // bottom-sheet state on phones; ignored on desktop
   onToggle: () => void;
   onClear: () => void;
+  onPickMonth: (i: number) => void;
 };
 
-export default function SidePanel({ data, monthIndex, summary, selectedId, expanded, onToggle, onClear }: Props) {
+export default function SidePanel({ data, monthIndex, summary, selectedId, expanded, onToggle, onClear, onPickMonth }: Props) {
   const m = data.monthly;
   const d = selectedId ? data.byId.get(selectedId) : undefined;
   const col = d ? data.index.get(d.id) : undefined;
@@ -20,6 +22,7 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
   const lit = col != null ? m.lit[monthIndex][col] : null;
   const valid = col != null ? m.valid[monthIndex][col] : null;
   const rank = d ? summary.rank.get(d.id) : undefined;
+  const stateRank = d ? summary.stateRank.get(d.id) : undefined;
   const ch1 = col != null ? changePct(m, col, monthIndex, 1) : null;
   const ch5 = col != null ? changePct(m, col, monthIndex, 5) : null;
   const needsHistory = m.months.length < 13;
@@ -69,12 +72,15 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
             <div className="tiles">
               <Tile label="1-year change" value={fmtPct(ch1, true)} tone={ch1} hint={ch1 == null && needsHistory ? "after backfill" : undefined} />
               <Tile label="5-year change" value={fmtPct(ch5, true)} tone={ch5} hint={ch5 == null && needsHistory ? "after backfill" : undefined} />
-              <Tile label="National rank" value={rank ? `#${rank}` : "–"} hint={rank ? `of ${summary.withData}` : undefined} />
+              <Tile
+                label="National rank"
+                value={rank ? `#${rank}` : "–"}
+                hint={rank ? `of ${summary.withData}` : undefined}
+                hint2={stateRank ? `#${stateRank[0]} of ${stateRank[1]} in ${d.state}` : undefined}
+              />
             </div>
 
-            <div className="chart-placeholder">
-              <p className="muted small">The month-by-month trend since 2015 appears here once the history is loaded.</p>
-            </div>
+            <TrendChart data={data} districtId={d.id} monthIndex={monthIndex} onPickMonth={onPickMonth} />
 
             <div className="side-actions">
               <button type="button" className="btn" disabled title="Coming in a later phase">Compare with…</button>
@@ -105,13 +111,14 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
   );
 }
 
-function Tile({ label, value, hint, tone }: { label: string; value: string; hint?: string; tone?: number | null }) {
+function Tile({ label, value, hint, hint2, tone }: { label: string; value: string; hint?: string; hint2?: string; tone?: number | null }) {
   const cls = tone == null ? "" : tone >= 0 ? "up" : "down";
   return (
     <div className="tile">
       <span className="tile-label">{label}</span>
       <span className={`tile-value ${cls}`}>{value}</span>
       {hint && <span className="tile-hint">{hint}</span>}
+      {hint2 && <span className="tile-hint">{hint2}</span>}
     </div>
   );
 }

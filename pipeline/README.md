@@ -40,8 +40,13 @@ $PY -X utf8 -m nightlights.boundaries
 # 2. One month, with a sanity-check map in data/qa/
 $PY -X utf8 -m nightlights.run --start 2025-10 --end 2025-10 --qa
 
-# 3. Backfill (resumable: re-run the same command after a crash or Ctrl-C)
-$PY -X utf8 -m nightlights.run --start 2015-01 --end 2026-10
+# 3. Backfill (resumable: re-run after a crash or Ctrl-C). Does each October first,
+#    so year-on-year comparisons work early, then every month. 4 downloads in parallel.
+bash backfill.sh
+
+# 4. Yearly averages from NASA's annual product (VNP46A4) for the long-term trend line.
+#    ~1.1 GB per year; run after the monthly backfill. Writes data/yearly.json.
+$PY -X utf8 -m nightlights.annual --start 2015 --end 2025
 
 # Tests
 $PY -X utf8 -m pytest -q

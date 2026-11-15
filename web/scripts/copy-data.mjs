@@ -1,8 +1,15 @@
 // Copy the pipeline's small output files into public/ so Vite serves and bundles them.
-import { copyFileSync, mkdirSync } from "node:fs";
+import { copyFileSync, existsSync, mkdirSync } from "node:fs";
 
-const files = ["districts.geojson", "india_outline.geojson", "monthly.json"];
+const required = ["districts.geojson", "india_outline.geojson", "monthly.json"];
+const optional = ["yearly.json"]; // appears once the annual (VNP46A4) run has been done
 const out = new URL("../public/data/", import.meta.url);
 mkdirSync(out, { recursive: true });
-for (const f of files) copyFileSync(new URL(`../../data/${f}`, import.meta.url), new URL(f, out));
-console.log(`copied ${files.length} data files to public/data`);
+let n = 0;
+for (const f of [...required, ...optional]) {
+  const src = new URL(`../../data/${f}`, import.meta.url);
+  if (!existsSync(src) && optional.includes(f)) continue;
+  copyFileSync(src, new URL(f, out));
+  n++;
+}
+console.log(`copied ${n} data files to public/data`);
