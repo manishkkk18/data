@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Header from "./components/Header";
 import MapView, { type ColorMode, type DistrictValue, type FlyRequest, type HoverInfo } from "./components/MapView";
 import LayerSwitcher, { type BaseLayer } from "./components/LayerSwitcher";
@@ -11,6 +11,7 @@ import SwipeCompare from "./components/SwipeCompare";
 import PerfBadge from "./components/PerfBadge";
 import DiwaliEffect from "./components/DiwaliEffect";
 import Highways, { type Corridor } from "./components/Highways";
+import WhyItMatters from "./components/WhyItMatters";
 import TimeBar from "./components/TimeBar";
 import Legend, { type Highlight } from "./components/Legend";
 import LoadingOutline from "./components/LoadingOutline";
@@ -34,6 +35,8 @@ import {
 } from "./data";
 
 const MOBILE = "(max-width: 899px)";
+const PHONE = "(max-width: 639px)";
+const TAGLINE = "How bright India is at night, district by district, and what it says about growth.";
 
 function useMedia(q: string) {
   const [match, setMatch] = useState(() => window.matchMedia(q).matches);
@@ -62,6 +65,23 @@ export default function App() {
 function Main({ data }: { data: AppData }) {
   const m = data.monthly;
   const isMobile = useMedia(MOBILE);
+  const isPhone = useMedia(PHONE);
+  const [statsOpen, setStatsOpen] = useState(false);
+  const [intro, setIntro] = useState(true); // one-line explainer, first load only
+  const [mapInView, setMapInView] = useState(true);
+  useEffect(() => {
+    if (!intro) return;
+    const t = setTimeout(() => setIntro(false), 12000);
+    return () => clearTimeout(t);
+  }, [intro]);
+  // The bottom sheet belongs to the map: it slides away once the map scrolls out of view.
+  useEffect(() => {
+    const el = document.getElementById("map");
+    if (!el) return;
+    const io = new IntersectionObserver(([e]) => setMapInView(e.intersectionRatio > 0.35), { threshold: [0, 0.2, 0.35, 0.5, 1] });
+    io.observe(el);
+    return () => io.disconnect();
+  }, []);
   const initial = useMemo(() => readUrl(), []);
   const latest = latestLoaded(m);
 
@@ -139,7 +159,11 @@ function Main({ data }: { data: AppData }) {
 
   // Fit padding keeps districts clear of the floating panels: the KPI strip on top, the
   // timeline at the bottom and, on desktop, the district card on the right.
-  const padding = isMobile ? { top: 120, bottom: 150, left: 8, right: 44 } : { top: 76, bottom: 132, left: 24, right: 404 };
+  const padding = isPhone
+    ? { top: 112, bottom: 136, left: 8, right: 60 }
+    : isMobile
+      ? { top: 120, bottom: 150, left: 8, right: 44 }
+      : { top: 76, bottom: 132, left: 24, right: 404 };
 
   const selectAndFly = useCallback(
     (id: string | null) => {
@@ -228,6 +252,56 @@ function Main({ data }: { data: AppData }) {
     setPlaying((p) => !p);
   };
 
+  const modeToggle = (cls: string) => (
+    <div className={`toggle ${cls}`} role="radiogroup" aria-label="Colour districts by">
+      <button type="button" role="radio" aria-checked={!growthMode} className={!growthMode ? "on" : ""} onClick={() => setMode("radiance")}>
+        Radiance
+      </button>
+      <button
+        type="button"
+        role="radio"
+        aria-checked={growthMode}
+        className={growthMode ? "on" : ""}
+        disabled={!hasBaseline}
+        title={hasBaseline ? undefined : "Needs the same month in 2015"}
+        onClick={() => {
+          setMode("growth");
+          setBase("districts");
+          track("growth-mode");
+        }}
+      >
+        Growth since 2015
+      </button>
+    </div>
+  );
+  const locateBtn = (cls: string) => (
+    <button type="button" className={cls} onClick={locate} aria-label="Find my district (uses your location)">
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <circle cx="10" cy="10" r="3" fill="currentColor" />
+        <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+        <circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
+      </svg>
+      <span className="chip-text">Find my district</span>
+    </button>
+  );
+  const shareBtn = (cls: string) => (
+    <button type="button" className={cls} onClick={share} aria-label="Copy a link to this view">
+      <svg viewBox="0 0 20 20" aria-hidden="true">
+        <path d="M8 12l4-4M7 9.5L5.5 11a3 3 0 004.2 4.2l1.5-1.5M13 10.5l1.5-1.5a3 3 0 00-4.2-4.2L8.8 6.3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+      <span className="chip-text">Share</span>
+    </button>
+  );
+  const legend: ReactNode =
+    swipe || base === "districts" ? (
+      <Legend growth={growthMode} onHighlight={setHighlight} />
+    ) : (
+      <p className="legend legend-note muted">
+        {base === "night" ? "NASA Black Marble 2016 image" : "NASA true colour, 21 Feb 2026"}. District colours are hidden; outlines stay.
+      </p>
+    );
+  const monthText = swipe ? "Before / after" : monthLabel(m.months[monthIndex]);
+
   const hovered = hover ? data.byId.get(hover.id) : undefined;
   const hoverCol = hover ? data.index.get(hover.id) : undefined;
   const hoverSeries = useMemo(() => (hoverCol != null ? m.mean.map((row) => row[hoverCol]) : []), [m, hoverCol]);
@@ -242,6 +316,7 @@ function Main({ data }: { data: AppData }) {
           track("search");
         }}
         compact={isMobile}
+        phone={isPhone}
       />
       <main id="map" className="stage" aria-label="Night lights map">
         <div className="map-wrap">
@@ -300,6 +375,8 @@ function Main({ data }: { data: AppData }) {
               if (on) track("orbit-on");
             }}
             disabled={!!swipe}
+            compact={isPhone}
+            after={isPhone ? <LegendChip>{legend}</LegendChip> : undefined}
             extra={
               <button
                 type="button"
@@ -313,7 +390,7 @@ function Main({ data }: { data: AppData }) {
                   <rect x="2" y="3" width="16" height="14" rx="2" fill="none" stroke="currentColor" strokeWidth="1.6" />
                   <path d="M10 1v18" stroke="currentColor" strokeWidth="1.6" />
                 </svg>
-                <span>Before / after</span>
+                <span>{isPhone && swipe ? "Before / after: on" : "Before / after"}</span>
               </button>
             }
           />
@@ -359,56 +436,95 @@ function Main({ data }: { data: AppData }) {
           )}
         </div>
 
-        <div className="kpi-strip">
-          <div className="kpi">
-            <span className="kpi-label">Month</span>
-            <span className="kpi-month">{swipe ? "Before / after" : monthLabel(m.months[monthIndex])}</span>
-          </div>
-          <div className="kpi">
-            <span className="kpi-label">Avg radiance</span>
-            <span className="kpi-value amber">{fmtRad(summary.avg)}</span>
-          </div>
-          <div className="kpi">
-            <span className="kpi-label">Brighter than 2015</span>
-            <span className="kpi-value blue">{hasBaseline ? summary.brighterThan2015 : "–"}</span>
-          </div>
-          <div className="toggle" role="radiogroup" aria-label="Colour districts by">
-            <button type="button" role="radio" aria-checked={!growthMode} className={!growthMode ? "on" : ""} onClick={() => setMode("radiance")}>
-              Radiance
-            </button>
-            <button
-              type="button"
-              role="radio"
-              aria-checked={growthMode}
-              className={growthMode ? "on" : ""}
-              disabled={!hasBaseline}
-              title={hasBaseline ? undefined : "Needs the same month in 2015"}
-              onClick={() => {
-                setMode("growth");
-                setBase("districts");
-                track("growth-mode");
-              }}
-            >
-              Growth since 2015
-            </button>
-          </div>
-          <div className="kpi-actions">
-            <button type="button" className="chip" onClick={locate} aria-label="Find my district (uses your location)">
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <circle cx="10" cy="10" r="3" fill="currentColor" />
-                <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-                <circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
-              </svg>
-              <span className="chip-text">Find my district</span>
-            </button>
-            <button type="button" className="chip" onClick={share} aria-label="Copy a link to this view">
-              <svg viewBox="0 0 20 20" aria-hidden="true">
-                <path d="M8 12l4-4M7 9.5L5.5 11a3 3 0 004.2 4.2l1.5-1.5M13 10.5l1.5-1.5a3 3 0 00-4.2-4.2L8.8 6.3" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
-              </svg>
-              <span className="chip-text">Share</span>
-            </button>
-          </div>
-        </div>
+        {isPhone ? (
+          <>
+            <div className={`kpi-strip phone ${statsOpen ? "open" : ""}`}>
+              <button
+                type="button"
+                className="kpi-line"
+                aria-expanded={statsOpen}
+                onClick={() => {
+                  setStatsOpen((o) => !o);
+                  setIntro(false);
+                }}
+              >
+                {intro ? (
+                  <span className="kpi-tagline">{TAGLINE}</span>
+                ) : (
+                  <span className="kpi-summary">
+                    <b>{monthText}</b>
+                    <span className="sep"> · </span>avg <span className="amber mono">{fmtRad(summary.avg)}</span>
+                    {hasBaseline && (
+                      <>
+                        <span className="sep"> · </span>
+                        <span className="blue mono">{summary.brighterThan2015}</span> brighter than 2015
+                      </>
+                    )}
+                  </span>
+                )}
+                <svg className="chev" viewBox="0 0 20 20" aria-hidden="true">
+                  <path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </button>
+              {statsOpen && (
+                <div className="kpi-more">
+                  <div className="kpi">
+                    <span className="kpi-label">Month</span>
+                    <span className="kpi-month">{monthText}</span>
+                  </div>
+                  <div className="kpi">
+                    <span className="kpi-label">Avg radiance</span>
+                    <span className="kpi-value amber">
+                      {fmtRad(summary.avg)} <small className="muted">nW/cm²/sr</small>
+                    </span>
+                  </div>
+                  <div className="kpi">
+                    <span className="kpi-label">Brighter than 2015</span>
+                    <span className="kpi-value blue">
+                      {hasBaseline ? summary.brighterThan2015 : "–"} <small className="muted">districts, vs the same month in 2015</small>
+                    </span>
+                  </div>
+                  <p className="muted small">{TAGLINE}</p>
+                </div>
+              )}
+            </div>
+            {modeToggle("mode-pill")}
+            <div className="map-fabs" role="group" aria-label="Map actions">
+              {locateBtn("fab")}
+              {shareBtn("fab")}
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="kpi-strip">
+              <div className="kpi">
+                <span className="kpi-label">Month</span>
+                <span className="kpi-month">{monthText}</span>
+              </div>
+              <div className="kpi">
+                <span className="kpi-label">Avg radiance</span>
+                <span className="kpi-value amber">{fmtRad(summary.avg)}</span>
+              </div>
+              <div className="kpi">
+                <span className="kpi-label">Brighter than 2015</span>
+                <span className="kpi-value blue">{hasBaseline ? summary.brighterThan2015 : "–"}</span>
+              </div>
+              {modeToggle("")}
+              <div className="kpi-actions">
+                {locateBtn("chip")}
+                {shareBtn("chip")}
+              </div>
+            </div>
+            {intro && (
+              <div className="intro-line" role="note">
+                <span>{TAGLINE}</span>
+                <button type="button" className="link-btn" aria-label="Dismiss" onClick={() => setIntro(false)}>
+                  ×
+                </button>
+              </div>
+            )}
+          </>
+        )}
 
         <SidePanel
           data={data}
@@ -417,6 +533,7 @@ function Main({ data }: { data: AppData }) {
           selectedId={selectedId}
           expanded={sheetOpen}
           onToggle={() => setSheetOpen((o) => !o)}
+          away={isMobile && !mapInView}
           onClear={() => setSelectedId(null)}
           onPickMonth={(i) => {
             setPlaying(false);
@@ -456,7 +573,7 @@ function Main({ data }: { data: AppData }) {
               <button type="button" className="btn" onClick={() => setSwipe(null)}>
                 Done
               </button>
-              <Legend growth={false} onHighlight={setHighlight} />
+              {!isPhone && <Legend growth={false} onHighlight={setHighlight} />}
             </div>
           ) : (
             <>
@@ -474,13 +591,7 @@ function Main({ data }: { data: AppData }) {
                 onSpeed={setSpeed}
                 national={m.national_avg ?? []}
               />
-              {base === "districts" ? (
-                <Legend growth={growthMode} onHighlight={setHighlight} />
-              ) : (
-                <p className="legend legend-note muted">
-                  {base === "night" ? "NASA Black Marble 2016 image" : "NASA true colour, 21 Feb 2026"}. District colours are hidden; outlines stay.
-                </p>
-              )}
+              {!isPhone && legend}
             </>
           )}
         </div>
@@ -491,7 +602,9 @@ function Main({ data }: { data: AppData }) {
           </div>
         )}
       </main>
+      <WhyItMatters />
       <Insights
+        phone={isPhone}
         data={data}
         monthIndex={monthIndex}
         onPick={(id) => {
@@ -536,5 +649,23 @@ function Main({ data }: { data: AppData }) {
       <About monthly={m} />
       <PerfBadge />
     </>
+  );
+}
+
+/** Phones: the colour key hides behind a small chip on the map. */
+function LegendChip({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <div className="legend-chip">
+      {open && (
+        <div className="legend-pop" id="legend-pop">
+          {children}
+        </div>
+      )}
+      <button type="button" className="layers-btn" aria-expanded={open} aria-controls="legend-pop" onClick={() => setOpen((o) => !o)}>
+        <span className="legend-swatch" aria-hidden="true" />
+        <span>Legend</span>
+      </button>
+    </div>
   );
 }

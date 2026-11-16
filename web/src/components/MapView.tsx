@@ -143,6 +143,13 @@ export default function MapView(props: Props) {
       }),
       "bottom-right",
     );
+    // Phones: keep the credits folded into the (i) button so they never sit under the map controls.
+    if (window.matchMedia("(max-width: 639px)").matches) {
+      const fold = () => container.current?.querySelector(".maplibregl-ctrl-attrib")?.classList.remove("maplibregl-compact-show");
+      map.once("load", fold);
+      map.once("idle", fold);
+      setTimeout(fold, 1500);
+    }
 
     // "style.load" fires as soon as the style is parsed; "load" would wait for every
     // visible tile, which on a globe view can take 10+ seconds on a slow connection.

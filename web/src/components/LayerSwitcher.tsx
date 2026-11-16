@@ -17,16 +17,25 @@ type Props = {
   disabled?: boolean;
   orbit?: boolean;
   onOrbit?: (on: boolean) => void;
+  compact?: boolean; // phones: `extra` moves inside the panel, so one button holds every map option
+  after?: ReactNode; // shown after the Layers button (e.g. the legend chip on phones)
 };
 
-export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, disabled, orbit, onOrbit }: Props) {
+export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, disabled, orbit, onOrbit, compact, after }: Props) {
   const [open, setOpen] = useState(false);
   const id = useId();
+  const blocked = disabled && !compact;
   return (
-    <div className="layers">
-      {open && !disabled && (
+    <div className={`layers ${compact ? "compact" : ""} ${open ? "open" : ""}`}>
+      {open && !blocked && (
         <div className="layers-panel" id={`${id}-panel`}>
-          <fieldset>
+          {compact && extra && (
+            <div className="layers-extra">
+              <span className="layers-legend">Compare two months</span>
+              <div onClick={() => setOpen(false)}>{extra}</div>
+            </div>
+          )}
+          <fieldset disabled={disabled}>
             <legend>Map shows</legend>
             {OPTIONS.map((o) => (
               <label key={o.value} className={`layer-opt ${base === o.value ? "on" : ""}`}>
@@ -38,8 +47,8 @@ export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, d
               </label>
             ))}
           </fieldset>
-          <label className={`switch ${base !== "districts" ? "disabled" : ""}`}>
-            <input type="checkbox" role="switch" checked={threeD} disabled={base !== "districts"} onChange={(e) => onThreeD(e.target.checked)} />
+          <label className={`switch ${base !== "districts" || disabled ? "disabled" : ""}`}>
+            <input type="checkbox" role="switch" checked={threeD} disabled={base !== "districts" || disabled} onChange={(e) => onThreeD(e.target.checked)} />
             <span className="switch-track" aria-hidden="true" />
             <span>
               <span className="layer-label">3D lights skyline</span>
@@ -73,8 +82,8 @@ export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, d
         className="layers-btn"
         aria-expanded={open}
         aria-controls={`${id}-panel`}
-        disabled={disabled}
-        title={disabled ? "Not available during before/after swipe" : undefined}
+        disabled={blocked}
+        title={blocked ? "Not available during before/after swipe" : undefined}
         onClick={() => setOpen((o) => !o)}
       >
         <svg viewBox="0 0 20 20" aria-hidden="true">
@@ -83,7 +92,8 @@ export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, d
         </svg>
         <span>Layers{threeD && base === "districts" ? " · 3D" : ""}</span>
       </button>
-      {extra}
+      {!compact && extra}
+      {after}
       </div>
     </div>
   );

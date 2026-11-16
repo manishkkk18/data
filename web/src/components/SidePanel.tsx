@@ -18,9 +18,10 @@ type Props = {
   onCompare: () => void;
   onPickStory: (id: string) => void; // a story card was tapped: select + fly
   onShare: () => void;
+  away?: boolean; // phones: the map is scrolled out of view, so the sheet slides away
 };
 
-export default function SidePanel({ data, monthIndex, summary, selectedId, expanded, onToggle, onClear, onPickMonth, onCompare, onPickStory, onShare }: Props) {
+export default function SidePanel({ data, monthIndex, summary, selectedId, expanded, onToggle, onClear, onPickMonth, onCompare, onPickStory, onShare, away }: Props) {
   const m = data.monthly;
   const d = selectedId ? data.byId.get(selectedId) : undefined;
   const col = d ? data.index.get(d.id) : undefined;
@@ -40,7 +41,7 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
   const multiple = mean != null && summary.avg ? mean / summary.avg : null;
 
   return (
-    <aside className="side panel" aria-label="District details" data-expanded={expanded}>
+    <aside className="side panel" aria-label="District details" data-expanded={expanded} data-away={away || undefined} aria-hidden={away || undefined}>
       <button className="sheet-handle" type="button" aria-expanded={expanded} onClick={onToggle}>
         <span className="sheet-grip" aria-hidden="true" />
         <span className="sheet-peek">

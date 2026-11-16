@@ -1,28 +1,96 @@
-import { useId, useMemo, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import { fold, type District } from "../data";
 
 type Props = { districts: District[]; onPick: (id: string) => void; compact?: boolean };
 
-export default function Header({ districts, onPick, compact }: Props) {
+const SECTIONS: [string, string][] = [
+  ["map", "Map"],
+  ["why", "Why it matters"],
+  ["insights", "Insights"],
+  ["highways", "Highways"],
+  ["compare", "Compare"],
+  ["about", "About the data"],
+];
+
+export default function Header({ districts, onPick, compact, phone }: Props & { phone?: boolean }) {
+  const [active, setActive] = useState("map");
+  const [searching, setSearching] = useState(false);
+  const nav = useRef<HTMLElement>(null);
+
+  // The tab for the section on screen is highlighted (and kept in view on the phone tab bar).
+  useEffect(() => {
+    const seen = new Map<string, number>();
+    const io = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((e) => seen.set(e.target.id, e.isIntersecting ? e.intersectionRect.height : 0));
+        let best = "map";
+        let most = 0;
+        seen.forEach((h, id) => {
+          if (h > most) [best, most] = [id, h];
+        });
+        setActive(best);
+      },
+      { threshold: [0, 0.25, 0.5, 0.75, 1] },
+    );
+    const t = setTimeout(() => SECTIONS.forEach(([id]) => document.getElementById(id) && io.observe(document.getElementById(id)!)), 500);
+    return () => {
+      clearTimeout(t);
+      io.disconnect();
+    };
+  }, []);
+  useEffect(() => {
+    const a = nav.current?.querySelector<HTMLElement>(`a[href="#${active}"]`);
+    if (a && nav.current && nav.current.scrollWidth > nav.current.clientWidth) {
+      nav.current.scrollTo({ left: a.offsetLeft - 16, behavior: "smooth" });
+    }
+  }, [active]);
+
   return (
-    <header className="header">
+    <header className={`header ${searching ? "searching" : ""}`}>
       <a className="brand" href="#map" aria-label="India Night Lights, back to the map">
         <Logo />
         <span className="brand-name">India Night Lights</span>
       </a>
-      <nav className="nav" aria-label="Sections">
-        <a href="#map" aria-current="page">Map</a>
-        <a href="#insights">Insights</a>
-        <a href="#highways">Highways</a>
-        <a href="#compare">Compare</a>
-        <a href="#about">About the data</a>
+      <nav className="nav" aria-label="Sections" ref={nav}>
+        {SECTIONS.map(([id, label]) => (
+          <a key={id} href={`#${id}`} aria-current={active === id ? "location" : undefined}>
+            {label}
+          </a>
+        ))}
       </nav>
-      <Search districts={districts} onPick={onPick} compact={compact} />
+      {phone && !searching ? (
+        <button type="button" className="icon-btn search-toggle" aria-label="Search districts" onClick={() => setSearching(true)}>
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <circle cx="9" cy="9" r="6" fill="none" stroke="currentColor" strokeWidth="2" />
+            <path d="M14 14l4 4" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+      ) : (
+        <div className="header-search">
+          <Search
+            districts={districts}
+            onPick={(id) => {
+              onPick(id);
+              setSearching(false);
+            }}
+            compact={compact}
+            autoFocus={phone}
+            placeholder={phone ? "Search a district" : undefined}
+          />
+          {phone && (
+            <button type="button" className="icon-btn" aria-label="Close search" onClick={() => setSearching(false)}>
+              <svg viewBox="0 0 20 20" aria-hidden="true">
+                <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+              </svg>
+            </button>
+          )}
+        </div>
+      )}
     </header>
   );
 }
 
-export function Search({ districts, onPick, compact, placeholder, label = "Search districts" }: Props & { placeholder?: string; label?: string }) {
+export function Search({ districts, onPick, compact, placeholder, label = "Search districts", autoFocus }: Props & { placeholder?: string; label?: string; autoFocus?: boolean }) {
   const [q, setQ] = useState("");
   const [open, setOpen] = useState(false);
   const [active, setActive] = useState(0);
@@ -59,6 +127,7 @@ export function Search({ districts, onPick, compact, placeholder, label = "Searc
         type="search"
         placeholder={placeholder ?? (compact ? "Search" : "Search a district")}
         autoComplete="off"
+        autoFocus={autoFocus}
         role="combobox"
         aria-expanded={open && results.length > 0}
         aria-controls={listId}
