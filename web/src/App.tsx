@@ -1,6 +1,6 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Header from "./components/Header";
-import MapView, { type ColorMode, type DistrictValue, type FlyRequest, type HoverInfo } from "./components/MapView";
+import MapView, { type ColorMode, type DistrictValue, type FlyRequest, type HoverInfo, type RoadHover, type RoadValue } from "./components/MapView";
 import LayerSwitcher, { type BaseLayer } from "./components/LayerSwitcher";
 import SidePanel from "./components/SidePanel";
 import About from "./components/About";
@@ -10,7 +10,7 @@ import CrossCheck from "./components/CrossCheck";
 import SwipeCompare from "./components/SwipeCompare";
 import PerfBadge from "./components/PerfBadge";
 import DiwaliEffect from "./components/DiwaliEffect";
-import Highways, { type Corridor } from "./components/Highways";
+import Highways, { CorridorCard, type Corridor, type Corridors } from "./components/Highways";
 import WhyItMatters from "./components/WhyItMatters";
 import TimeBar from "./components/TimeBar";
 import Legend, { type Highlight } from "./components/Legend";
@@ -105,7 +105,20 @@ function Main({ data }: { data: AppData }) {
   const [swipe, setSwipe] = useState<{ before: number; after: number } | null>(null);
   const [mainMap, setMainMap] = useState<MlMap | null>(null);
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
-  const [corridor, setCorridor] = useState<{ id: string; name: string; bbox: [number, number, number, number]; n: number } | null>(null);
+  // Highway corridors on the map
+  const roadsAvailable = ["corridors.json", "corridors.geojson", "corridor_segments.geojson"].every((f) => data.optionalFiles.includes(f));
+  const [roads, setRoads] = useState(() => roadsAvailable && !!initial.roads);
+  const [roadSel, setRoadSel] = useState<string | null>(() => (roadsAvailable ? (initial.hw ?? null) : null));
+  const [roadHover, setRoadHover] = useState<RoadHover | null>(null);
+  const [corridors, setCorridors] = useState<Corridors | null>(null);
+  const [hwFocus, setHwFocus] = useState<{ id: string; n: number } | null>(null);
+  useEffect(() => {
+    if (!roads || corridors) return;
+    fetch(`${import.meta.env.BASE_URL}data/corridors.json`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => d && setCorridors(d))
+      .catch(() => {});
+  }, [roads, corridors]);
   const say = useCallback((text: string) => setToast({ text, n: Date.now() }), []);
   useEffect(() => {
     if (!toast) return;
@@ -139,6 +152,45 @@ function Main({ data }: { data: AppData }) {
     return out;
   }, [m, swipe]);
   const months = useMemo(() => loadedMonths(m), [m]);
+  // Highways use NASA's yearly composites: the timeline's year, capped to the years we have.
+  const roadYears = corridors?.corridors[0]?.years ?? [];
+  const monthYear = Number(m.months[monthIndex].slice(0, 4));
+  const roadYear = roadYears.length ? Math.min(Math.max(monthYear, roadYears[0]), roadYears[roadYears.length - 1]) : monthYear;
+  const roadValues = useMemo(() => {
+    if (!roads || !corridors) return null;
+    const out = new Map<string, RoadValue>();
+    for (const c of corridors.corridors) {
+      const yi = Math.max(0, c.years.indexOf(roadYear));
+      c.profile[yi].forEach((v, bin) => {
+        const then = c.profile[0][bin];
+        const g = growthMode && yi > 0 && v != null && then != null ? Math.log2((v + 0.3) / (then + 0.3)) : null;
+        out.set(`${c.id}:${bin}`, { mean: v, g });
+      });
+    }
+    return out;
+  }, [roads, corridors, roadYear, growthMode]);
+  // A shared link with a highway: fly there once the corridor data is in.
+  const flewToHw = useRef(false);
+  useEffect(() => {
+    if (flewToHw.current || !initial.hw || !corridors) return;
+    flewToHw.current = true;
+    const c = corridors.corridors.find((x) => x.id === initial.hw);
+    if (c) setFly({ bbox: c.bbox, n: Date.now() });
+  }, [corridors]); // eslint-disable-line react-hooks/exhaustive-deps
+  const roadCorridor = roadSel ? corridors?.corridors.find((c) => c.id === roadSel) : undefined;
+  const roadHovered = roadHover ? corridors?.corridors.find((c) => c.id === roadHover.id) : undefined;
+  const turnRoads = (on: boolean) => {
+    setRoads(on);
+    if (on) {
+      setThreeD(false);
+      setOrbit(false);
+      setBase("districts");
+      track("roads-on");
+    } else {
+      setRoadSel(null);
+      setRoadHover(null);
+    }
+  };
   const startSwipe = () => {
     // Default: January 2015 against the latest month (earliest processed month if Jan 2015 isn't in yet).
     const jan2015 = m.months.indexOf("2015-01");
@@ -181,10 +233,10 @@ function Main({ data }: { data: AppData }) {
   // Keep the address bar in step with the view, so any moment can be shared.
   useEffect(() => {
     writeUrl(
-      { d: selectedId ?? undefined, m: m.months[monthIndex], metric: growthMode ? "growth" : undefined, layer: base, threeD },
+      { d: selectedId ?? undefined, m: m.months[monthIndex], metric: growthMode ? "growth" : undefined, layer: base, threeD, roads, hw: roadSel ?? undefined },
       m.months[latest],
     );
-  }, [selectedId, monthIndex, growthMode, base, threeD, m.months, latest]);
+  }, [selectedId, monthIndex, growthMode, base, threeD, roads, roadSel, m.months, latest]);
 
   const share = async () => {
     const url = window.location.href;
@@ -336,10 +388,19 @@ function Main({ data }: { data: AppData }) {
             highlight={highlight}
             orbit={orbit}
             onOrbitStop={() => setOrbit(false)}
-            corridor={corridor}
+            roads={swipe ? null : roadValues}
+            roadSelected={roadSel}
+            onRoadHover={setRoadHover}
+            onRoadSelect={(id) => {
+              setRoadSel(id);
+              setSelectedId(null);
+              if (isMobile) setSheetOpen(true);
+              track("road-pick");
+            }}
             onMap={setMainMap}
             onSelect={(id) => {
               selectAndFly(id);
+              if (id) setRoadSel(null);
               // On touch screens a tap opens the bottom sheet straight away.
               if (id && isMobile) setSheetOpen(true);
             }}
@@ -364,8 +425,11 @@ function Main({ data }: { data: AppData }) {
                 track(`layer-${b}`);
               }
             }}
+            roads={roads}
+            onRoads={roadsAvailable ? turnRoads : undefined}
             onThreeD={(on) => {
               setThreeD(on);
+              if (on && roads) turnRoads(false);
               if (!on) setOrbit(false);
               if (on) track("3d-on");
             }}
@@ -400,17 +464,21 @@ function Main({ data }: { data: AppData }) {
             </div>
           )}
           {mapLoading && <LoadingOutline outline={data.outline} />}
-          {corridor && !swipe && (
+          {roads && !swipe && (
             <div className="corridor-chip" role="status">
               <span>
-                Highway: <b>{corridor.name}</b>
+                Highways · <b>{roadYear}</b>
+                <span className="chip-long"> yearly brightness</span>
               </span>
-              <button type="button" className="link-btn" onClick={() => setCorridor(null)} aria-label="Hide the highway from the map">
+              <button type="button" className="link-btn" onClick={() => turnRoads(false)} aria-label="Hide the highways">
                 Hide
               </button>
             </div>
           )}
-          {hovered && hover && hoverCol != null && !isMobile && (
+          {roadHovered && roadHover && !isMobile && (
+            <RoadTip c={roadHovered} bin={roadHover.bin} year={roadYear} x={roadHover.x} y={roadHover.y} />
+          )}
+          {hovered && hover && hoverCol != null && !isMobile && !roadHover && (
             <div className="tooltip" style={{ left: hover.x + 16, top: hover.y + 16 }} role="status">
               <strong className="tip-name">{hovered.name}</strong>
               <span className="muted">{hovered.state}</span>
@@ -534,7 +602,10 @@ function Main({ data }: { data: AppData }) {
           expanded={sheetOpen}
           onToggle={() => setSheetOpen((o) => !o)}
           away={isMobile && !mapInView}
-          onClear={() => setSelectedId(null)}
+          onClear={() => {
+            setSelectedId(null);
+            setRoadSel(null);
+          }}
           onPickMonth={(i) => {
             setPlaying(false);
             setMonthIndex(i);
@@ -545,6 +616,26 @@ function Main({ data }: { data: AppData }) {
             track("story");
           }}
           onShare={share}
+          road={
+            roadCorridor
+              ? {
+                  title: roadCorridor.name,
+                  body: (
+                    <CorridorCard
+                      c={roadCorridor}
+                      year={roadYear}
+                      onClose={() => setRoadSel(null)}
+                      onShare={share}
+                      onDetails={() => {
+                        setHwFocus({ id: roadCorridor.id, n: Date.now() });
+                        setSheetOpen(false);
+                        setTimeout(() => document.getElementById("highways")?.scrollIntoView({ behavior: "smooth", block: "start" }), 50);
+                      }}
+                    />
+                  ),
+                }
+              : null
+          }
         />
 
         <div className="timebar">
@@ -615,11 +706,14 @@ function Main({ data }: { data: AppData }) {
       <DiwaliEffect app={data} selectedId={selectedId} />
       <Highways
         available={data.optionalFiles.includes("corridors.json") && data.optionalFiles.includes("corridors.geojson")}
-        shownId={corridor?.id ?? null}
+        shownId={roads ? roadSel : null}
+        focusId={hwFocus?.id}
+        focusN={hwFocus?.n}
         onShow={(c: Corridor) => {
-          setCorridor({ id: c.id, name: c.name, bbox: c.bbox, n: Date.now() });
-          setThreeD(false);
-          setOrbit(false);
+          if (roadsAvailable) turnRoads(true);
+          setRoadSel(c.id);
+          setSelectedId(null);
+          setFly({ bbox: c.bbox, n: Date.now() });
           document.getElementById("map")?.scrollIntoView({ behavior: "smooth", block: "start" });
           track("corridor-map");
         }}
@@ -666,6 +760,40 @@ function LegendChip({ children }: { children: ReactNode }) {
         <span className="legend-swatch" aria-hidden="true" />
         <span>Legend</span>
       </button>
+    </div>
+  );
+}
+
+/** Hover card for a 10 km stretch of highway, like the district tooltip. */
+function RoadTip({ c, bin, year, x, y }: { c: Corridor; bin: number; year: number; x: number; y: number }) {
+  const yi = Math.max(0, c.years.indexOf(year));
+  const v = c.profile[yi]?.[bin] ?? null;
+  const then = c.profile[0]?.[bin] ?? null;
+  const change = v != null && then != null && then > 0 ? ((v - then) / then) * 100 : null;
+  const from = c.labels[0]?.name ?? "the start";
+  // the nearest named place along the route
+  const km = bin * c.bin_km + c.bin_km / 2;
+  const near = [...c.labels].sort((a, b) => Math.abs(a.km - km) - Math.abs(b.km - km))[0];
+  return (
+    <div className="tooltip" style={{ left: x + 16, top: y + 16 }} role="status">
+      <strong className="tip-name">{c.name}</strong>
+      <span className="muted">
+        km {bin * c.bin_km}–{(bin + 1) * c.bin_km} from {from}
+        {near && Math.abs(near.km - km) < 40 ? ` · near ${near.name}` : ""}
+      </span>
+      {v == null ? (
+        <span>No clear data for this stretch in {year}</span>
+      ) : (
+        <span className="tip-value">
+          <b className="amber mono">{fmtRad(v)}</b> <small>nW/cm²/sr · {year}</small>
+        </span>
+      )}
+      {change != null && (
+        <span>
+          <b className={`mono ${change >= 0 ? "blue" : "red"}`}>{fmtPct(change, true)}</b> since {c.years[0]}
+        </span>
+      )}
+      <Sparkline className="tip-spark" values={c.profile.map((row) => row[bin] ?? null)} width={168} height={28} marker={yi} log />
     </div>
   );
 }

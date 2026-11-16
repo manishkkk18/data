@@ -29,6 +29,7 @@ Writes data/corridors.json (stats) and data/corridors.geojson (simplified lines 
 """
 
 import argparse
+import pathlib
 import datetime as dt
 import json
 import logging
@@ -49,6 +50,7 @@ from .config import DATA, LIT_THRESHOLD, RAW
 OSM_CACHE = RAW / "osm"
 OUT = DATA / "corridors.json"
 OUT_GEO = DATA / "corridors.geojson"
+OUT_SEG = DATA / "corridor_segments.geojson"  # each road cut into the 10 km profile bins, for the map
 OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
 SEARCH_RADIUS_M = 25_000  # road pieces must be this close to the waypoint line
 STRIP_KM = 2.0
@@ -227,9 +229,12 @@ def stats(values: np.ndarray) -> dict:
             "lit": round(float((v >= LIT_THRESHOLD).mean() * 100), 1), "n": int(v.size)}
 
 
-def measure(years: list[int], force_osm: bool = False):
+def prepare(force_osm: bool = False, cached_only: bool = False, geometry: bool = True) -> list[dict]:
+    """Road lines, strip/ring geometry and route line for every corridor we have roads for."""
     prepared = []
     for c in CORRIDORS:
+        if cached_only and not (OSM_CACHE / f"{c['id']}.json").exists():
+            continue
         try:
             osm = fetch_osm(c, force=force_osm)
             roads = road_lines(osm, c)
@@ -237,14 +242,18 @@ def measure(years: list[int], force_osm: bool = False):
             log.warning(f"{c['id']}: skipped ({e})")
             continue
         roads_m = transform(TO_M, roads)
-        geo = corridor_geometry(c, roads_m)
+        geo = corridor_geometry(c, roads_m) if geometry else {}
         route_m = transform(TO_M, waypoint_line(c))
         if roads_m.length < MIN_ROAD_SHARE * route_m.length:  # OpenStreetMap only gave us bits of the road
             log.warning(f"{c['id']}: skipped, only {roads_m.length / 1000:.0f} of ~{route_m.length / 1000:.0f} km of road found")
             continue
         log.info(f"{c['id']}: {len(osm.get('elements', []))} OSM ways, {roads_m.length / 1000:.0f} km of carriageway")
         prepared.append({"c": c, "roads": roads, "roads_m": roads_m, "route_m": route_m, **geo})
+    return prepared
 
+
+def measure(years: list[int], force_osm: bool = False):
+    prepared = prepare(force_osm)
     results = {p["c"]["id"]: {"years": [], "strip": [], "country": [], "profile": []} for p in prepared}
     masks: dict[str, dict] = {}
     for year in years:
@@ -282,6 +291,38 @@ def measure(years: list[int], force_osm: bool = False):
     return prepared, results
 
 
+def road_segments(p: dict) -> list[dict]:
+    """Cut the road into the same 10 km bins the profile uses (by position along the route)."""
+    route = p["route_m"]
+    nbins = int(np.ceil(route.length / 1000 / PROFILE_BIN_KM))
+    pieces: dict[int, list] = {}
+    for ln in p["roads_m"].geoms:
+        coords = np.asarray(shapely.segmentize(ln, 1000).coords)
+        along = shapely.line_locate_point(route, shapely.points(coords)) / 1000
+        bins = np.clip((along // PROFILE_BIN_KM).astype(int), 0, nbins - 1)
+        start = 0
+        for i in range(1, len(coords) + 1):
+            if i == len(coords) or bins[i] != bins[start]:
+                part = coords[start:i + 1] if i < len(coords) else coords[start:i]  # share the joint so pieces touch
+                if len(part) >= 2:
+                    pieces.setdefault(int(bins[start]), []).append(LineString(part))
+                start = i
+    feats = []
+    for b, lines in sorted(pieces.items()):
+        geom = transform(TO_LL, MultiLineString(lines)).simplify(0.002, preserve_topology=False)
+        if geom.is_empty:
+            continue
+        feats.append({"type": "Feature", "properties": {"id": p["c"]["id"], "bin": b},
+                      "geometry": json.loads(shapely.to_geojson(shapely.set_precision(geom, 0.0001)))})
+    return feats
+
+
+def write_segments(prepared) -> pathlib.Path:
+    feats = [f for p in prepared for f in road_segments(p)]
+    OUT_SEG.write_text(json.dumps({"type": "FeatureCollection", "features": feats}, separators=(",", ":")), encoding="utf-8")
+    return OUT_SEG
+
+
 def rasterio_xy(tr: Affine, rows, cols):
     xs = tr.c + (cols + 0.5) * tr.a + (rows + 0.5) * tr.b
     ys = tr.f + (cols + 0.5) * tr.d + (rows + 0.5) * tr.e
@@ -313,7 +354,7 @@ def write_outputs(prepared, results):
     }
     OUT.write_text(json.dumps(meta, separators=(",", ":"), ensure_ascii=False), encoding="utf-8")
     OUT_GEO.write_text(json.dumps({"type": "FeatureCollection", "features": feats}, separators=(",", ":")), encoding="utf-8")
-    return OUT, OUT_GEO
+    return OUT, OUT_GEO, write_segments(prepared)
 
 
 def download_rasters(years: list[int]):
@@ -344,9 +385,14 @@ def main():
     p.add_argument("--download-rasters", action="store_true",
                    help="only download NASA's annual composites for the years into the local cache")
     p.add_argument("--fetch-roads", action="store_true", help="only download the road lines")
+    p.add_argument("--segments-only", action="store_true", help="only rebuild the map's road segments from cached roads")
     args = p.parse_args()
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(message)s", datefmt="%H:%M:%S")
     years = list(range(args.start, args.end + 1))
+    if args.segments_only:
+        path = write_segments(prepare(cached_only=True, geometry=False))
+        log.info(f"wrote {path.relative_to(DATA.parent)} ({path.stat().st_size / 1e3:.0f} kB)")
+        return
     if args.download_rasters:
         download_rasters(years)
         return

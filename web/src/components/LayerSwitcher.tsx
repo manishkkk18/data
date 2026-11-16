@@ -19,9 +19,11 @@ type Props = {
   onOrbit?: (on: boolean) => void;
   compact?: boolean; // phones: `extra` moves inside the panel, so one button holds every map option
   after?: ReactNode; // shown after the Layers button (e.g. the legend chip on phones)
+  roads?: boolean; // highway corridors drawn on the map
+  onRoads?: (on: boolean) => void; // absent until the highway data exists
 };
 
-export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, disabled, orbit, onOrbit, compact, after }: Props) {
+export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, disabled, orbit, onOrbit, compact, after, roads, onRoads }: Props) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const blocked = disabled && !compact;
@@ -47,6 +49,16 @@ export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, d
               </label>
             ))}
           </fieldset>
+          {onRoads && (
+            <label className={`switch ${disabled ? "disabled" : ""}`}>
+              <input type="checkbox" role="switch" checked={!!roads} disabled={disabled} onChange={(e) => onRoads(e.target.checked)} />
+              <span className="switch-track" aria-hidden="true" />
+              <span>
+                <span className="layer-label">Highway corridors</span>
+                <span className="layer-note">11 highways, coloured every 10 km by yearly brightness</span>
+              </span>
+            </label>
+          )}
           <label className={`switch ${base !== "districts" || disabled ? "disabled" : ""}`}>
             <input type="checkbox" role="switch" checked={threeD} disabled={base !== "districts" || disabled} onChange={(e) => onThreeD(e.target.checked)} />
             <span className="switch-track" aria-hidden="true" />
@@ -90,7 +102,7 @@ export default function LayerSwitcher({ base, threeD, onBase, onThreeD, extra, d
           <path d="M10 2l8 4-8 4-8-4z" fill="currentColor" />
           <path d="M2 10l8 4 8-4M2 14l8 4 8-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
         </svg>
-        <span>Layers{threeD && base === "districts" ? " · 3D" : ""}</span>
+        <span>Layers{threeD && base === "districts" ? " · 3D" : roads ? " · Roads" : ""}</span>
       </button>
       {!compact && extra}
       {after}

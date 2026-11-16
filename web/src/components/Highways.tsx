@@ -19,9 +19,9 @@ export type Corridor = {
   country: S[];
   profile: (number | null)[][];
 };
-type Corridors = { strip_km: number; country_km: [number, number]; city_radius_km: number; lit_threshold: number; corridors: Corridor[] };
+export type Corridors = { strip_km: number; country_km: [number, number]; city_radius_km: number; lit_threshold: number; corridors: Corridor[] };
 
-type Props = { available: boolean; onShow: (c: Corridor) => void; shownId: string | null };
+type Props = { available: boolean; onShow: (c: Corridor) => void; shownId: string | null; focusId?: string | null; focusN?: number };
 
 const pct = (a: number | null, b: number | null) => (a != null && b != null && a > 0 ? ((b - a) / a) * 100 : null);
 
@@ -34,7 +34,7 @@ function ends(c: Corridor, key: "strip" | "country", f: "median" | "lit") {
   return { y0: c.years[a], y1: c.years[b], v0: c[key][a][f]!, v1: c[key][b][f]! };
 }
 
-function summary(c: Corridor) {
+export function summary(c: Corridor) {
   const sm = ends(c, "strip", "median");
   const cm = ends(c, "country", "median");
   const lit = ends(c, "strip", "lit");
@@ -64,11 +64,18 @@ function radColor(v: number | null) {
   return RAD_STOPS[RAD_STOPS.length - 1][1];
 }
 
-export default function Highways({ available, onShow, shownId }: Props) {
+export default function Highways({ available, onShow, shownId, focusId, focusN }: Props) {
   const section = useRef<HTMLElement>(null);
   const [near, setNear] = useState(false);
   const [data, setData] = useState<Corridors | null>(null);
   const [pick, setPick] = useState<string | null>(null);
+  // "Full comparison" from the map card opens that corridor here.
+  useEffect(() => {
+    if (focusId) {
+      setPick(focusId);
+      setNear(true);
+    }
+  }, [focusId, focusN]);
   useEffect(() => {
     const el = section.current;
     if (!el || near) return;
@@ -199,7 +206,7 @@ function Detail({ c, s, meta, onShow, shown }: { c: Corridor; s: ReturnType<type
 }
 
 /** Median brightness of the road strip and of the countryside, per year. */
-function TrendLines({ c }: { c: Corridor }) {
+export function TrendLines({ c }: { c: Corridor }) {
   const W = 560;
   const H = 180;
   const P = { l: 40, r: 92, t: 12, b: 24 };
@@ -292,7 +299,7 @@ function TrendLines({ c }: { c: Corridor }) {
 }
 
 /** Year-by-distance strip: each cell is the average light in a 10 km stretch of the road strip. */
-function Strip({ c }: { c: Corridor }) {
+export function Strip({ c }: { c: Corridor }) {
   const nb = Math.max(...c.profile.map((p) => p.length), 1);
   const W = 560;
   const rowH = 12;
@@ -335,5 +342,68 @@ function Strip({ c }: { c: Corridor }) {
         ))}
       </svg>
     </figure>
+  );
+}
+
+/** The corridor picked on the map: the side panel (desktop) or bottom sheet (phone). */
+export function CorridorCard({ c, year, onClose, onDetails, onShare }: { c: Corridor; year: number; onClose: () => void; onDetails: () => void; onShare: () => void }) {
+  const s = summary(c);
+  const yi = Math.max(0, c.years.indexOf(year));
+  const now = c.strip[yi];
+  const first = c.strip[0];
+  const growth = pct(first?.median ?? null, now?.median ?? null);
+  const cg = pct(c.country[0]?.median ?? null, c.country[yi]?.median ?? null);
+  return (
+    <>
+      <div className="side-head">
+        <div>
+          <h2 className="side-name">{c.name}</h2>
+          <p className="muted">
+            {c.road !== c.name ? `${c.road} · ` : ""}about {c.route_km.toLocaleString("en-IN")} km{c.opened ? ` · opened ${c.opened}` : ""}
+          </p>
+        </div>
+        <button type="button" className="icon-btn" onClick={onClose} aria-label="Close this highway">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div className="big-number">
+        <span className="big-value">{now?.lit != null ? `${Math.round(now.lit)}%` : "–"}</span>
+        <span className="big-unit">of the road strip lit · {year} yearly composite</span>
+      </div>
+      {s.lit && (
+        <p className="plain">
+          Up from <b>{Math.round(s.lit.v0)}%</b> in {s.lit.y0}. Brighter colours on the map are 10 km stretches with more light along the road.
+        </p>
+      )}
+      <div className="tiles">
+        <div className="tile">
+          <span className="tile-label">Road strip</span>
+          <span className="tile-value">{fmtRad(now?.median ?? null)}</span>
+          <span className="tile-hint">median, {year}</span>
+        </div>
+        <div className="tile">
+          <span className="tile-label">Since {c.years[0]}</span>
+          <span className={`tile-value ${growth == null ? "" : growth >= 0 ? "up" : "down"}`}>{growth == null ? "–" : fmtPct(growth, true)}</span>
+          <span className="tile-hint">road strip</span>
+        </div>
+        <div className="tile">
+          <span className="tile-label">Countryside</span>
+          <span className={`tile-value ${cg == null ? "" : cg >= 0 ? "up" : "down"}`}>{cg == null ? "–" : fmtPct(cg, true)}</span>
+          <span className="tile-hint">10–20 km away</span>
+        </div>
+      </div>
+      <TrendLines c={c} />
+      <Strip c={c} />
+      <div className="side-actions">
+        <button type="button" className="btn" onClick={onDetails}>
+          Compare all highways
+        </button>
+        <button type="button" className="btn" onClick={onShare}>
+          Share
+        </button>
+      </div>
+    </>
   );
 }

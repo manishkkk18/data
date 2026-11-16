@@ -19,6 +19,8 @@ const INDIA: BBox = [68.1, 6.7, 97.4, 37.1];
 export type DistrictValue = { mean: number | null; growth: number | null; gap: boolean; est?: number | null };
 export type ColorMode = "radiance" | "growth";
 export type HoverInfo = { id: string; x: number; y: number };
+export type RoadValue = { mean: number | null; g: number | null };
+export type RoadHover = { id: string; bin: number; x: number; y: number };
 export type FlyRequest = { bbox: BBox; n: number };
 
 type Props = {
@@ -38,7 +40,10 @@ type Props = {
   highlight?: Highlight; // legend band being hovered: dim everything outside it
   orbit?: boolean; // slow auto-rotation of the 3D skyline
   onOrbitStop?: () => void; // the user grabbed the map, so the orbit stops
-  corridor?: { id: string; bbox: BBox; n: number } | null; // highway corridor to draw and fly to
+  roads?: Map<string, RoadValue> | null; // highway segments ("id:bin") for the year; null = layer off
+  roadSelected?: string | null; // corridor picked on the map
+  onRoadHover?: (h: RoadHover | null) => void;
+  onRoadSelect?: (id: string) => void;
   onMap?: (map: maplibregl.Map) => void; // gives the swipe view the live map to follow
 };
 
@@ -160,6 +165,7 @@ export default function MapView(props: Props) {
       bindInteractions(map, cb);
       enableDetailOutline(map);
       setReady(true);
+      if (import.meta.env.DEV) (window as unknown as { __map: maplibregl.Map }).__map = map;
       cb.current.onMap?.(map);
     });
 
@@ -184,7 +190,7 @@ export default function MapView(props: Props) {
     const flat = props.base === "districts" && !props.threeD;
     if (!flat) return;
     if (!props.highlight) {
-      map.setPaintProperty("district-fill", "fill-opacity", fadeOpacity(0.9));
+      map.setPaintProperty("district-fill", "fill-opacity", fadeOpacity(props.roads ? 0.4 : 0.9));
       return;
     }
     const { key, lo, hi } = props.highlight;
@@ -225,7 +231,7 @@ export default function MapView(props: Props) {
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
-    applyLayers(map, props.base, props.threeD, props.mode);
+    applyLayers(map, props.base, props.threeD, props.mode, !!cb.current.roads);
     const want3D = props.base === "districts" && props.threeD;
     if (want3D !== prev3D.current) {
       prev3D.current = want3D;
@@ -252,48 +258,76 @@ export default function MapView(props: Props) {
     map.setFilter("district-selected", ["==", ["get", "id"], props.selectedId ?? ""]);
   }, [props.selectedId, ready]);
 
-  // Highway corridor: load the lines on first use, draw the chosen one, fly to it.
+  // Highway corridors, cut into 10 km pieces and coloured like the districts. The segments
+  // are fetched the first time the layer is turned on.
+  const segKeys = useRef<string[] | null>(null);
+  const [segsReady, setSegsReady] = useState(false);
+  const roadsOn = !!props.roads;
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready) return;
-    const c = props.corridor;
-    const show = (id: string | null) => {
-      for (const l of ["corridor-glow", "corridor-line"]) {
-        if (!map.getLayer(l)) continue;
-        map.setLayoutProperty(l, "visibility", id ? "visible" : "none");
-        if (id) map.setFilter(l, ["==", ["get", "id"], id]);
-      }
-    };
-    if (!c) return show(null);
-    let cancelled = false;
-    const draw = () => {
-      if (cancelled || mapRef.current !== map) return;
-      show(c.id);
-      map.fitBounds(c.bbox, { padding: cb.current.padding, duration: reducedMotion() ? 0 : 1800, essential: true });
-    };
-    if (map.getSource("corridors")) return draw();
-    fetch(`${import.meta.env.BASE_URL}data/corridors.geojson`)
+    if (!map || !ready || !roadsOn || segKeys.current) return;
+    segKeys.current = [];
+    fetch(`${import.meta.env.BASE_URL}data/corridor_segments.geojson`)
       .then((r) => r.json())
-      .then((geo) => {
-        if (cancelled || mapRef.current !== map || map.getSource("corridors")) return draw();
-        map.addSource("corridors", { type: "geojson", data: geo });
+      .then((geo: FeatureCollection) => {
+        if (mapRef.current !== map) return;
+        const keys: string[] = [];
+        geo.features.forEach((f, i) => {
+          f.id = i;
+          keys.push(`${f.properties!.id}:${f.properties!.bin}`);
+        });
+        segKeys.current = keys;
+        map.addSource("segs", { type: "geojson", data: geo });
+        const width = (k: number): ExpressionSpecification => ["interpolate", ["linear"], ["zoom"], 4, 2.6 * k, 7, 4.5 * k, 10, 8 * k];
         map.addLayer({
-          id: "corridor-glow", type: "line", source: "corridors",
+          id: "seg-sel", type: "line", source: "segs", filter: ["==", ["get", "id"], ""],
           layout: { "line-join": "round", "line-cap": "round" },
-          paint: { "line-color": "#6EA8FF", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 6, 9, 14], "line-blur": 6, "line-opacity": 0.45 },
+          paint: { "line-color": "#6EA8FF", "line-width": width(3.2), "line-blur": 4, "line-opacity": 0.7 },
         });
         map.addLayer({
-          id: "corridor-line", type: "line", source: "corridors",
+          id: "seg-casing", type: "line", source: "segs",
           layout: { "line-join": "round", "line-cap": "round" },
-          paint: { "line-color": "#CFE0FF", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.4, 9, 3] },
+          paint: { "line-color": "#05070D", "line-width": width(1.9), "line-opacity": 0.9 },
         });
-        draw();
+        map.addLayer({
+          id: "seg-line", type: "line", source: "segs",
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: {
+            "line-color": segColor(cb.current.mode),
+            // zoom must lead the expression, so the hover bump sits inside each stop
+            "line-width": ["interpolate", ["linear"], ["zoom"], ...[[4, 2.6], [7, 4.5], [10, 8]].flatMap(([z, w]) => [z, ["case", ["boolean", ["feature-state", "hover"], false], w * 1.7, w]])] as ExpressionSpecification,
+          },
+        });
+        // Wide invisible line: easier to hover, and to tap on a phone.
+        map.addLayer({ id: "seg-hit", type: "line", source: "segs", paint: { "line-color": "#000", "line-opacity": 0, "line-width": 18 } });
+        bindRoadInteractions(map, cb);
+        setSegsReady(true);
       })
-      .catch(() => {});
-    return () => {
-      cancelled = true;
-    };
-  }, [props.corridor, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+      .catch(() => {
+        segKeys.current = null;
+      });
+  }, [roadsOn, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || !segsReady) return;
+    for (const l of ["seg-sel", "seg-casing", "seg-line", "seg-hit"]) setVisible(map, l, roadsOn);
+    // Districts step back so the roads read first.
+    applyLayers(map, props.base, props.threeD, props.mode, roadsOn);
+    if (!props.roads) return;
+    map.setPaintProperty("seg-line", "line-color", segColor(props.mode));
+    segKeys.current?.forEach((k, i) => {
+      const v = props.roads!.get(k);
+      const lrad = v?.mean != null ? Math.log10(Math.max(v.mean, 0.01)) : null;
+      map.setFeatureState({ source: "segs", id: i }, { lrad, g: v?.g ?? null });
+    });
+  }, [props.roads, props.mode, segsReady, ready]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready || !segsReady) return;
+    map.setFilter("seg-sel", ["==", ["get", "id"], props.roadSelected ?? ""]);
+  }, [props.roadSelected, segsReady, ready]);
 
   // Fly to a requested district.
   useEffect(() => {
@@ -521,17 +555,18 @@ function setVisible(map: maplibregl.Map, id: string, on: boolean) {
   if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
 }
 
-export function applyLayers(map: maplibregl.Map, base: BaseLayer, threeD: boolean, mode: ColorMode) {
+export function applyLayers(map: maplibregl.Map, base: BaseLayer, threeD: boolean, mode: ColorMode, roads = false) {
   const districts = base === "districts";
   const flat = districts && !threeD;
+  const near = roads ? 0.4 : 0.9;
   const color = mode === "growth" ? GROWTH_COLOR : RAD_COLOR;
 
   // The flat fill stays "visible" (just transparent) so hover and click keep working.
   map.setPaintProperty("district-fill", "fill-color", color);
-  map.setPaintProperty("district-fill", "fill-opacity", flat ? fadeOpacity(0.9) : 0);
+  map.setPaintProperty("district-fill", "fill-opacity", flat ? fadeOpacity(near) : 0);
   setVisible(map, "district-gap", flat);
   setVisible(map, "district-est", flat && mode === "radiance");
-  setVisible(map, "district-glow", flat && mode === "radiance");
+  setVisible(map, "district-glow", flat && mode === "radiance" && !roads);
   setVisible(map, "district-3d", districts && threeD);
   map.setPaintProperty("district-3d", "fill-extrusion-color", color);
 
@@ -561,6 +596,10 @@ function bindInteractions(map: maplibregl.Map, cb: React.RefObject<Props>) {
   };
 
   map.on("mousemove", "district-fill", (e) => {
+    if (onRoad(map, e.point)) {
+      if (hovered) setHover(null);
+      return cb.current.onHover(null);
+    }
     const id = e.features?.[0]?.properties?.id as string | undefined;
     if (!id) return;
     if (id !== hovered) setHover(id);
@@ -577,6 +616,11 @@ function bindInteractions(map: maplibregl.Map, cb: React.RefObject<Props>) {
   let pending: ReturnType<typeof setTimeout> | undefined;
   map.on("click", (e) => {
     clearTimeout(pending);
+    const road = onRoad(map, e.point);
+    if (road) {
+      pending = setTimeout(() => cb.current.onRoadSelect?.(road.properties.id as string), 250);
+      return;
+    }
     const f = map.queryRenderedFeatures(e.point, { layers: ["district-fill"] })[0];
     const id = (f?.properties?.id as string) ?? null;
     pending = setTimeout(() => cb.current.onSelect(id), 250);
@@ -618,4 +662,36 @@ function hatchPattern(): ImageData {
   }
   ctx.stroke();
   return ctx.getImageData(0, 0, size, size);
+}
+
+const segColor = (mode: ColorMode): ExpressionSpecification => {
+  const key = mode === "growth" ? "g" : "lrad";
+  return ["case", ["==", ["feature-state", key], null], "#4B5468", mode === "growth" ? GROWTH_COLOR : RAD_COLOR] as ExpressionSpecification;
+};
+
+/** The road segment under the pointer, if the highway layer is showing. */
+function onRoad(map: maplibregl.Map, point: maplibregl.PointLike) {
+  if (!map.getLayer("seg-hit") || map.getLayoutProperty("seg-hit", "visibility") === "none") return null;
+  return map.queryRenderedFeatures(point, { layers: ["seg-hit"] })[0] ?? null;
+}
+
+function bindRoadInteractions(map: maplibregl.Map, cb: React.RefObject<Props>) {
+  let hovered: number | null = null;
+  const setHover = (id: number | null) => {
+    if (hovered != null) map.setFeatureState({ source: "segs", id: hovered }, { hover: false });
+    hovered = id;
+    if (id != null) map.setFeatureState({ source: "segs", id }, { hover: true });
+  };
+  map.on("mousemove", "seg-hit", (e) => {
+    const f = e.features?.[0];
+    if (!f) return;
+    if (f.id !== hovered) setHover(f.id as number);
+    map.getCanvas().style.cursor = "pointer";
+    cb.current.onRoadHover?.({ id: f.properties.id as string, bin: Number(f.properties.bin), x: e.point.x, y: e.point.y });
+  });
+  map.on("mouseleave", "seg-hit", () => {
+    setHover(null);
+    map.getCanvas().style.cursor = "";
+    cb.current.onRoadHover?.(null);
+  });
 }

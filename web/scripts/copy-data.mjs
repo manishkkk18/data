@@ -2,7 +2,7 @@
 import { copyFileSync, existsSync, mkdirSync, writeFileSync } from "node:fs";
 
 const required = ["districts.geojson", "india_outline.geojson", "india_outline_detail.geojson", "monthly.json"];
-const optional = ["yearly.json", "crosscheck.json", "diwali.json", "diwali_districts.json", "corridors.json", "corridors.geojson"]; // appear once the annual run / cross-check have been done
+const optional = ["yearly.json", "crosscheck.json", "diwali.json", "diwali_districts.json", "corridors.json", "corridors.geojson", "corridor_segments.geojson"]; // appear once the annual run / cross-check have been done
 const out = new URL("../public/data/", import.meta.url);
 mkdirSync(out, { recursive: true });
 let n = 0;

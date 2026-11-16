@@ -94,7 +94,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/corridors.json data/corridors.geojson
+          git add data/corridors.json data/corridors.geojson data/corridor_segments.geojson
           if git diff --cached --quiet; then echo "changed=false" >> "$GITHUB_OUTPUT"; echo "Nothing new."; else
             git commit -m "Highway corridors: $(ls data/raw/india_yearly/*.tif | wc -l) years, $(ls data/raw/osm/*.json | wc -l) roads"
             git pull --rebase --autostash && git push

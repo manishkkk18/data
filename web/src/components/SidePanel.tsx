@@ -1,5 +1,5 @@
 import { changePct, fmtPct, fmtRad, monthLabel, type AppData, type MonthSummary } from "../data";
-import { lazy, Suspense } from "react";
+import { lazy, Suspense, type ReactNode } from "react";
 import StoryCards from "./StoryCards";
 
 // The chart library is ~110 KB gzipped; load it only once someone opens a district,
@@ -19,9 +19,10 @@ type Props = {
   onPickStory: (id: string) => void; // a story card was tapped: select + fly
   onShare: () => void;
   away?: boolean; // phones: the map is scrolled out of view, so the sheet slides away
+  road?: { title: string; body: ReactNode } | null; // a highway picked on the map takes over the panel
 };
 
-export default function SidePanel({ data, monthIndex, summary, selectedId, expanded, onToggle, onClear, onPickMonth, onCompare, onPickStory, onShare, away }: Props) {
+export default function SidePanel({ data, monthIndex, summary, selectedId, expanded, onToggle, onClear, onPickMonth, onCompare, onPickStory, onShare, away, road }: Props) {
   const m = data.monthly;
   const d = selectedId ? data.byId.get(selectedId) : undefined;
   const col = d ? data.index.get(d.id) : undefined;
@@ -45,14 +46,16 @@ export default function SidePanel({ data, monthIndex, summary, selectedId, expan
       <button className="sheet-handle" type="button" aria-expanded={expanded} onClick={onToggle}>
         <span className="sheet-grip" aria-hidden="true" />
         <span className="sheet-peek">
-          <span className="sheet-title">{d ? d.name : "Stories from the data"}</span>
-          <span className="sheet-value">{d ? fmtRad(mean ?? est) : ""}</span>
+          <span className="sheet-title">{road ? road.title : d ? d.name : "Stories from the data"}</span>
+          <span className="sheet-value">{!road && d ? fmtRad(mean ?? est) : ""}</span>
         </span>
         <span className="sr-only">{expanded ? "Collapse details" : "Expand details"}</span>
       </button>
 
       <div className="side-body">
-        {d ? (
+        {road ? (
+          road.body
+        ) : d ? (
           <>
             <div className="side-head">
               <div>

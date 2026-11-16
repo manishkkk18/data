@@ -1,7 +1,7 @@
 // Shareable URLs: the view (district, month, metric, layer, 3D) lives in the query string.
 //   ?d=karnataka--bangalore&m=2025-10&metric=growth&layer=night&3d=1
 
-export type UrlState = { d?: string; m?: string; metric?: "radiance" | "growth"; layer?: "districts" | "night" | "day"; threeD?: boolean };
+export type UrlState = { d?: string; m?: string; metric?: "radiance" | "growth"; layer?: "districts" | "night" | "day"; threeD?: boolean; roads?: boolean; hw?: string };
 
 export function readUrl(): UrlState {
   const q = new URLSearchParams(window.location.search);
@@ -13,6 +13,8 @@ export function readUrl(): UrlState {
     metric: metric === "growth" ? "growth" : undefined,
     layer: layer === "night" || layer === "day" ? layer : undefined,
     threeD: q.get("3d") === "1" || undefined,
+    roads: q.get("roads") === "1" || !!q.get("hw") || undefined,
+    hw: /^[a-z0-9-]+$/.test(q.get("hw") ?? "") ? q.get("hw")! : undefined,
   };
 }
 
@@ -25,6 +27,8 @@ export function writeUrl(s: UrlState, defaultMonth: string) {
   set("metric", s.metric === "growth" ? "growth" : undefined);
   set("layer", s.layer && s.layer !== "districts" ? s.layer : undefined);
   set("3d", s.threeD ? "1" : undefined);
+  set("roads", s.roads && !s.hw ? "1" : undefined);
+  set("hw", s.hw);
   const qs = q.toString();
   const url = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
   if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(null, "", url);

@@ -3,6 +3,8 @@
    Loaded last. Everything above the phone block applies at all widths.
    ========================================================================== */
 
+.corridor-chip { white-space: nowrap; }
+
 /* Nav: the tab for the section on screen */
 .nav a[aria-current] { color: var(--text); }
 .header-search { display: contents; }
@@ -161,6 +163,7 @@
   .sheet-handle { padding: 8px var(--gutter) 10px; }
   .stage .map-notice, .toast, .stage .swipe-label { top: 124px; }
   .corridor-chip { bottom: 152px; }
+  .chip-long { display: none; }
 
   /* 8. Insights: tabs */
   .insights { margin: 0 0 24px; gap: 24px; }

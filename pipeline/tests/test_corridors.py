@@ -39,3 +39,13 @@ def test_strip_and_ring_leave_out_big_cities():
 def test_corridor_ids_unique():
     ids = [c["id"] for c in K.CORRIDORS]
     assert len(ids) == len(set(ids))
+
+
+def test_road_segments_follow_the_10km_bins():
+    from shapely.geometry import MultiLineString
+    route = transform(K.TO_M, LineString([(75.0, 26.0), (75.5, 26.0)]))  # ~50 km
+    road = MultiLineString([route])
+    feats = K.road_segments({"c": {"id": "x"}, "route_m": route, "roads_m": road})
+    bins = [f["properties"]["bin"] for f in feats]
+    assert bins == list(range(len(bins))) and 4 <= len(bins) <= 6
+    assert all(f["properties"]["id"] == "x" for f in feats)
