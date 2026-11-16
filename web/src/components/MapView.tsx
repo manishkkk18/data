@@ -38,6 +38,7 @@ type Props = {
   highlight?: Highlight; // legend band being hovered: dim everything outside it
   orbit?: boolean; // slow auto-rotation of the 3D skyline
   onOrbitStop?: () => void; // the user grabbed the map, so the orbit stops
+  corridor?: { id: string; bbox: BBox; n: number } | null; // highway corridor to draw and fly to
   onMap?: (map: maplibregl.Map) => void; // gives the swipe view the live map to follow
 };
 
@@ -243,6 +244,49 @@ export default function MapView(props: Props) {
     if (!map || !ready) return;
     map.setFilter("district-selected", ["==", ["get", "id"], props.selectedId ?? ""]);
   }, [props.selectedId, ready]);
+
+  // Highway corridor: load the lines on first use, draw the chosen one, fly to it.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const c = props.corridor;
+    const show = (id: string | null) => {
+      for (const l of ["corridor-glow", "corridor-line"]) {
+        if (!map.getLayer(l)) continue;
+        map.setLayoutProperty(l, "visibility", id ? "visible" : "none");
+        if (id) map.setFilter(l, ["==", ["get", "id"], id]);
+      }
+    };
+    if (!c) return show(null);
+    let cancelled = false;
+    const draw = () => {
+      if (cancelled || mapRef.current !== map) return;
+      show(c.id);
+      map.fitBounds(c.bbox, { padding: cb.current.padding, duration: reducedMotion() ? 0 : 1800, essential: true });
+    };
+    if (map.getSource("corridors")) return draw();
+    fetch(`${import.meta.env.BASE_URL}data/corridors.geojson`)
+      .then((r) => r.json())
+      .then((geo) => {
+        if (cancelled || mapRef.current !== map || map.getSource("corridors")) return draw();
+        map.addSource("corridors", { type: "geojson", data: geo });
+        map.addLayer({
+          id: "corridor-glow", type: "line", source: "corridors",
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: { "line-color": "#6EA8FF", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 6, 9, 14], "line-blur": 6, "line-opacity": 0.45 },
+        });
+        map.addLayer({
+          id: "corridor-line", type: "line", source: "corridors",
+          layout: { "line-join": "round", "line-cap": "round" },
+          paint: { "line-color": "#CFE0FF", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 1.4, 9, 3] },
+        });
+        draw();
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [props.corridor, ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Fly to a requested district.
   useEffect(() => {

@@ -10,6 +10,7 @@ import CrossCheck from "./components/CrossCheck";
 import SwipeCompare from "./components/SwipeCompare";
 import PerfBadge from "./components/PerfBadge";
 import DiwaliEffect from "./components/DiwaliEffect";
+import Highways, { type Corridor } from "./components/Highways";
 import TimeBar from "./components/TimeBar";
 import Legend, { type Highlight } from "./components/Legend";
 import LoadingOutline from "./components/LoadingOutline";
@@ -84,6 +85,7 @@ function Main({ data }: { data: AppData }) {
   const [swipe, setSwipe] = useState<{ before: number; after: number } | null>(null);
   const [mainMap, setMainMap] = useState<MlMap | null>(null);
   const [toast, setToast] = useState<{ text: string; n: number } | null>(null);
+  const [corridor, setCorridor] = useState<{ id: string; name: string; bbox: [number, number, number, number]; n: number } | null>(null);
   const say = useCallback((text: string) => setToast({ text, n: Date.now() }), []);
   useEffect(() => {
     if (!toast) return;
@@ -259,6 +261,7 @@ function Main({ data }: { data: AppData }) {
             highlight={highlight}
             orbit={orbit}
             onOrbitStop={() => setOrbit(false)}
+            corridor={corridor}
             onMap={setMainMap}
             onSelect={(id) => {
               selectAndFly(id);
@@ -320,6 +323,16 @@ function Main({ data }: { data: AppData }) {
             </div>
           )}
           {mapLoading && <LoadingOutline outline={data.outline} />}
+          {corridor && !swipe && (
+            <div className="corridor-chip" role="status">
+              <span>
+                Highway: <b>{corridor.name}</b>
+              </span>
+              <button type="button" className="link-btn" onClick={() => setCorridor(null)} aria-label="Hide the highway from the map">
+                Hide
+              </button>
+            </div>
+          )}
           {hovered && hover && hoverCol != null && !isMobile && (
             <div className="tooltip" style={{ left: hover.x + 16, top: hover.y + 16 }} role="status">
               <strong className="tip-name">{hovered.name}</strong>
@@ -487,6 +500,17 @@ function Main({ data }: { data: AppData }) {
         }}
       />
       <DiwaliEffect app={data} selectedId={selectedId} />
+      <Highways
+        available={data.optionalFiles.includes("corridors.json") && data.optionalFiles.includes("corridors.geojson")}
+        shownId={corridor?.id ?? null}
+        onShow={(c: Corridor) => {
+          setCorridor({ id: c.id, name: c.name, bbox: c.bbox, n: Date.now() });
+          setThreeD(false);
+          setOrbit(false);
+          document.getElementById("map")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          track("corridor-map");
+        }}
+      />
       <Compare
         data={data}
         monthIndex={monthIndex}

@@ -13,6 +13,7 @@ export default function Header({ districts, onPick, compact }: Props) {
       <nav className="nav" aria-label="Sections">
         <a href="#map" aria-current="page">Map</a>
         <a href="#insights">Insights</a>
+        <a href="#highways">Highways</a>
         <a href="#compare">Compare</a>
         <a href="#about">About the data</a>
       </nav>
