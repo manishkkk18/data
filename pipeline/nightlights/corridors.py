@@ -54,7 +54,8 @@ SEARCH_RADIUS_M = 25_000  # road pieces must be this close to the waypoint line
 STRIP_KM = 2.0
 COUNTRY_KM = (10.0, 20.0)
 CITY_RADIUS_KM = 15.0
-PROFILE_BIN_KM = 10.0
+PROFILE_BIN_KM = 10
+MIN_ROAD_SHARE = 0.5  # need road lines for at least half the route, or the corridor is left out.0
 METRIC = pyproj.CRS("EPSG:7755")  # India NSF LCC, metres
 
 log = logging.getLogger("nightlights")
@@ -238,6 +239,9 @@ def measure(years: list[int], force_osm: bool = False):
         roads_m = transform(TO_M, roads)
         geo = corridor_geometry(c, roads_m)
         route_m = transform(TO_M, waypoint_line(c))
+        if roads_m.length < MIN_ROAD_SHARE * route_m.length:  # OpenStreetMap only gave us bits of the road
+            log.warning(f"{c['id']}: skipped, only {roads_m.length / 1000:.0f} of ~{route_m.length / 1000:.0f} km of road found")
+            continue
         log.info(f"{c['id']}: {len(osm.get('elements', []))} OSM ways, {roads_m.length / 1000:.0f} km of carriageway")
         prepared.append({"c": c, "roads": roads, "roads_m": roads_m, "route_m": route_m, **geo})
 

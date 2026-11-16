@@ -219,7 +219,8 @@ h1, h2, h3, .brand-name, .side-name, .story-name, .big-value, .kpi-month, .sheet
 .hw-table thead th { font-family: var(--font-body); font-size: 12px; font-weight: 500; color: var(--muted); }
 .hw-table thead th:first-child, .hw-table tbody th { text-align: left; }
 .hw-table tr.on { background: rgba(110, 168, 255, 0.08); }
-.hw-name { color: var(--text); font-size: 14px; padding: 0; text-align: left; white-space: normal; }
+.hw-name { color: var(--text); font-family: var(--font-body); font-size: 14px; padding: 0; text-align: left; white-space: normal; }
+.hw-table tbody th { font-family: var(--font-body); min-width: 9em; }
 .hw-name .muted { font-size: 12px; }
 .hw-name:hover, .hw-name[aria-pressed="true"] { color: var(--blue); }
 .hw-detail { display: grid; gap: 12px; }
