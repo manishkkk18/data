@@ -52,12 +52,12 @@ OUT = DATA / "corridors.json"
 OUT_GEO = DATA / "corridors.geojson"
 OUT_SEG = DATA / "corridor_segments.geojson"  # each road cut into the 10 km profile bins, for the map
 OVERPASS = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter"]
-SEARCH_RADIUS_M = 25_000  # road pieces must be this close to the waypoint line
+SEARCH_RADIUS_M = 35_000  # road pieces must be this close to the waypoint line
 STRIP_KM = 2.0
 COUNTRY_KM = (10.0, 20.0)
 CITY_RADIUS_KM = 15.0
-PROFILE_BIN_KM = 10
-MIN_ROAD_SHARE = 0.5  # need road lines for at least half the route, or the corridor is left out.0
+PROFILE_BIN_KM = 10.0
+MIN_ROAD_SHARE = 0.5  # need road lines for at least half the route, or the corridor is left out
 METRIC = pyproj.CRS("EPSG:7755")  # India NSF LCC, metres
 
 log = logging.getLogger("nightlights")
@@ -68,22 +68,26 @@ CORRIDORS: list[dict] = [
     {
         "id": "gq-delhi-mumbai", "name": "Delhi to Mumbai", "kind": "gq", "road": "NH48 (Golden Quadrilateral)",
         "ref": "48", "opened": None,
-        "waypoints": [("Delhi", 28.61, 77.21, True), ("Gurugram", 28.46, 77.03, True), ("Jaipur", 26.91, 75.79, True),
-                      ("Ajmer", 26.45, 74.64, False), ("Udaipur", 24.58, 73.71, False), ("Ahmedabad", 23.02, 72.57, True),
+        "waypoints": [("Delhi", 28.61, 77.21, True), ("Gurugram", 28.46, 77.03, True), ("Behror", 27.89, 76.29, False),
+                      ("Jaipur", 26.91, 75.79, True), ("Kishangarh", 26.59, 74.86, False), ("Bhilwara", 25.35, 74.63, False),
+                      ("Chittorgarh", 24.88, 74.62, False), ("Udaipur", 24.58, 73.71, False), ("Kherwara", 23.98, 73.59, False),
+                      ("Shamlaji", 23.69, 73.39, False), ("Himmatnagar", 23.60, 72.97, False), ("Ahmedabad", 23.02, 72.57, True),
                       ("Vadodara", 22.31, 73.18, True), ("Surat", 21.17, 72.83, True), ("Mumbai", 19.08, 72.88, True)],
     },
     {
         "id": "gq-mumbai-chennai", "name": "Mumbai to Chennai", "kind": "gq", "road": "NH48 (Golden Quadrilateral)",
         "ref": "48", "opened": None,
+        "also": [("44", (12.45, 77.60, 12.98, 78.30))],  # Bengaluru - Hosur - Krishnagiri runs on NH44
         "waypoints": [("Mumbai", 19.08, 72.88, True), ("Pune", 18.52, 73.86, True), ("Satara", 17.69, 74.0, False),
                       ("Kolhapur", 16.70, 74.24, False), ("Belagavi", 15.85, 74.50, False), ("Hubballi", 15.36, 75.12, False),
                       ("Davangere", 14.46, 75.92, False), ("Tumakuru", 13.34, 77.10, False), ("Bengaluru", 12.97, 77.59, True),
-                      ("Krishnagiri", 12.52, 78.21, False), ("Vellore", 12.92, 79.13, False), ("Chennai", 13.08, 80.27, True)],
+                      ("Hosur", 12.74, 77.83, False), ("Krishnagiri", 12.52, 78.21, False), ("Vellore", 12.92, 79.13, False), ("Chennai", 13.08, 80.27, True)],
     },
     {
         "id": "gq-chennai-kolkata", "name": "Chennai to Kolkata", "kind": "gq", "road": "NH16 (Golden Quadrilateral)",
         "ref": "16", "opened": None,
-        "waypoints": [("Chennai", 13.08, 80.27, True), ("Nellore", 14.44, 79.99, False), ("Vijayawada", 16.51, 80.65, True),
+        "waypoints": [("Chennai", 13.08, 80.27, True), ("Nellore", 14.44, 79.99, False), ("Kavali", 14.91, 79.99, False),
+                      ("Ongole", 15.50, 80.05, False), ("Chilakaluripet", 16.09, 80.17, False), ("Vijayawada", 16.51, 80.65, True),
                       ("Rajahmundry", 17.0, 81.8, False), ("Visakhapatnam", 17.69, 83.22, True), ("Srikakulam", 18.3, 83.9, False),
                       ("Berhampur", 19.31, 84.79, False), ("Bhubaneswar", 20.30, 85.82, True), ("Balasore", 21.49, 86.93, False),
                       ("Kharagpur", 22.35, 87.23, False), ("Kolkata", 22.57, 88.36, True)],
@@ -91,10 +95,13 @@ CORRIDORS: list[dict] = [
     {
         "id": "gq-kolkata-delhi", "name": "Kolkata to Delhi", "kind": "gq", "road": "NH19 (Golden Quadrilateral)",
         "ref": "19", "opened": None,
+        "also": [("44", (27.10, 77.10, 28.65, 78.10))],  # Agra - Mathura - Delhi is also signed NH44
         "waypoints": [("Kolkata", 22.57, 88.36, True), ("Durgapur", 23.52, 87.31, False), ("Asansol", 23.68, 86.98, False),
                       ("Dhanbad", 23.80, 86.43, False), ("Aurangabad (Bihar)", 24.75, 84.37, False), ("Varanasi", 25.32, 82.97, True),
-                      ("Prayagraj", 25.44, 81.85, True), ("Kanpur", 26.45, 80.33, True), ("Etawah", 26.78, 79.02, False),
-                      ("Agra", 27.18, 78.01, True), ("Mathura", 27.49, 77.67, False), ("Delhi", 28.61, 77.21, True)],
+                      ("Prayagraj", 25.44, 81.85, True), ("Kanpur", 26.45, 80.33, True), ("Bhognipur", 26.21, 79.80, False),
+                      ("Auraiya", 26.46, 79.51, False), ("Etawah", 26.78, 79.02, False), ("Agra", 27.18, 78.01, True),
+                      ("Mathura", 27.49, 77.67, False), ("Kosi Kalan", 27.79, 77.43, False), ("Palwal", 28.14, 77.33, False),
+                      ("Faridabad", 28.41, 77.31, True), ("Delhi", 28.61, 77.21, True)],
     },
     {
         "id": "mumbai-pune", "name": "Mumbai–Pune Expressway", "kind": "expressway", "road": "Mumbai–Pune Expressway",
@@ -166,7 +173,11 @@ def overpass_query(c: dict) -> str:
     hw = '["highway"~"^(motorway|trunk|primary)$"]'
     if "ref" in c:
         # Overpass regexes are POSIX: no \s, so spell spaces out.
-        sel = f'way{hw}["ref"~"(^|;) *NH *-?{c["ref"]} *(;|$)"]{around};'
+        ref = lambda r: f'["ref"~"(^|;) *NH *-?{r} *(;|$)"]'
+        sel = f"way{hw}{ref(c['ref'])}{around};"
+        # stretches of the route signed with another number, searched only in their own box
+        for r, (s_, w_, n_, e_) in c.get("also", []):
+            sel += f"way{hw}{ref(r)}({s_:.2f},{w_:.2f},{n_:.2f},{e_:.2f});"
     else:
         sel = f'way{hw}["name"~"{c["name_re"]}",i]{around};'
     return f"[out:json][timeout:240];({sel});out geom;"
