@@ -160,7 +160,7 @@ export function windowFires(data: AppData, ref: number, w: Window) {
 }
 
 export const SATELLITE: Record<string, string> = {
-  N: "Suomi NPP (VIIRS)", N20: "NOAA-20 (VIIRS)", N21: "NOAA-21 (VIIRS)", A: "Aqua (MODIS)", T: "Terra (MODIS)",
+  N: "Suomi NPP (VIIRS)", N20: "NOAA-20 (VIIRS)", N21: "NOAA-21 (VIIRS)", A: "Aqua (MODIS)", T: "Terra (MODIS)", Aqua: "Aqua (MODIS)", Terra: "Terra (MODIS)",
 };
 export const CONFIDENCE: Record<string, string> = { l: "low", n: "nominal", h: "high" };
 

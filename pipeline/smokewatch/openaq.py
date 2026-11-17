@@ -1,7 +1,12 @@
-"""Delhi PM2.5 / PM10 from OpenAQ v3 (CPCB and other reference stations).
+"""Delhi PM2.5 / PM10 from OpenAQ v3, reference monitors only (CPCB/CAAQM, US Embassy).
+
+Low-cost sensors (e.g. AirGradient) are left out: they read differently and their
+number changes a lot, which would shift the Delhi average.
 
 Aggregation rules (gaps are never filled):
-- Delhi hourly = mean of stations reporting that hour; needs >= MIN_STATIONS, else gap.
+- Delhi hourly = mean of stations reporting that hour; needs >= MIN_STATIONS and at
+  least MIN_SHARE of the usual number of stations, else gap. A half-reported hour
+  (e.g. the latest one, before most stations have uploaded) is a gap, not a value.
 - Delhi daily  = mean of Delhi hourly values for the IST calendar day; needs
   >= MIN_HOURS hours, else gap (CPCB uses a similar ~16-hour rule for 24 h averages).
 """
@@ -22,7 +27,9 @@ BASE = "https://api.openaq.org/v3"
 DELHI_BBOX = (76.84, 28.40, 77.35, 28.88)  # NCT of Delhi, roughly
 PARAMS = {"pm25": "PM2.5", "pm10": "PM10"}
 MIN_STATIONS = 3
+MIN_SHARE = 0.5  # of the median station count over the window
 MIN_HOURS = 18
+REFERENCE_PROVIDERS = ("cpcb", "caaqm", "airnow", "stateair")
 VALID_RANGE = (0, 1500)  # µg/m³; outside this is treated as an instrument error
 IST = timezone(timedelta(hours=5, minutes=30))
 
@@ -39,11 +46,22 @@ def _get(path: str, key: str, **params) -> dict:
     return {}
 
 
+def is_reference(loc: dict) -> bool:
+    """Regulatory-grade monitor (CPCB/CAAQM, US Embassy), not a low-cost sensor.
+    OpenAQ marks these with isMonitor; if the field is missing, fall back to known providers."""
+    if "isMonitor" in loc and loc["isMonitor"] is not None:
+        return bool(loc["isMonitor"])
+    provider = ((loc.get("provider") or {}).get("name") or "").lower()
+    return any(p in provider for p in REFERENCE_PROVIDERS)
+
+
 def list_sensors(key: str) -> pd.DataFrame:
-    """All PM2.5/PM10 sensors at OpenAQ locations inside Delhi."""
+    """PM2.5/PM10 sensors at reference monitoring stations inside Delhi."""
     data = _get("/locations", key, bbox=",".join(map(str, DELHI_BBOX)), limit=1000)
     rows = []
     for loc in data.get("results", []):
+        if not is_reference(loc):
+            continue
         provider = (loc.get("provider") or {}).get("name", "")
         for s in loc.get("sensors", []):
             p = (s.get("parameter") or {}).get("name")
@@ -79,7 +97,9 @@ def delhi_hourly(station_hours: pd.DataFrame) -> pd.DataFrame:
     ok = station_hours[station_hours["value"].between(lo, hi, inclusive="neither")]
     g = ok.groupby(["parameter", "hour_utc"])["value"].agg(["mean", "count"]).reset_index()
     g = g.rename(columns={"mean": "value", "count": "n_stations"})
-    g.loc[g["n_stations"] < MIN_STATIONS, "value"] = float("nan")
+    usual = g.groupby("parameter")["n_stations"].transform("median")
+    too_few = (g["n_stations"] < MIN_STATIONS) | (g["n_stations"] < MIN_SHARE * usual)
+    g.loc[too_few, "value"] = float("nan")
     return g
 
 

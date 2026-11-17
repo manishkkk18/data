@@ -19,6 +19,21 @@ def test_hour_with_too_few_stations_is_a_gap():
     assert math.isnan(h["value"].iloc[0])
 
 
+def test_half_reported_hour_is_a_gap():
+    # 20 stations every hour, then a final hour where only 7 have reported so far.
+    df = pd.concat([_hours(20, 5), _hours(7, 1, value=300.0, start="2026-11-10T23:30Z")])
+    h = openaq.delhi_hourly(df).sort_values("hour_utc")
+    assert h["value"].iloc[:-1].notna().all()
+    assert math.isnan(h["value"].iloc[-1])
+
+
+def test_low_cost_sensors_excluded():
+    assert openaq.is_reference({"isMonitor": True, "provider": {"name": "AirGradient"}})
+    assert not openaq.is_reference({"isMonitor": False, "provider": {"name": "CPCB"}})
+    assert openaq.is_reference({"provider": {"name": "CPCB"}})  # field missing: provider fallback
+    assert not openaq.is_reference({"provider": {"name": "AirGradient"}})
+
+
 def test_invalid_values_ignored():
     df = _hours(3, 1)
     df = pd.concat([df, df.iloc[[0]].assign(sensor_id=99, value=9999.0)])
