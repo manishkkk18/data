@@ -56,7 +56,8 @@ export default function About() {
         <div>
           <h3>Credits</h3>
           <p>
-            Basemap: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>,
+            Satellite imagery: <a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a> (VIIRS NOAA-20 true colour and Deep
+            Blue aerosol optical depth). Basemap: <a href="https://openfreemap.org/" target="_blank" rel="noopener">OpenFreeMap</a> © <a href="https://openmaptiles.org/" target="_blank" rel="noopener">OpenMapTiles</a>,
             data © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. Visits are counted
             anonymously with GoatCounter (no cookies).
           </p>

@@ -125,3 +125,19 @@
 
 /* Legend ticks like "24 h" never wrap */
 .legend-ticks span { white-space: nowrap; }
+
+/* Leaderboards (Night Lights' Insights cards) */
+.leader-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.leader-year select { min-height: 36px; padding: 0 8px; font-size: 13px; }
+.bar-value small { font-family: var(--font-mono); font-size: 11px; margin-left: 4px; }
+.bar-track.pair { position: relative; overflow: visible; }
+.bar-ghost { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text); opacity: 0.7; border-radius: 1px; }
+#leaders, #why, #limits { scroll-margin-top: calc(var(--header-h) + 12px); }
+.limits { display: grid; gap: 8px; padding-top: 4px; border-top: 1px solid var(--border); }
+.limits .trend-title { font-size: 18px; margin-top: 8px; }
+.limits .about-points li { line-height: 1.5; }
+
+/* NASA satellite layers: their own legend; fires get a dark edge on top of the imagery */
+.legend-sat { display: grid; gap: 2px; margin-top: 6px; }
+.legend-sat .legend-bar { height: 8px; }
+.legend-sat-note { font-size: 11px; }

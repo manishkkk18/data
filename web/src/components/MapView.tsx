@@ -7,7 +7,7 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 maplibregl.setWorkerUrl(workerUrl);
 import type { ExpressionSpecification, GeoJSONSource } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
-import type { Arrival, BBox, DistrictFC, Fire, WindFile, WindLevel } from "../data";
+import { SAT, type Arrival, type BBox, type DistrictFC, type Fire, type SatLayer, type WindFile, type WindLevel } from "../data";
 import { FIRE_NEW, FIRE_OLD, WIND_BLUE } from "./Legend";
 
 // OpenFreeMap: free, no API key, no view limits. Attribution comes from the style.
@@ -31,6 +31,8 @@ type Props = {
   showDistricts: boolean;
   arrival: Arrival | null; // back-trajectories of the air reaching Delhi at the map's moment
   showTrajectory: boolean;
+  sat: SatLayer; // NASA GIBS image under the data
+  satDate: string; // its date (YYYY-MM-DD)
   selectedId: string | null;
   fly: FlyRequest | null;
   padding: { top: number; bottom: number; left: number; right: number };
@@ -175,6 +177,27 @@ export default function MapView(props: Props) {
     if (!map || !ready) return;
     map.setLayoutProperty("district-line", "visibility", props.showDistricts ? "visible" : "none");
   }, [props.showDistricts, ready]);
+
+  // NASA GIBS imagery, added the first time it's chosen and re-pointed when the day changes.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    for (const [key, s] of Object.entries(SAT)) {
+      const id = `gibs-${key}`;
+      const on = props.sat === key;
+      const tiles = [s.url(props.satDate)];
+      if (on && !map.getSource(id)) {
+        map.addSource(id, { type: "raster", tiles, tileSize: 256, maxzoom: s.maxzoom, attribution: '<a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a>' });
+        map.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": s.opacity } }, "district-fill");
+      } else if (on) {
+        (map.getSource(id) as maplibregl.RasterTileSource).setTiles(tiles);
+      }
+      if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
+    }
+    // Fires get a dark edge so they stay readable on top of the imagery.
+    map.setPaintProperty("fire-dots", "circle-stroke-color", ["case", ["boolean", ["feature-state", "hover"], false], "#FFD2B8", "#0B0F1A"]);
+    map.setPaintProperty("fire-dots", "circle-stroke-width", ["case", ["boolean", ["feature-state", "hover"], false], 1.5, props.sat === "none" ? 0 : 0.8]);
+  }, [props.sat, props.satDate, ready]);
 
   // The air's path into Delhi: one line per height, dots every 6 hours back.
   useEffect(() => {

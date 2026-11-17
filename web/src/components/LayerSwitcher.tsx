@@ -1,8 +1,8 @@
 import { useId, useState, type ReactNode } from "react";
-import type { WindLevel } from "../data";
+import { SAT, type SatLayer, type WindLevel } from "../data";
 
 // Same component and classes as India Night Lights' Layers sheet; the options are this app's.
-export type Layers = { wind: boolean; windLevel: WindLevel; districts: boolean; trajectory: boolean };
+export type Layers = { wind: boolean; windLevel: WindLevel; districts: boolean; trajectory: boolean; sat: SatLayer };
 
 const WIND_OPTIONS: { value: WindLevel; label: string; note: string }[] = [
   { value: "850hPa", label: "Wind aloft (~1.5 km)", note: "850 hPa, where smoke travels far" },
@@ -84,6 +84,18 @@ export default function LayerSwitcher({ layers, onChange, windAvailable, traject
               </label>
             ))}
           </fieldset>
+          <fieldset>
+            <legend>Satellite image</legend>
+            {(["none", "true", "aod"] as SatLayer[]).map((v) => (
+              <label key={v} className={`layer-opt ${layers.sat === v ? "on" : ""}`}>
+                <input type="radio" name={`${id}-sat`} value={v} checked={layers.sat === v} onChange={() => set({ sat: v })} />
+                <span>
+                  <span className="layer-label">{v === "none" ? "None (dark map)" : SAT[v].label}</span>
+                  <span className="layer-note">{v === "none" ? "Fires and wind on the basemap" : SAT[v].note}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
           <label className="switch">
             <input type="checkbox" role="switch" checked={layers.districts} onChange={(e) => set({ districts: e.target.checked })} />
             <span className="switch-track" aria-hidden="true" />
@@ -94,7 +106,8 @@ export default function LayerSwitcher({ layers, onChange, windAvailable, traject
           </label>
           <p className="layers-credit">
             Fires: <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a> · Wind:{" "}
-            <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>
+            <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> · Imagery:{" "}
+            <a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a>
           </p>
         </div>
       )}

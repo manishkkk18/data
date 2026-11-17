@@ -1,11 +1,13 @@
-import { WINDOW_HOURS, type Window } from "../data";
+import { AOD_STOPS, dayLabel, WINDOW_HOURS, type SatLayer, type Window } from "../data";
 
 export const FIRE_NEW = "#FF7A3D";
 export const FIRE_OLD = "#E5484D";
 export const WIND_BLUE = "#6EA8FF";
 
 /** Fire key: colour = age within the window, size = fire radiative power. Same layout as India Night Lights' legend. */
-export default function Legend({ window: w, wind, path, sensor }: { window: Window; wind: boolean; path?: boolean; sensor?: string }) {
+type Props = { window: Window; wind: boolean; path?: boolean; sensor?: string; sat?: SatLayer; satDate?: string };
+
+export default function Legend({ window: w, wind, path, sensor, sat = "none", satDate }: Props) {
   const hours = WINDOW_HOURS[w];
   const ticks = hours <= 24 ? [0, 12, 24] : hours <= 72 ? [0, 24, 48, 72] : [0, 2, 4, 7].map((d) => d * 24);
   const label = (h: number) => (h === 0 ? "now" : h < 48 ? `${h} h` : `${h / 24} d`);
@@ -47,6 +49,19 @@ export default function Legend({ window: w, wind, path, sensor }: { window: Wind
           </span>
         )}
       </div>
+      {sat === "aod" && (
+        <div className="legend-sat" aria-label="Haze: aerosol optical depth from NASA, 0 to 0.75 or more">
+          <div className="legend-bar" style={{ background: `linear-gradient(90deg, ${AOD_STOPS.map(([v, c]) => `${c} ${((v / 0.75) * 100).toFixed(0)}%`).join(", ")})` }} />
+          <div className="legend-ticks" aria-hidden="true">
+            <span style={{ left: 0, transform: "none" }}>0 · clear</span>
+            <span style={{ left: "100%", transform: "translateX(-100%)" }}>0.75+ · thick haze</span>
+          </div>
+          <span className="muted legend-sat-note">Aerosol optical depth, NASA NOAA-20{satDate ? ` · ${dayLabel(satDate, true)}` : ""} · blank = cloud or no retrieval</span>
+        </div>
+      )}
+      {sat === "true" && (
+        <p className="muted legend-sat-note">NASA true-colour image, NOAA-20{satDate ? ` · ${dayLabel(satDate, true)}` : ""}, around 13:30 IST</p>
+      )}
     </div>
   );
 }

@@ -7,12 +7,15 @@ import TimeBar from "./components/TimeBar";
 import Legend from "./components/Legend";
 import LoadingOutline from "./components/LoadingOutline";
 import About from "./components/About";
+import WhyItMatters from "./components/WhyItMatters";
+import Leaderboards from "./components/Leaderboards";
 // The chart library is ~110 KB gzipped: load it with the Seasons section, not with the map.
 const Seasons = lazy(() => import("./components/Seasons"));
 import { readUrl, writeUrl } from "./url";
 import { track } from "./analytics";
 import {
   arrivalAt,
+  satDate,
   CONFIDENCE,
   loadSeasonFires,
   seasonDays,
@@ -84,6 +87,7 @@ function Main({ data }: { data: AppData }) {
     windLevel: initial.wind === "10m" ? "10m" : "850hPa",
     districts: true,
     trajectory: initial.path !== "off",
+    sat: initial.sat ?? "none",
   });
   const [selectedId, setSelectedId] = useState<string | null>(() => (initial.d && data.byId.has(initial.d) ? initial.d : null));
   const [playing, setPlaying] = useState(false);
@@ -125,6 +129,7 @@ function Main({ data }: { data: AppData }) {
   const indiaCount = useMemo(() => fires.filter((f) => f.district).length, [fires]);
   const wFrame = windFrame(data.wind, at);
   const arrival = arrivalAt(data.upwind, at);
+  const imageDate = satDate(day, data.generated);
   const aq = delhiPm25(data.aq, at);
   const pmValue = season ? seasonPm : (aq?.now ?? null);
   const band = pm25Band(pmValue);
@@ -182,7 +187,7 @@ function Main({ data }: { data: AppData }) {
   // Keep the address bar in step with the view, so any moment can be shared.
   useEffect(() => {
     writeUrl(
-      { day, w: win, d: selectedId ?? undefined, wind: layers.wind ? layers.windLevel : "off", path: layers.trajectory ? undefined : "off", season: seasonYear ?? undefined },
+      { day, w: win, d: selectedId ?? undefined, wind: layers.wind ? layers.windLevel : "off", path: layers.trajectory ? undefined : "off", season: seasonYear ?? undefined, sat: layers.sat },
       { day: season ? days[days.length - 1] : today },
     );
   }, [day, win, selectedId, layers, today, seasonYear, season, days]);
@@ -267,7 +272,7 @@ function Main({ data }: { data: AppData }) {
       <span className="chip-text">Delhi</span>
     </button>
   );
-  const legend = <Legend window={win} wind={layers.wind && wFrame != null} path={layers.trajectory && !!arrival} sensor={season ? "NOAA-20 only" : undefined} />;
+  const legend = <Legend window={win} wind={layers.wind && wFrame != null} path={layers.trajectory && !!arrival} sensor={season ? "NOAA-20 only" : undefined} sat={layers.sat} satDate={imageDate} />;
   const pmText =
     pmValue != null ? (
       <>
@@ -305,6 +310,8 @@ function Main({ data }: { data: AppData }) {
             showDistricts={layers.districts}
             arrival={arrival}
             showTrajectory={layers.trajectory}
+            sat={layers.sat}
+            satDate={imageDate}
             selectedId={selectedId}
             fly={fly}
             padding={padding}
@@ -322,6 +329,7 @@ function Main({ data }: { data: AppData }) {
               if (l.windLevel !== layers.windLevel) track(`wind-${l.windLevel}`);
               if (!l.wind && layers.wind) track("wind-off");
               if (!l.trajectory && layers.trajectory) track("path-off");
+              if (l.sat !== layers.sat && l.sat !== "none") track(`sat-${l.sat}`);
               setLayers(l);
             }}
             windAvailable={!!data.wind}
@@ -476,6 +484,16 @@ function Main({ data }: { data: AppData }) {
           </div>
         )}
       </main>
+      <WhyItMatters data={data} />
+      <Leaderboards
+        data={data}
+        phone={isPhone}
+        onPick={(id) => {
+          selectAndFly(id);
+          document.getElementById("map")?.scrollIntoView({ behavior: "smooth", block: "start" });
+          track("leader-pick");
+        }}
+      />
       <Suspense fallback={<section id="season" className="panel seasons"><p className="muted">Loading seasons…</p></section>}>
         <Seasons data={data} mapSeason={seasonYear} mapDay={day} onShow={(y, d) => showTimeline(y, d)} />
       </Suspense>

@@ -1,9 +1,9 @@
 // Shareable URLs: the view lives in the query string (same approach as India Night Lights).
-//   ?day=2026-11-15&w=3d&d=punjab--sangrur&wind=10m&path=off&season=2024
+//   ?day=2026-11-15&w=3d&d=punjab--sangrur&wind=10m&path=off&season=2024&sat=aod
 
-import type { Window, WindLevel } from "./data";
+import type { SatLayer, Window, WindLevel } from "./data";
 
-export type UrlState = { day?: string; w?: Window; d?: string; wind?: WindLevel | "off"; path?: "off"; season?: number };
+export type UrlState = { day?: string; w?: Window; d?: string; wind?: WindLevel | "off"; path?: "off"; season?: number; sat?: SatLayer };
 
 export function readUrl(): UrlState {
   const q = new URLSearchParams(window.location.search);
@@ -16,6 +16,7 @@ export function readUrl(): UrlState {
     wind: wind === "10m" || wind === "off" ? wind : undefined,
     path: q.get("path") === "off" ? "off" : undefined,
     season: /^20\d\d$/.test(q.get("season") ?? "") ? Number(q.get("season")) : undefined,
+    sat: q.get("sat") === "true" || q.get("sat") === "aod" ? (q.get("sat") as SatLayer) : undefined,
   };
 }
 
@@ -29,6 +30,7 @@ export function writeUrl(s: UrlState, defaults: { day: string }) {
   set("wind", s.wind && s.wind !== "850hPa" ? s.wind : undefined);
   set("path", s.path);
   set("season", s.season ? String(s.season) : undefined);
+  set("sat", s.sat && s.sat !== "none" ? s.sat : undefined);
   const qs = q.toString();
   const url = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
   if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(null, "", url);

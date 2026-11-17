@@ -301,3 +301,32 @@ function bboxOf(g: Geometry): BBox {
 }
 
 export type { Feature };
+
+// ---- NASA GIBS satellite imagery (no key) -----------------------------------------------------
+// Layer IDs from the GIBS WMTS GetCapabilities (EPSG:3857 "best").
+export type SatLayer = "none" | "true" | "aod";
+const GIBS = "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best";
+export const SAT: Record<Exclude<SatLayer, "none">, { label: string; note: string; url: (date: string) => string; maxzoom: number; opacity: number }> = {
+  true: {
+    label: "True colour (NOAA-20)",
+    note: "See the haze as the satellite saw it, ~13:30 IST",
+    url: (d) => `${GIBS}/VIIRS_NOAA20_CorrectedReflectance_TrueColor/default/${d}/GoogleMapsCompatible_Level9/{z}/{y}/{x}.jpg`,
+    maxzoom: 9,
+    opacity: 0.95,
+  },
+  aod: {
+    label: "Haze: aerosol optical depth",
+    note: "How much light the particles block (NOAA-20 Deep Blue)",
+    url: (d) => `${GIBS}/VIIRS_NOAA20_AOD_Deep_Blue_Land_Ocean/default/${d}/GoogleMapsCompatible_Level6/{z}/{y}/{x}.png`,
+    maxzoom: 6,
+    opacity: 0.6, // fires must stay readable on top of NASA's yellow-to-red scale
+  },
+};
+// NASA's MODIS_VIIRS_AOD colour map (from GIBS), value -> colour.
+export const AOD_STOPS: [number, string][] = [
+  [0, "#FFF7BC"], [0.09, "#FFE87E"], [0.18, "#FFCD50"], [0.28, "#FFA12E"], [0.37, "#FF731E"], [0.47, "#FC3A12"], [0.56, "#E3110B"], [0.66, "#B8000E"], [0.75, "#7D000E"],
+];
+/** Image date for a map day: the IST date, except today, whose image NASA may not have published yet. */
+export function satDate(day: string, generated: number) {
+  return day >= istDate(generated) ? addDays(istDate(generated), -1) : day;
+}
