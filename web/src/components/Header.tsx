@@ -5,6 +5,7 @@ type Props = { districts: District[]; onPick: (id: string) => void; compact?: bo
 
 const SECTIONS: [string, string][] = [
   ["map", "Map"],
+  ["season", "Seasons"],
   ["about", "About the data"],
 ];
 

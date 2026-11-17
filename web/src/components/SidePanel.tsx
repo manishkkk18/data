@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import {
   OUTSIDE,
   ago,
@@ -13,8 +14,10 @@ import {
   timeLabel,
   windFrame,
   WINDOW_LABEL,
+  seasonDays,
   type AppData,
   type Fire,
+  type Season,
   type Window,
   type WindLevel,
 } from "../data";
@@ -27,6 +30,9 @@ type Props = {
   fires: Fire[]; // in the window
   windLevel: WindLevel;
   selectedId: string | null;
+  allFires: Fire[]; // every detection on the current timeline (live, or the season's NOAA-20)
+  days: string[]; // the current timeline's days
+  season: Season | null; // a burning season, or null for the live last 7 days
   expanded: boolean; // bottom-sheet state on phones; ignored on desktop
   onToggle: () => void;
   onClear: () => void;
@@ -44,11 +50,13 @@ export default function SidePanel(p: Props) {
       <button className="sheet-handle" type="button" aria-expanded={p.expanded} onClick={p.onToggle}>
         <span className="sheet-grip" aria-hidden="true" />
         <span className="sheet-peek">
-          <span className="sheet-title">{d ? d.name : p.day === istDate(p.data.generated) ? "Today in Delhi" : `Delhi on ${dayLabel(p.day)}`}</span>
+          <span className="sheet-title">
+            {d ? d.name : p.season ? `${dayLabel(p.day)} ${p.season.year}` : p.day === istDate(p.data.generated) ? "Today in Delhi" : `Delhi on ${dayLabel(p.day)}`}
+          </span>
           <span className="sheet-value">
             {d ? (
               <span className="fire">{fmtInt(mine.length)}</span>
-            ) : aq ? (
+            ) : !p.season && aq ? (
               <span className={pm25Band(aq.now)?.cls}>{fmtInt(aq.now)}</span>
             ) : (
               <span className="fire">{fmtInt(p.fires.filter((f) => f.district).length)}</span>
@@ -57,7 +65,9 @@ export default function SidePanel(p: Props) {
         </span>
         <span className="sr-only">{p.expanded ? "Collapse details" : "Expand details"}</span>
       </button>
-      <div className="side-body">{d ? <DistrictCard {...p} fires={mine} all={p.fires} /> : <Today {...p} aq={aq} />}</div>
+      <div className="side-body">
+        {d ? <DistrictCard {...p} fires={mine} all={p.fires} /> : p.season ? <SeasonDay {...p} season={p.season} /> : <Today {...p} aq={aq} />}
+      </div>
     </aside>
   );
 }
@@ -71,17 +81,6 @@ function Today({ data, day, at, window: w, fires, windLevel, onPick, aq }: Props
   // Wind at Delhi: the last grid point is Delhi itself.
   const wi = windFrame(data.wind, at);
   const atDelhi = data.wind && wi != null ? data.wind.levels[windLevel][wi]?.[data.wind.points.length - 1] : null;
-
-  // Top districts in the window.
-  const byDistrict = new Map<string, { n: number; frp: number; last: number }>();
-  for (const f of india) {
-    const e = byDistrict.get(f.district!) ?? { n: 0, frp: 0, last: 0 };
-    e.n++;
-    e.frp += f.frp;
-    e.last = Math.max(e.last, f.t);
-    byDistrict.set(f.district!, e);
-  }
-  const top = [...byDistrict.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 3);
 
   const ly = data.lastYear;
   const lyChange = ly?.available && ly.last_year_count ? ((ly.count! - ly.last_year_count) / ly.last_year_count) * 100 : null;
@@ -141,38 +140,122 @@ function Today({ data, day, at, window: w, fires, windLevel, onPick, aq }: Props
 
       <WhoseSmoke data={data} day={day} at={at} onPick={onPick} />
 
-      <div className="stories">
-        <p className="stories-intro muted">Most fire detections in the last {WINDOW_LABEL[w]}. Tap one to fly there.</p>
-        {top.map(([id, e], k) => {
-          const dist = data.byId.get(id);
-          if (!dist) return null;
-          return (
-            <button key={id} type="button" className="story" onClick={() => onPick(id)}>
-              <span className="story-kicker">
-                #{k + 1} · {dist.state}
-              </span>
-              <span className="story-name">{dist.name}</span>
-              <span className="story-value fire">
-                {fmtInt(e.n)}
-                <span className="story-unit"> detections</span>
-              </span>
-              <span className="story-line muted">
-                {fmtInt(e.frp)} MW total fire power · latest {timeLabel(e.last)}
-              </span>
-              <span className="story-go" aria-hidden="true">
-                Fly there →
-              </span>
-            </button>
-          );
-        })}
-        {!top.length && <p className="gap-note">No fire detections in India in this window. Cloud cover can hide fires from the satellites.</p>}
+      <TopDistricts data={data} fires={india} window={w} onPick={onPick}>
         <Freshness data={data} />
-      </div>
+      </TopDistricts>
     </>
   );
 }
 
-function DistrictCard({ data, selectedId, fires, all, window: w, at, onClear, onShare }: Props & { all: Fire[] }) {
+/** Story cards for the districts with the most detections in the window (Night Lights' story style). */
+function TopDistricts({ data, fires, window: w, onPick, children }: { data: AppData; fires: Fire[]; window: Window; onPick: (id: string) => void; children?: ReactNode }) {
+  const byDistrict = new Map<string, { n: number; frp: number; last: number }>();
+  for (const f of fires) {
+    if (!f.district) continue;
+    const e = byDistrict.get(f.district) ?? { n: 0, frp: 0, last: 0 };
+    e.n++;
+    e.frp += f.frp;
+    e.last = Math.max(e.last, f.t);
+    byDistrict.set(f.district, e);
+  }
+  const top = [...byDistrict.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 3);
+  return (
+    <div className="stories">
+      <p className="stories-intro muted">Most fire detections in the last {WINDOW_LABEL[w]}. Tap one to fly there.</p>
+      {top.map(([id, e], k) => {
+        const dist = data.byId.get(id);
+        if (!dist) return null;
+        return (
+          <button key={id} type="button" className="story" onClick={() => onPick(id)}>
+            <span className="story-kicker">
+              #{k + 1} · {dist.state}
+            </span>
+            <span className="story-name">{dist.name}</span>
+            <span className="story-value fire">
+              {fmtInt(e.n)}
+              <span className="story-unit"> detections</span>
+            </span>
+            <span className="story-line muted">
+              {fmtInt(e.frp)} MW total fire power · latest {timeLabel(e.last)}
+            </span>
+            <span className="story-go" aria-hidden="true">
+              Fly there →
+            </span>
+          </button>
+        );
+      })}
+      {!top.length && <p className="gap-note">No fire detections in India in this window. Cloud cover can hide fires from the satellites.</p>}
+      {children}
+    </div>
+  );
+}
+
+/** Side panel for a day in a burning season: Delhi's daily PM2.5, the day's fires and the season so far. */
+function SeasonDay({ data, day, at, window: w, fires, onPick, season }: Props & { season: Season }) {
+  const i = Math.max(0, seasonDays(season).indexOf(day));
+  const pm = season.pm25[i];
+  const band = pm25Band(pm);
+  const india = season.fires.india;
+  const toDate = india.slice(0, i + 1).reduce((a, b) => a + b, 0);
+  // The same dates in the previous season, for a fair season-to-date comparison (same sensor).
+  const prev = data.seasons?.seasons.find((x) => x.year === season.year - 1);
+  const prevToDate = prev ? prev.fires.india.slice(0, i + 1).reduce((a, b) => a + b, 0) : null;
+  const change = prevToDate ? ((toDate - prevToDate) / prevToDate) * 100 : null;
+  const hasUpwind = !!upwindDay(data.upwind, day);
+  return (
+    <>
+      <div className="side-head">
+        <div>
+          <h2 className="side-name">
+            Delhi on {dayLabel(day)} {season.year}
+          </h2>
+          <p className="muted">{season.year} burning season · NOAA-20 detections only</p>
+        </div>
+      </div>
+      {pm != null ? (
+        <>
+          <div className="big-number">
+            <span className={`big-value aqi-value ${band?.cls ?? ""}`}>{fmtInt(pm)}</span>
+            <span className="big-unit">µg/m³ PM2.5 · Delhi daily mean of reference monitors</span>
+          </div>
+          {band && (
+            <p className="plain">
+              <span className={`aqi-badge ${band.cls}`}>{band.name}</span>
+            </p>
+          )}
+        </>
+      ) : (
+        <p className="gap-note">
+          {season.pm25_sensors
+            ? "No PM2.5 for this day: too few stations reported a full day. We show a gap rather than guess."
+            : "No Delhi air-quality data for this season."}
+        </p>
+      )}
+      <div className="tiles">
+        <Tile label="Fires that day" value={fmtInt(india[i])} tone="fire" hint="in India" />
+        <Tile label="Season to date" value={fmtInt(toDate)} tone="fire" hint={`since 15 Sep ${season.year}`} />
+        <Tile
+          label={`vs ${season.year - 1}`}
+          value={change != null ? fmtPct(change, true) : "–"}
+          hint={prevToDate != null ? `${fmtInt(prevToDate)} by ${dayLabel(day)}` : "no earlier season"}
+        />
+      </div>
+      {hasUpwind ? (
+        <WhoseSmoke data={data} day={day} at={at} onPick={onPick} />
+      ) : (
+        <p className="muted small">The air's path and upwind shares are worked out for the last 7 days only.</p>
+      )}
+      <TopDistricts data={data} fires={fires} window={w} onPick={onPick}>
+        <p className="stories-foot muted small freshness">
+          Season data built <b className="mono">{ago(Date.parse(season.built_utc))}</b>
+          {!season.complete && " · season in progress"}
+        </p>
+      </TopDistricts>
+    </>
+  );
+}
+
+function DistrictCard({ data, selectedId, fires, all, allFires, days, window: w, at, onClear, onShare }: Props & { all: Fire[] }) {
   const d = selectedId ? data.byId.get(selectedId) : undefined;
   if (!d) return null;
   const frp = fires.reduce((s, f) => s + f.frp, 0);
@@ -180,13 +263,16 @@ function DistrictCard({ data, selectedId, fires, all, window: w, at, onClear, on
   const share = indiaTotal ? (fires.length / indiaTotal) * 100 : null;
   // Rank among districts with detections in the window.
   const counts = new Map<string, number>();
-  for (const f of data.fires) if (f.district && f.t <= at && f.t > at - 7 * 86400000) counts.set(f.district, (counts.get(f.district) ?? 0) + 1);
+  for (const f of allFires) if (f.district && f.t <= at && f.t > at - 7 * 86400000) counts.set(f.district, (counts.get(f.district) ?? 0) + 1);
   const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
   const rank = ranked.findIndex(([k]) => k === d.id) + 1;
-  const n24 = data.fires.filter((f) => f.district === d.id && f.t <= at && f.t > at - 86400000).length;
+  const n24 = allFires.filter((f) => f.district === d.id && f.t <= at && f.t > at - 86400000).length;
   const n7 = counts.get(d.id) ?? 0;
   // Detections per IST day, for the small chart (empty days are real zeros: the satellites passed).
-  const perDay = data.days.map((day) => ({ day, n: data.fires.filter((f) => f.district === d.id && istDate(f.t) === day).length }));
+  // Detections per IST day (empty days are real zeros: the satellites passed); up to 14 days ending at the map's day.
+  const mineAll = allFires.filter((f) => f.district === d.id);
+  const end = Math.max(days.indexOf(istDate(at)), 0);
+  const perDay = days.slice(Math.max(0, end - 13), end + 1).map((day) => ({ day, n: mineAll.filter((f) => istDate(f.t) === day).length }));
 
   return (
     <>

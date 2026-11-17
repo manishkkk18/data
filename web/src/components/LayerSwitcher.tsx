@@ -14,11 +14,14 @@ type Props = {
   onChange: (l: Layers) => void;
   windAvailable: boolean;
   trajectoryAvailable: boolean;
+  seasons: number[]; // years with season data, newest first
+  season: number | null; // null = last 7 days
+  onTimeline: (year: number | null) => void;
   compact?: boolean; // phones: one button holds every map option
   after?: ReactNode; // shown after the Layers button (the legend chip on phones)
 };
 
-export default function LayerSwitcher({ layers, onChange, windAvailable, trajectoryAvailable, compact, after }: Props) {
+export default function LayerSwitcher({ layers, onChange, windAvailable, trajectoryAvailable, seasons, season, onTimeline, compact, after }: Props) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const set = (patch: Partial<Layers>) => onChange({ ...layers, ...patch });
@@ -26,6 +29,27 @@ export default function LayerSwitcher({ layers, onChange, windAvailable, traject
     <div className={`layers ${compact ? "compact" : ""} ${open ? "open" : ""}`}>
       {open && (
         <div className="layers-panel" id={`${id}-panel`}>
+          {seasons.length > 0 && (
+            <fieldset className="timeline-set">
+              <legend>Timeline</legend>
+              <label className={`layer-opt ${season == null ? "on" : ""}`}>
+                <input type="radio" name={`${id}-tl`} checked={season == null} onChange={() => onTimeline(null)} />
+                <span>
+                  <span className="layer-label">Last 7 days</span>
+                  <span className="layer-note">All satellites, with wind and the air's path</span>
+                </span>
+              </label>
+              <div className="season-opts" role="presentation">
+                {seasons.map((y) => (
+                  <label key={y} className={`layer-opt season-opt ${season === y ? "on" : ""}`}>
+                    <input type="radio" name={`${id}-tl`} checked={season === y} onChange={() => onTimeline(y)} />
+                    <span className="layer-label">{y}</span>
+                  </label>
+                ))}
+              </div>
+              <span className="layer-note season-note">Seasons run 15 Sep – 15 Dec, NOAA-20 only, so years compare fairly</span>
+            </fieldset>
+          )}
           <label className={`switch ${trajectoryAvailable ? "" : "disabled"}`}>
             <input
               type="checkbox"

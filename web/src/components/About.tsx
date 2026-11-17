@@ -27,6 +27,15 @@ export default function About() {
           </p>
         </div>
         <div>
+          <h3>Seasons, 2020 onward</h3>
+          <p>
+            Each season runs 15 Sep – 15 Dec. Only NOAA-20 detections are used, so every year is counted by the same satellite; archive (standard
+            processing) data where NASA has it, near-real-time data for recent weeks. Delhi's daily PM2.5 is the mean of reference monitors that reported
+            at least 18 hours that day; a day with too few such stations is a gap.
+          </p>
+          <p>The fires-vs-PM2.5 correlation is shown for interest. Weather moves Delhi's air too, so a correlation is not a measure of cause.</p>
+        </div>
+        <div>
           <h3>Wind and air</h3>
           <p>
             Hourly wind at 10 m and at 850 hPa (about 1.5 km up) from <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>, on a

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import Header from "./components/Header";
 import MapView, { type FireHover, type FlyRequest } from "./components/MapView";
 import LayerSwitcher, { type Layers } from "./components/LayerSwitcher";
@@ -7,11 +7,16 @@ import TimeBar from "./components/TimeBar";
 import Legend from "./components/Legend";
 import LoadingOutline from "./components/LoadingOutline";
 import About from "./components/About";
+// The chart library is ~110 KB gzipped: load it with the Seasons section, not with the map.
+const Seasons = lazy(() => import("./components/Seasons"));
 import { readUrl, writeUrl } from "./url";
 import { track } from "./analytics";
 import {
   arrivalAt,
   CONFIDENCE,
+  loadSeasonFires,
+  seasonDays,
+  type Fire,
   SATELLITE,
   WINDOW_HOURS,
   WINDOW_LABEL,
@@ -61,10 +66,18 @@ function Main({ data }: { data: AppData }) {
   const initial = useMemo(() => readUrl(), []);
   const today = data.days.length ? data.days[data.days.length - 1] : istDate(data.generated);
 
+  // Timeline: the live last-7-days view (null) or a burning season by year (NOAA-20 only).
+  const [seasonYear, setSeasonYear] = useState<number | null>(() =>
+    initial.season && data.seasons?.seasons.some((x) => x.year === initial.season) ? initial.season : null,
+  );
+  const season = seasonYear != null ? (data.seasons?.seasons.find((x) => x.year === seasonYear) ?? null) : null;
+  const days = useMemo(() => (season ? seasonDays(season) : data.days), [season, data.days]);
   const [dayIndex, setDayIndex] = useState(() => {
-    const i = initial.day ? data.days.indexOf(initial.day) : -1;
-    return i >= 0 ? i : Math.max(data.days.length - 1, 0);
+    const i = initial.day ? days.indexOf(initial.day) : -1;
+    return i >= 0 ? i : Math.max(days.length - 1, 0);
   });
+  const [seasonFires, setSeasonFires] = useState<Record<number, Fire[]>>({});
+  const [seasonLoading, setSeasonLoading] = useState(false);
   const [win, setWin] = useState<Window>(initial.w ?? "24h");
   const [layers, setLayers] = useState<Layers>({
     wind: initial.wind !== "off",
@@ -104,19 +117,51 @@ function Main({ data }: { data: AppData }) {
     return () => io.disconnect();
   }, []);
 
-  const day = data.days[dayIndex] ?? today;
+  const day = days[Math.min(dayIndex, days.length - 1)] ?? today;
   const at = refTime(data, day);
-  const fires = useMemo(() => windowFires(data, at, win), [data, at, win]);
+  const sourceFires = season ? (seasonFires[season.year] ?? []) : data.fires;
+  const fires = useMemo(() => windowFires(sourceFires, at, win), [sourceFires, at, win]);
+  const seasonPm = season ? (season.pm25[days.indexOf(day)] ?? null) : null;
   const indiaCount = useMemo(() => fires.filter((f) => f.district).length, [fires]);
   const wFrame = windFrame(data.wind, at);
   const arrival = arrivalAt(data.upwind, at);
   const aq = delhiPm25(data.aq, at);
-  const band = pm25Band(aq?.now);
+  const pmValue = season ? seasonPm : (aq?.now ?? null);
+  const band = pm25Band(pmValue);
   const series = useMemo(() => {
+    if (season) return season.fires.india;
     const counts = new Map<string, number>();
     for (const f of data.fires) if (f.district) counts.set(istDate(f.t), (counts.get(istDate(f.t)) ?? 0) + 1);
     return data.days.map((d) => counts.get(d) ?? 0);
-  }, [data]);
+  }, [data, season]);
+
+  // A season's detections are fetched the first time it is shown.
+  useEffect(() => {
+    if (seasonYear == null || seasonFires[seasonYear]) return;
+    let live = true;
+    setSeasonLoading(true);
+    loadSeasonFires(seasonYear)
+      .then((f) => live && setSeasonFires((m) => ({ ...m, [seasonYear]: f })))
+      .catch(() => live && say(`Couldn't load the ${seasonYear} season.`))
+      .finally(() => live && setSeasonLoading(false));
+    return () => {
+      live = false;
+    };
+  }, [seasonYear]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /** Switch the timeline (null = last 7 days) and land on `onDay` if given, else its last day. */
+  const showTimeline = useCallback(
+    (year: number | null, onDay?: string) => {
+      const s = year != null ? data.seasons?.seasons.find((x) => x.year === year) : null;
+      const ds = s ? seasonDays(s) : data.days;
+      const i = onDay ? ds.indexOf(onDay) : -1;
+      setPlaying(false);
+      setSeasonYear(s ? s.year : null);
+      setDayIndex(i >= 0 ? i : ds.length - 1);
+      if (s) track(`season-${s.year}`);
+    },
+    [data],
+  );
   const districtList = useMemo(() => [...data.byId.values()].sort((a, b) => a.name.localeCompare(b.name)), [data]);
 
   // Fit padding keeps the area clear of the floating panels (same values as India Night Lights).
@@ -136,8 +181,11 @@ function Main({ data }: { data: AppData }) {
 
   // Keep the address bar in step with the view, so any moment can be shared.
   useEffect(() => {
-    writeUrl({ day, w: win, d: selectedId ?? undefined, wind: layers.wind ? layers.windLevel : "off", path: layers.trajectory ? undefined : "off" }, { day: today });
-  }, [day, win, selectedId, layers, today]);
+    writeUrl(
+      { day, w: win, d: selectedId ?? undefined, wind: layers.wind ? layers.windLevel : "off", path: layers.trajectory ? undefined : "off", season: seasonYear ?? undefined },
+      { day: season ? days[days.length - 1] : today },
+    );
+  }, [day, win, selectedId, layers, today, seasonYear, season, days]);
 
   const share = async () => {
     track("share");
@@ -155,18 +203,19 @@ function Main({ data }: { data: AppData }) {
     const t = setInterval(
       () =>
         setDayIndex((i) => {
-          if (i >= data.days.length - 1) {
+          if (i >= days.length - 1) {
             setPlaying(false);
             return i;
           }
           return i + 1;
         }),
-      speed === 2 ? 600 : 1200,
+      // A season has ~90 days, so it plays faster than the 7-day view.
+      (season ? 500 : 1200) / speed,
     );
     return () => clearInterval(t);
-  }, [playing, speed, data.days.length]);
+  }, [playing, speed, days.length, season]);
   const togglePlay = () => {
-    if (!playing && dayIndex >= data.days.length - 1) setDayIndex(0);
+    if (!playing && dayIndex >= days.length - 1) setDayIndex(0);
     if (!playing) track("play");
     setPlaying((p) => !p);
   };
@@ -179,11 +228,11 @@ function Main({ data }: { data: AppData }) {
       if (t && (t.closest("input, textarea, select, [contenteditable], .maplibregl-canvas, [role=slider]") || e.altKey || e.metaKey || e.ctrlKey)) return;
       e.preventDefault();
       setPlaying(false);
-      setDayIndex((i) => Math.min(Math.max(i + (e.key === "ArrowLeft" ? -1 : 1), 0), data.days.length - 1));
+      setDayIndex((i) => Math.min(Math.max(i + (e.key === "ArrowLeft" ? -1 : 1), 0), days.length - 1));
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [data.days.length]);
+  }, [days.length]);
 
   const windowToggle = (cls: string) => (
     <div className={`toggle ${cls}`} role="radiogroup" aria-label="Show fires from the last">
@@ -218,14 +267,16 @@ function Main({ data }: { data: AppData }) {
       <span className="chip-text">Delhi</span>
     </button>
   );
-  const legend = <Legend window={win} wind={layers.wind && !!data.wind} path={layers.trajectory && !!arrival} />;
-  const pmText = aq ? (
-    <>
-      <span className={`mono ${band?.cls ?? ""}`}>{fmtInt(aq.now)}</span> <span className={band?.cls}>{band?.name}</span>
-    </>
-  ) : (
-    <span className="muted">–</span>
-  );
+  const legend = <Legend window={win} wind={layers.wind && wFrame != null} path={layers.trajectory && !!arrival} sensor={season ? "NOAA-20 only" : undefined} />;
+  const pmText =
+    pmValue != null ? (
+      <>
+        <span className={`mono ${band?.cls ?? ""}`}>{fmtInt(pmValue)}</span> <span className={band?.cls}>{band?.name}</span>
+      </>
+    ) : (
+      <span className="muted">{season ? "gap" : "–"}</span>
+    );
+  const pmLabel = season ? "Delhi PM2.5 · day" : "Delhi PM2.5";
 
   return (
     <>
@@ -274,9 +325,17 @@ function Main({ data }: { data: AppData }) {
               setLayers(l);
             }}
             windAvailable={!!data.wind}
-            trajectoryAvailable={!!data.upwind} compact={isPhone} after={isPhone ? <LegendChip>{legend}</LegendChip> : undefined} />
+            trajectoryAvailable={!!data.upwind}
+            seasons={[...(data.seasons?.seasons ?? [])].map((x) => x.year).reverse()}
+            season={seasonYear}
+            onTimeline={(y) => showTimeline(y)} compact={isPhone} after={isPhone ? <LegendChip>{legend}</LegendChip> : undefined} />
           {mapLoading && <LoadingOutline outline={data.outline} />}
-          {!mapLoading && fires.length === 0 && (
+          {seasonLoading && !mapLoading && (
+            <div className="map-loading" role="status">
+              <span className="spinner" aria-hidden="true" /> Loading the {seasonYear} season…
+            </div>
+          )}
+          {!mapLoading && !seasonLoading && fires.length === 0 && (
             <div className="map-notice" role="status">
               No fire detections in this window. Clouds can hide fires from the satellites.
             </div>
@@ -323,9 +382,10 @@ function Main({ data }: { data: AppData }) {
                     </span>
                   </div>
                   <div className="kpi">
-                    <span className="kpi-label">Delhi PM2.5</span>
+                    <span className="kpi-label">{pmLabel}</span>
                     <span className="kpi-value">
-                      {pmText} <small className="muted">{aq ? "µg/m³, latest hour" : "air-quality data not loaded yet"}</small>
+                      {pmText}{" "}
+                      <small className="muted">{season ? "µg/m³, daily mean" : aq ? "µg/m³, latest hour" : "air-quality data not loaded yet"}</small>
                     </span>
                   </div>
                   <p className="muted small">{TAGLINE}</p>
@@ -350,7 +410,7 @@ function Main({ data }: { data: AppData }) {
                 <span className="kpi-value fire">{fmtInt(indiaCount)}</span>
               </div>
               <div className="kpi">
-                <span className="kpi-label">Delhi PM2.5</span>
+                <span className="kpi-label">{pmLabel}</span>
                 <span className="kpi-value">{pmText}</span>
               </div>
               {windowToggle("")}
@@ -378,6 +438,9 @@ function Main({ data }: { data: AppData }) {
           fires={fires}
           windLevel={layers.windLevel}
           selectedId={selectedId}
+          allFires={sourceFires}
+          days={days}
+          season={season}
           expanded={sheetOpen}
           onToggle={() => setSheetOpen((o) => !o)}
           onClear={() => setSelectedId(null)}
@@ -391,7 +454,7 @@ function Main({ data }: { data: AppData }) {
 
         <div className="timebar">
           <TimeBar
-            days={data.days}
+            days={days}
             value={dayIndex}
             onChange={(i) => {
               setPlaying(false);
@@ -399,7 +462,7 @@ function Main({ data }: { data: AppData }) {
             }}
             playing={playing}
             onTogglePlay={togglePlay}
-            canPlay={data.days.length > 1}
+            canPlay={days.length > 1}
             speed={speed}
             onSpeed={setSpeed}
             series={series}
@@ -413,6 +476,9 @@ function Main({ data }: { data: AppData }) {
           </div>
         )}
       </main>
+      <Suspense fallback={<section id="season" className="panel seasons"><p className="muted">Loading seasons…</p></section>}>
+        <Seasons data={data} mapSeason={seasonYear} mapDay={day} onShow={(y, d) => showTimeline(y, d)} />
+      </Suspense>
       <About />
     </>
   );

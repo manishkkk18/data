@@ -5,7 +5,7 @@ export const FIRE_OLD = "#E5484D";
 export const WIND_BLUE = "#6EA8FF";
 
 /** Fire key: colour = age within the window, size = fire radiative power. Same layout as India Night Lights' legend. */
-export default function Legend({ window: w, wind, path }: { window: Window; wind: boolean; path?: boolean }) {
+export default function Legend({ window: w, wind, path, sensor }: { window: Window; wind: boolean; path?: boolean; sensor?: string }) {
   const hours = WINDOW_HOURS[w];
   const ticks = hours <= 24 ? [0, 12, 24] : hours <= 72 ? [0, 24, 48, 72] : [0, 2, 4, 7].map((d) => d * 24);
   const label = (h: number) => (h === 0 ? "now" : h < 48 ? `${h} h` : `${h / 24} d`);
@@ -23,7 +23,7 @@ export default function Legend({ window: w, wind, path }: { window: Window; wind
         })}
       </div>
       <div className="legend-foot">
-        <span className="muted">Detection age</span>
+        <span className="muted">Detection age{sensor ? ` · ${sensor}` : ""}</span>
         <span className="legend-gap legend-size" title="Fire radiative power">
           <i className="dot s" aria-hidden="true" />
           <i className="dot m" aria-hidden="true" />

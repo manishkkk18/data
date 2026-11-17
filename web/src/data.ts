@@ -68,6 +68,7 @@ export type AppData = {
   wind: WindFile | null;
   aq: AqFile | null;
   upwind: UpwindFile | null;
+  seasons: SeasonIndex | null;
   lastYear: SummaryFile["same_day_last_year"];
   meta: Meta;
 };
@@ -82,7 +83,7 @@ const getJson = async <T,>(f: string): Promise<T> => {
 export async function loadData(): Promise<AppData> {
   const manifest = await getJson<{ files: string[] }>("manifest.json").catch(() => ({ files: [] as string[] }));
   const opt = <T,>(f: string) => (manifest.files.includes(f) ? getJson<T>(f).catch(() => null) : Promise.resolve(null));
-  const [firesFile, summary, districts, outline, meta, wind, aq, upwind] = await Promise.all([
+  const [firesFile, summary, districts, outline, meta, wind, aq, upwind, seasons] = await Promise.all([
     getJson<FiresFile>("fires_recent.json"),
     getJson<SummaryFile>("fires_summary_recent.json"),
     getJson<DistrictFC>("districts_web.geojson"),
@@ -91,6 +92,7 @@ export async function loadData(): Promise<AppData> {
     opt<WindFile>("wind_recent.json"),
     opt<AqFile>("aq_delhi_recent.json"),
     opt<UpwindFile>("upwind_recent.json"),
+    opt<SeasonIndex>("seasons/index.json"),
   ]);
 
   const t0 = Date.parse(firesFile.t0);
@@ -116,8 +118,48 @@ export async function loadData(): Promise<AppData> {
 
   return {
     fires, firesMethod: firesFile.method, latestDetection, generated, days,
-    districts, outline, byId, wind, aq, upwind, lastYear: summary.same_day_last_year, meta,
+    districts, outline, byId, wind, aq, upwind, seasons, lastYear: summary.same_day_last_year, meta,
   };
+}
+
+// ---- Burning seasons (NOAA-20 only, 15 Sep – 15 Dec) -----------------------------------------
+export type Season = {
+  year: number;
+  start: string;
+  end: string;
+  complete: boolean;
+  built_utc: string;
+  pm25_sensors: number;
+  fires: { total: number[]; india: number[]; states: Record<string, number[]> };
+  pm25: (number | null)[]; // Delhi daily mean, null = gap
+  by_state: { state: string; n: number; frp: number }[];
+  top_districts: { id: string; n: number; frp: number }[];
+};
+export type SeasonIndex = { generated_utc: string; note: string; seasons: Season[] };
+type SeasonFiresFile = { start: string; district_ids: string[]; rows: [lon: number, lat: number, day: number, hhmm: number, frp: number, district: number][] };
+
+export function seasonDays(s: Season) {
+  const out: string[] = [];
+  for (let d = s.start; d <= s.end; d = addDays(d, 1)) out.push(d);
+  return out;
+}
+
+/** A season's NOAA-20 detections as the same Fire objects the live map uses. */
+export async function loadSeasonFires(year: number): Promise<Fire[]> {
+  const f = await getJson<SeasonFiresFile>(`seasons/fires_${year}.json`);
+  const fires = f.rows.map(([lon, lat, day, hhmm, frp, di]) => {
+    const istDay = addDays(f.start, day);
+    const mins = Math.floor(hhmm / 100) * 60 + (hhmm % 100);
+    // The stored time is UTC; from 18:30 UTC it is already the next IST day.
+    const utcDay = mins >= 18 * 60 + 30 ? addDays(istDay, -1) : istDay;
+    const hh = Math.floor(hhmm / 100);
+    return {
+      lon, lat, frp, t: Date.parse(`${utcDay}T00:00:00Z`) + mins * 60000,
+      conf: "", sat: "N20", night: !(hh >= 4 && hh < 12), // VIIRS passes ~08 UTC (day) and ~20 UTC (night)
+      district: di >= 0 ? f.district_ids[di] : null,
+    } satisfies Fire;
+  });
+  return fires.sort((a, b) => a.t - b.t);
 }
 
 // ---- Upwind (indicative) ---------------------------------------------------------------------
@@ -175,11 +217,11 @@ export function refTime(data: AppData, day: string) {
   return Math.min(endOfIstDay(day), data.generated);
 }
 
-/** Fires in (ref - window, ref], as indices into data.fires (sorted by time). */
-export function windowFires(data: AppData, ref: number, w: Window) {
+/** Fires in (ref - window, ref] from a time-sorted list. */
+export function windowFires(fires: Fire[], ref: number, w: Window) {
   const from = ref - WINDOW_HOURS[w] * 3600000;
   const out: Fire[] = [];
-  for (const f of data.fires) {
+  for (const f of fires) {
     if (f.t > ref) break;
     if (f.t > from) out.push(f);
   }

@@ -87,3 +87,38 @@
 @media (max-width: 639px) {
   .whose-note { border: 0; border-left: 2px dashed var(--border); border-radius: 0; background: none; padding: 0 0 0 12px; }
 }
+
+/* Layers sheet: timeline (last 7 days or a season) */
+.timeline-set { padding-bottom: 10px !important; border-bottom: 1px solid var(--border) !important; }
+.season-opts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.season-opt { padding: 6px 8px; gap: 8px; font-variant-numeric: tabular-nums; }
+.season-opt .layer-label { font-family: var(--font-mono); font-size: 13px; }
+.season-note { padding: 2px 8px 0; }
+.layers.compact .layers-panel .season-opts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* Seasons section (Night Lights' Diwali/Compare section layout) */
+.seasons { margin: 0 16px 16px; padding: 24px; display: grid; gap: 16px; }
+.seasons h2 { font-size: 26px; }
+.seasons .diwali-head p { margin: 6px 0 0; max-width: 70ch; }
+.season-controls { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; }
+.lag-pick { display: grid; gap: 4px; }
+.lag-pick .toggle { margin-left: 0; }
+.lag-pick .toggle button { min-height: 40px; font-size: 13px; }
+.lag-result { display: grid; gap: 4px; }
+.lag-result p { margin: 0; }
+.seasons-compare { grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); }
+.seasons-mini { display: grid; gap: 16px; }
+.compare-note { grid-column: 1 / -1; }
+#season { scroll-margin-top: calc(var(--header-h) + 12px); }
+@media (max-width: 899px) {
+  .seasons { padding: 16px; }
+  .seasons-compare { grid-template-columns: 1fr; }
+}
+@media (max-width: 639px) {
+  .seasons { margin: 0 0 24px; padding: 20px var(--gutter); border-radius: 0; border-left: 0; border-right: 0; }
+  .seasons h2 { font-size: 24px; }
+  .season-controls { display: grid; }
+  .lag-pick .toggle { width: 100%; }
+  .lag-pick .toggle button { flex: 1; min-height: 44px; padding: 0 4px; }
+  .season-controls .select select { width: 100%; }
+}
