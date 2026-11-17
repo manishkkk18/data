@@ -1,0 +1,85 @@
+# Build the burning-season files (15 Sep - 15 Dec) on GitHub's machines and commit them.
+# Complete seasons already in the repo are skipped, so re-running only does what's missing
+# (plus the season in progress). Needs FIRMS_MAP_KEY and OPENAQ_API_KEY repository secrets.
+name: Backfill seasons
+
+on:
+  workflow_dispatch:
+    inputs:
+      years:
+        description: "Seasons to build, e.g. 2020-2026 or 2024"
+        default: "2020-2026"
+      force:
+        description: "Rebuild complete seasons too"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-write # never at the same time as another job that commits data
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  seasons:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Install pipeline
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Tests
+        working-directory: pipeline
+        run: PYTHONPATH=. python -m pytest -q tests
+
+      - name: Build seasons
+        working-directory: pipeline
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+        run: |
+          PYTHONPATH=. python -m smokewatch.season --years "${{ github.event.inputs.years || '2020-2026' }}" \
+            ${{ github.event.inputs.force == 'true' && '--force' || '' }}
+
+      - name: Summary
+        if: always()
+        run: |
+          python - <<'EOF' >> "$GITHUB_STEP_SUMMARY"
+          import json, pathlib
+          from datetime import date, timedelta
+          p = pathlib.Path("data/seasons/index.json")
+          if not p.exists():
+              print("No season index was written."); raise SystemExit
+          print("| Season | Days | Complete | NOAA-20 detections (India) | PM2.5 days | Peak day |")
+          print("|---|---:|---|---:|---:|---|")
+          for s in json.loads(p.read_text())["seasons"]:
+              india = s["fires"]["india"]; pm = [v for v in s["pm25"] if v is not None]
+              peak = max(range(len(india)), key=india.__getitem__) if india else None
+              when = (date.fromisoformat(s["start"]) + timedelta(days=peak)).isoformat() if peak is not None else "–"
+              print(f"| {s['year']} | {len(india)} | {s['complete']} | {sum(india):,} | {len(pm)} of {len(s['pm25'])} | {when} ({india[peak] if india else 0}) |")
+          EOF
+
+      - name: Commit season data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/seasons
+          if git diff --cached --quiet; then
+            echo "No season changes."
+          else
+            git commit -m "Season data $(date -u +%Y-%m-%d)"
+            git pull --rebase -q
+            git push
+          fi

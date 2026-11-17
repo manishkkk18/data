@@ -67,10 +67,27 @@ def list_sensors(key: str) -> pd.DataFrame:
             p = (s.get("parameter") or {}).get("name")
             if p in PARAMS:
                 last = (loc.get("datetimeLast") or {}).get("utc")
+                first = (loc.get("datetimeFirst") or {}).get("utc")
                 rows.append({"sensor_id": s["id"], "parameter": p, "location": loc.get("name"),
-                             "provider": provider, "last_utc": last,
+                             "provider": provider, "first_utc": first, "last_utc": last,
                              "lat": loc["coordinates"]["latitude"], "lon": loc["coordinates"]["longitude"]})
     return pd.DataFrame(rows)
+
+
+def fetch_days(key: str, sensor_id: int, date_from: str, date_to: str) -> pd.DataFrame:
+    """OpenAQ's daily averages for one sensor: date (local, i.e. IST for Delhi), value, percent of hours covered."""
+    rows, page = [], 1
+    while True:
+        data = _get(f"/sensors/{sensor_id}/days", key, date_from=date_from, date_to=date_to, limit=1000, page=page)
+        res = data.get("results", [])
+        for d in res:
+            cov = (d.get("coverage") or {}).get("percentComplete")
+            rows.append({"date": d["period"]["datetimeFrom"]["local"][:10], "value": d["value"], "pct": cov})
+        if len(res) < 1000:
+            break
+        page += 1
+        time.sleep(1.1)
+    return pd.DataFrame(rows, columns=["date", "value", "pct"])
 
 
 def fetch_hours(key: str, sensor_id: int, start: datetime, end: datetime) -> pd.DataFrame:
