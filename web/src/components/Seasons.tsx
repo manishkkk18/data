@@ -51,7 +51,10 @@ function stats(s: Season, upTo?: number) {
   const pmOk = pm.filter((v): v is number => v != null);
   const peak = fires.reduce((best, v, i) => (v > fires[best] ? i : best), 0);
   const state = (name: string) => (s.fires.states[name] ?? []).slice(0, n).reduce((a, b) => a + b, 0);
+  // A season average is only shown when most days have PM2.5; otherwise it would describe a few days, not the season.
+  const enough = pmOk.length >= 0.8 * n;
   return {
+    enough,
     fires: fires.reduce((a, b) => a + b, 0),
     peakDay: addDays(s.start, peak),
     peakN: fires[peak] ?? 0,
@@ -199,7 +202,7 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart
               data={rows}
-              margin={{ top: 8, right: 0, bottom: 0, left: -8 }}
+              margin={{ top: 8, right: 0, bottom: 0, left: 0 }}
               onClick={(st) => {
                 const i = Number(st?.activeTooltipIndex);
                 if (Number.isInteger(i)) pickDay(i);
@@ -208,7 +211,7 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
             >
               <CartesianGrid vertical={false} stroke="#232B40" />
               <XAxis dataKey="i" type="number" domain={[0, rows.length - 1]} ticks={ticks} tickFormatter={(i: number) => dayLabel(rows[i]?.day ?? "")} tick={AXIS} tickLine={false} axisLine={{ stroke: "#232B40" }} />
-              <YAxis yAxisId="f" tick={AXIS} tickLine={false} axisLine={false} width={44} tickFormatter={(v: number) => fmtInt(v)} />
+              <YAxis yAxisId="f" tick={AXIS} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => fmtInt(v)} />
               <YAxis yAxisId="p" orientation="right" tick={AXIS} tickLine={false} axisLine={false} width={40} />
               <Tooltip
                 cursor={{ stroke: "#9AA3B8", strokeWidth: 1 }}
@@ -246,6 +249,12 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
         </p>
       </figure>
 
+      {sa.pmDays < 0.8 * A.fires.india.length && (
+        <p className="gap-note">
+          Delhi PM2.5 is missing for {A.fires.india.length - A.pm25.filter((v) => v != null).length} of {A.fires.india.length} days this season: OpenAQ has no
+          daily readings from Delhi's monitors for that period. The gaps are left empty, not filled.
+        </p>
+      )}
       <div className="lag-result">
         <p className="plain">
           {corr.map((c, k) => (
@@ -259,7 +268,8 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
           {best?.r != null
             ? `In ${A.year}, Delhi's PM2.5 moved most closely with fires ${best.lag === 0 ? "on the same day" : `${best.lag} day${best.lag > 1 ? "s" : ""} earlier`} (correlation ${best.r.toFixed(2)} over ${best.n} days). `
             : "Not enough days with PM2.5 to compare. "}
-          Correlation is not cause: the weather (cold, still air) also drives Delhi's PM2.5, whatever its source.
+          Correlation is not cause: fires and PM2.5 both tend to rise through late October and November, and the weather (cold, still air) also
+          drives Delhi's PM2.5, whatever its source.
         </p>
       </div>
 
@@ -277,13 +287,15 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
                 <th scope="col" style={{ color: COLOR_B }}>
                   {B.year}
                 </th>
-                <th scope="col">Change</th>
+                <th scope="col">
+                  {Math.min(A.year, B.year)} → {Math.max(A.year, B.year)}
+                </th>
               </tr>
             </thead>
             <tbody>
-              <Row label="Fire detections, India" a={sa.fires} b={sb.fires} />
-              <Row label="… in Punjab" a={sa.punjab} b={sb.punjab} />
-              <Row label="… in Haryana" a={sa.haryana} b={sb.haryana} />
+              <Row label="Fire detections, India" a={sa.fires} b={sb.fires} aLater={A.year > B.year} />
+              <Row label="… in Punjab" a={sa.punjab} b={sb.punjab} aLater={A.year > B.year} />
+              <Row label="… in Haryana" a={sa.haryana} b={sb.haryana} aLater={A.year > B.year} />
               <tr>
                 <th scope="row">Peak day</th>
                 <td>
@@ -294,15 +306,17 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
                 </td>
                 <td />
               </tr>
-              <Row label="Mean PM2.5 (µg/m³)" a={sa.pmMean} b={sb.pmMean} />
+              <Row label="Mean PM2.5 (µg/m³)" a={sa.enough ? sa.pmMean : null} b={sb.enough ? sb.pmMean : null} aLater={A.year > B.year} />
               <tr>
                 <th scope="row">Days Very poor or worse</th>
-                <td>
-                  {sa.veryPoor} of {sa.pmDays}
-                </td>
-                <td>
-                  {sb.veryPoor} of {sb.pmDays}
-                </td>
+                <td>{sa.enough ? `${sa.veryPoor} of ${sa.pmDays}` : "–"}</td>
+                <td>{sb.enough ? `${sb.veryPoor} of ${sb.pmDays}` : "–"}</td>
+                <td />
+              </tr>
+              <tr>
+                <th scope="row">Days with PM2.5 data</th>
+                <td>{sa.pmDays}</td>
+                <td>{sb.pmDays}</td>
                 <td />
               </tr>
             </tbody>
@@ -313,7 +327,7 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
           </div>
           <p className="trend-note muted compare-note">
             {common && common < 92 ? `Compared over the same ${common} days (15 Sep – ${dayLabel(addDays(`${A.year}-09-15`, common - 1))}), as one season is still in progress. ` : ""}
-            Change is {B.year} → {A.year}.
+            Change is {Math.min(A.year, B.year)} → {Math.max(A.year, B.year)}. PM2.5 averages are left out ("–") when fewer than 80% of days have data.
           </p>
         </div>
       )}
@@ -321,8 +335,10 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
   );
 }
 
-function Row({ label, a, b }: { label: string; a: number | null; b: number | null }) {
-  const ch = a != null && b ? ((a - b) / b) * 100 : null;
+/** a, b: values for the two seasons; aLater: whether a is the later season. Change always runs earlier -> later. */
+function Row({ label, a, b, aLater }: { label: string; a: number | null; b: number | null; aLater: boolean }) {
+  const [from, to] = aLater ? [b, a] : [a, b];
+  const ch = from && to != null ? ((to - from) / from) * 100 : null;
   return (
     <tr>
       <th scope="row">{label}</th>
@@ -352,10 +368,10 @@ function MiniChart({ title, rows, a, b, yearA, yearB }: { title: string; rows: R
       </figcaption>
       <div className="trend-plot">
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: -12 }}>
+          <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
             <CartesianGrid vertical={false} stroke="#232B40" />
             <XAxis dataKey="i" type="number" domain={[0, rows.length - 1]} ticks={ticks} tickFormatter={(i: number) => dayLabel(rows[i]?.day ?? "")} tick={AXIS} tickLine={false} axisLine={{ stroke: "#232B40" }} />
-            <YAxis tick={AXIS} tickLine={false} axisLine={false} width={44} tickFormatter={(v: number) => fmtInt(v)} />
+            <YAxis tick={AXIS} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => fmtInt(v)} />
             <Tooltip
               cursor={{ stroke: "#9AA3B8", strokeWidth: 1 }}
               isAnimationActive={false}

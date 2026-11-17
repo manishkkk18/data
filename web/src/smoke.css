@@ -122,3 +122,6 @@
   .lag-pick .toggle button { flex: 1; min-height: 44px; padding: 0 4px; }
   .season-controls .select select { width: 100%; }
 }
+
+/* Legend ticks like "24 h" never wrap */
+.legend-ticks span { white-space: nowrap; }

@@ -33,7 +33,7 @@ export default function TimeBar({ days, value, onChange, playing, onTogglePlay, 
   const thumbX = THUMB / 2 + frac * (width - THUMB);
   const labelX = Math.min(Math.max(thumbX, 32), Math.max(32, width - 32));
   // Day ticks at least ~44 px apart.
-  const step = Math.max(1, Math.ceil(44 / ((width - THUMB) / Math.max(n - 1, 1))));
+  const step = Math.max(1, Math.ceil(60 / ((width - THUMB) / Math.max(n - 1, 1)))); // day labels are wider than years: ~60 px apart
 
   // Faint daily-detections line behind the track, on the same x positions as the thumb.
   const vals = series.filter((v): v is number => v != null);
