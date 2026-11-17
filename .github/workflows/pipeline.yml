@@ -47,6 +47,9 @@ jobs:
         working-directory: pipeline
         run: PYTHONPATH=. python -X utf8 -m pytest -q tests
 
+      - name: Clear old outputs (so a failed step shows as missing, not stale)
+        run: rm -f data/*.json
+
       - name: Run pipeline
         working-directory: pipeline
         env:

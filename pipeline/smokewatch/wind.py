@@ -7,6 +7,7 @@ Levels: 10 m and 850 hPa (~1.5 km). Directions are meteorological: where the win
 """
 from __future__ import annotations
 
+import time
 from datetime import datetime, timezone
 
 import numpy as np
@@ -19,7 +20,26 @@ from .trajectory import WindField
 API = "https://api.open-meteo.com/v1/forecast"
 LEVELS = ("10m", "850hPa")
 STEP_DEG = 1.0
-CHUNK = 100  # locations per request, keeps URLs short
+CHUNK = 40  # locations per request: small enough that Open-Meteo answers quickly
+RETRIES = 4
+
+
+def _get_with_retry(params: dict):
+    """Open-Meteo is free and sometimes slow: retry timeouts and 429/5xx with a growing pause."""
+    last: Exception | None = None
+    for attempt in range(RETRIES):
+        try:
+            r = requests.get(API, params=params, timeout=90)
+            if r.status_code == 429 or r.status_code >= 500:
+                raise requests.HTTPError(f"HTTP {r.status_code}", response=r)
+            r.raise_for_status()
+            return r.json()
+        except (requests.Timeout, requests.ConnectionError, requests.HTTPError) as e:
+            if isinstance(e, requests.HTTPError) and e.response is not None and 400 <= e.response.status_code < 500 and e.response.status_code != 429:
+                raise  # a real request error: retrying won't help
+            last = e
+            time.sleep(10 * (attempt + 1))
+    raise RuntimeError(f"Open-Meteo failed after {RETRIES} tries: {last}")
 
 
 def grid_points(bbox=BBOX, step=STEP_DEG) -> list[tuple[float, float]]:
@@ -45,9 +65,7 @@ def fetch(points: list[tuple[float, float]], past_days: int = 7) -> pd.DataFrame
             "forecast_days": 1,
             "timezone": "UTC",
         }
-        r = requests.get(API, params=params, timeout=180)
-        r.raise_for_status()
-        data = r.json()
+        data = _get_with_retry(params)
         if isinstance(data, dict):
             data = [data]
         for k, loc in enumerate(data):
