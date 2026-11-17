@@ -12,6 +12,7 @@ from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
 
+from . import aqi as aqi_mod
 from . import firms, openaq, upwind, wind
 from .attribute import attribute_fires
 from .boundaries import load_districts
@@ -149,8 +150,15 @@ def aq_payload(res: dict) -> dict:
     }
 
 
+def _avg24(aq: dict, parameter: str, t_last) -> float | None:
+    """Mean of the 24 hours up to t_last, if >= MIN_HOURS of them have a city value."""
+    vals = [r["value"] for r in aq["hourly"] if r["parameter"] == parameter and r["value"] is not None
+            and t_last - pd.Timedelta(hours=24) < pd.Timestamp(r["hour_utc"]) <= t_last]
+    return round(sum(vals) / len(vals), 1) if len(vals) >= openaq.MIN_HOURS else None
+
+
 def _pm_now(aq: dict | None) -> dict | None:
-    """Latest complete hour of PM2.5, and the 24-hour mean if >= 18 of those hours have data."""
+    """Latest complete hour of PM2.5, the 24-hour PM2.5 and PM10 means, and the AQI (CPCB method)."""
     if not aq:
         return None
     rows = sorted((r for r in aq["hourly"] if r["parameter"] == "pm25"), key=lambda r: r["hour_utc"])
@@ -159,9 +167,9 @@ def _pm_now(aq: dict | None) -> dict | None:
         return None
     last = good[-1]
     t_last = pd.Timestamp(last["hour_utc"])
-    day = [r["value"] for r in good if pd.Timestamp(r["hour_utc"]) > t_last - pd.Timedelta(hours=24)]
+    pm25_24, pm10_24 = _avg24(aq, "pm25", t_last), _avg24(aq, "pm10", t_last)
     return {"value": round(last["value"], 1), "hour_utc": last["hour_utc"], "stations": last["n_stations"],
-            "avg24": round(sum(day) / len(day), 1) if len(day) >= openaq.MIN_HOURS else None}
+            "avg24": pm25_24, "pm10_avg24": pm10_24, "aqi": aqi_mod.aqi(pm25_24, pm10_24)}
 
 
 def cities_payload(aqs: dict, ups: dict, wind_payload: dict | None) -> dict:
@@ -262,14 +270,14 @@ def main(argv=None) -> None:
             log.exception("upwind %s skipped: %s", cid, e)
             meta["upwind"][cid] = failed("upwind", file, e, cid)
 
-    # Air quality, per city (PM10 too for Delhi).
+    # Air quality, per city: PM2.5 and PM10 (India's AQI takes the worse of the two).
     meta["aq"] = {}
     aqs: dict[str, dict] = {}
     if not args.skip_aq:
         for cid, city in CITIES.items():
             file = f"aq/{cid}.json"
             try:
-                res = openaq.fetch_city(city, args.days, params=("pm25", "pm10") if cid == "delhi" else ("pm25",))
+                res = openaq.fetch_city(city, args.days, params=("pm25", "pm10"))  # PM10 too: the AQI uses both
                 aqs[cid] = aq_payload(res)
                 write_json(file, aqs[cid])
                 meta["aq"][cid] = {"updated_utc": meta["generated_utc"], "sensors_recent": res["sensors_recent"]}

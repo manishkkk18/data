@@ -131,6 +131,11 @@ export default function MapView(props: Props) {
       setTimeout(fold, 1500);
     }
 
+    // Zoomed far out, only the chosen city's name shows (the others would pile up).
+    const far = () => container.current?.classList.toggle("far", map.getZoom() < 4);
+    map.on("zoom", far);
+    far();
+
     map.once("style.load", () => {
       map.setProjection({ type: "globe" });
       tuneBasemap(map);

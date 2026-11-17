@@ -177,3 +177,6 @@
 @media (max-width: 899px) {
   .kpi-actions .city-picker .chip { width: auto; padding: 0 10px; }
 }
+
+/* Far zoom: only the chosen city is named */
+.map.far .city-pin:not(.on) .city-name { display: none; }

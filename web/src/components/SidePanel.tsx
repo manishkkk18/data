@@ -62,8 +62,8 @@ export default function SidePanel(p: Props) {
           <span className="sheet-value">
             {d ? (
               <span className="fire">{fmtInt(mine.length)}</span>
-            ) : !p.season && aq ? (
-              <span className={pm25Band(aq.now)?.cls}>{fmtInt(aq.now)}</span>
+            ) : !p.season && aq?.aqi ? (
+              <span className={aq.aqi.band.cls}>{fmtInt(aq.aqi.value)}</span>
             ) : (
               <span className="fire">{fmtInt(p.fires.filter((f) => f.district).length)}</span>
             )}
@@ -81,8 +81,7 @@ export default function SidePanel(p: Props) {
 function Today({ data, city, cityData, day, at, window: w, fires, windLevel, onPick, aq }: Props & { aq: ReturnType<typeof cityPm25> }) {
   const india = fires.filter((f) => f.district);
   const abroad = fires.length - india.length;
-  const band = pm25Band(aq?.now);
-  const band24 = pm25Band(aq?.avg24);
+  const band = aq?.aqi?.band ?? pm25Band(aq?.now);
 
   // Wind at the city: its own point in the wind file.
   const wi = windFrame(data.wind, at);
@@ -102,24 +101,37 @@ function Today({ data, city, cityData, day, at, window: w, fires, windLevel, onP
         </div>
       </div>
 
-      {aq ? (
+      {aq?.aqi ? (
+        <>
+          <div className="big-number">
+            <span className={`big-value aqi-value ${band?.cls ?? ""}`}>{fmtInt(aq.aqi.value)}</span>
+            <span className="big-unit">
+              AQI, India's index (CPCB method): 24-hour average, the worse of {aq.aqi.pollutants.join(" and ")}
+            </span>
+          </div>
+          <p className="plain">
+            {band && <span className={`aqi-badge ${band.cls}`}>{band.name}</span>} driven by {aq.aqi.driver} · 24-hour PM2.5 <b>{fmtInt(aq.avg24)}</b>
+            {aq.pm10avg24 != null && (
+              <>
+                , PM10 <b>{fmtInt(aq.pm10avg24)}</b>
+              </>
+            )}{" "}
+            µg/m³
+          </p>
+          <p className="muted small">
+            PM2.5 this hour: {fmtInt(aq.now)} µg/m³ ({timeLabel(aq.nowT)}, {aq.stations} station{aq.stations === 1 ? "" : "s"}). Hourly values swing a lot; the AQI
+            uses 24-hour averages, as official bulletins do.
+          </p>
+        </>
+      ) : aq ? (
         <>
           <div className="big-number">
             <span className={`big-value aqi-value ${band?.cls ?? ""}`}>{fmtInt(aq.now)}</span>
             <span className="big-unit">
-              µg/m³ PM2.5 · {city.name} average of {aq.stations} station{aq.stations === 1 ? "" : "s"}, {timeLabel(aq.nowT)}
+              µg/m³ PM2.5 this hour · {city.name} average of {aq.stations} station{aq.stations === 1 ? "" : "s"}, {timeLabel(aq.nowT)}
             </span>
           </div>
-          <p className="plain">
-            {band && <span className={`aqi-badge ${band.cls}`}>{band.name}</span>} 24-hour average{" "}
-            {aq.avg24 != null ? (
-              <>
-                <b>{fmtInt(aq.avg24)}</b> µg/m³ {band24 && <span className={`aqi-badge ${band24.cls}`}>{band24.name}</span>}
-              </>
-            ) : (
-              <span className="muted">not enough hours to average ({aq.hours24} of 18)</span>
-            )}
-          </p>
+          <p className="muted small">No AQI yet: it needs 18 of the last 24 hours ({aq.hours24} so far).</p>
         </>
       ) : (
         <p className="gap-note">

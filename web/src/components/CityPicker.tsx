@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState } from "react";
-import { fmtInt, pm25Band, type CityInfo } from "../data";
+import { fmtInt, NAQI_PM25, type CityInfo } from "../data";
 
 // City picker: a chip in the KPI strip (Night Lights' chip style) opening a list in the
 // search-results style. Each row shows the city's PM2.5 now with its band name.
@@ -40,7 +40,8 @@ export default function CityPicker({ cities, value, onPick, className = "chip" }
       {open && (
         <ul className="search-results city-list" id={`${id}-list`} role="listbox" aria-label="City">
           {cities.map((c) => {
-            const band = pm25Band(c.pm25?.value);
+            const a = c.pm25?.aqi;
+            const band = a ? NAQI_PM25.find((b) => b.name === a.band) : null;
             return (
               <li
                 key={c.id}
@@ -61,12 +62,12 @@ export default function CityPicker({ cities, value, onPick, className = "chip" }
               >
                 <span>{c.name}</span>
                 <span className="muted city-pm">
-                  {c.pm25 ? (
+                  {a ? (
                     <>
-                      <span className={`mono ${band?.cls ?? ""}`}>{fmtInt(c.pm25.value)}</span> <span className={band?.cls}>{band?.name}</span>
+                      AQI <span className={`mono ${band?.cls ?? ""}`}>{fmtInt(a.value)}</span> <span className={band?.cls}>{a.band}</span>
                     </>
                   ) : (
-                    "no PM2.5"
+                    "no AQI yet"
                   )}
                 </span>
               </li>

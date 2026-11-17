@@ -170,8 +170,9 @@ function Main({ data }: { data: AppData }) {
   const arrival = arrivalAt(cityData?.upwind ?? null, at);
   const imageDate = satDate(day, data.generated);
   const aq = cityPm25(cityData?.aq ?? null, at);
-  const pmValue = season ? seasonPm : (aq?.now ?? null);
-  const band = pm25Band(pmValue);
+  // Live: India's AQI (24-hour, CPCB method). Season days: the day's mean PM2.5 in µg/m³.
+  const pmValue = season ? seasonPm : (aq?.aqi?.value ?? null);
+  const band = season ? pm25Band(pmValue) : (aq?.aqi?.band ?? null);
   const series = useMemo(() => {
     if (season) return season.fires.india;
     return data.days.map((d) => data.dayCounts.get(d) ?? 0);
@@ -318,7 +319,7 @@ function Main({ data }: { data: AppData }) {
     ) : (
       <span className="muted">{season ? "gap" : "–"}</span>
     );
-  const pmLabel = season ? `${city.name} PM2.5 · day` : `${city.name} PM2.5`;
+  const pmLabel = season ? `${city.name} PM2.5 · day` : `${city.name} AQI`;
 
   return (
     <>
@@ -417,7 +418,7 @@ function Main({ data }: { data: AppData }) {
                     {dayLabel(day)}
                     <span className="sep"> · </span>
                     <span className="fire mono">{fmtInt(indiaCount)}</span> fires
-                    <span className="sep"> · </span>PM2.5 {pmText}
+                    <span className="sep"> · </span>{season ? "PM2.5" : "AQI"} {pmText}
                   </span>
                 )}
                 <svg className="chev" viewBox="0 0 20 20" aria-hidden="true">
@@ -444,7 +445,7 @@ function Main({ data }: { data: AppData }) {
                     <span className="kpi-label">{pmLabel}</span>
                     <span className="kpi-value">
                       {pmText}{" "}
-                      <small className="muted">{season ? "µg/m³, daily mean" : aq ? "µg/m³, latest hour" : "air-quality data not loaded yet"}</small>
+                      <small className="muted">{season ? "µg/m³, daily mean" : aq?.aqi ? "India's AQI, 24-hour (CPCB method)" : "air-quality data not loaded yet"}</small>
                     </span>
                   </div>
                   <p className="muted small">{tagline(city.name)}</p>

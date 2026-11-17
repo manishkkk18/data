@@ -264,16 +264,48 @@ export function pm25Band(v: number | null | undefined) {
   return NAQI_PM25.find((b) => v <= b.max) ?? null;
 }
 
-/** Latest hourly PM2.5 for a city at or before `ref`, and the mean of the 24 hours before it. */
+// India's National AQI (CPCB): each pollutant's 24-hour average -> sub-index by linear
+// interpolation between breakpoints; the AQI is the worse (higher) sub-index.
+const PM25_BP: [number, number, number, number][] = [[0, 30, 0, 50], [30, 60, 50, 100], [60, 90, 100, 200], [90, 120, 200, 300], [120, 250, 300, 400], [250, 380, 400, 500]];
+const PM10_BP: [number, number, number, number][] = [[0, 50, 0, 50], [50, 100, 50, 100], [100, 250, 100, 200], [250, 350, 200, 300], [350, 430, 300, 400], [430, 510, 400, 500]];
+const subIndex = (c: number | null, bp: [number, number, number, number][]) => {
+  if (c == null) return null;
+  for (const [lo, hi, ilo, ihi] of bp) if (c <= hi) return ilo + ((Math.max(c, lo) - lo) * (ihi - ilo)) / (hi - lo);
+  return 500;
+};
+export type Aqi = { value: number; band: Band; driver: "PM2.5" | "PM10"; pollutants: string[] };
+const AQI_TOPS = [50, 100, 200, 300, 400, Infinity];
+export function aqiFrom(pm25: number | null, pm10: number | null): Aqi | null {
+  const a = subIndex(pm25, PM25_BP);
+  const b = subIndex(pm10, PM10_BP);
+  if (a == null && b == null) return null;
+  const driver = b != null && (a == null || b > a) ? "PM10" : "PM2.5";
+  const value = Math.round(driver === "PM10" ? b! : a!);
+  const band = NAQI_PM25[AQI_TOPS.findIndex((t) => value <= t)];
+  return { value, band, driver, pollutants: [a != null ? "PM2.5" : "", b != null ? "PM10" : ""].filter(Boolean) };
+}
+
+/** Air in a city at `ref`: the latest hourly PM2.5, 24-hour PM2.5 and PM10 means (>= 18 hours
+ * each), and the AQI from those 24-hour means, the way CPCB defines it. */
 export function cityPm25(aq: AqFile | null, ref: number) {
   if (!aq) return null;
-  const rows = aq.hourly.filter((r) => r.parameter === "pm25" && Date.parse(r.hour_utc) <= ref).sort((a, b) => Date.parse(a.hour_utc) - Date.parse(b.hour_utc));
-  const last = [...rows].reverse().find((r) => r.value != null);
+  const rows = (p: string) =>
+    aq.hourly.filter((r) => r.parameter === p && r.value != null && Date.parse(r.hour_utc) <= ref).sort((x, y) => Date.parse(x.hour_utc) - Date.parse(y.hour_utc));
+  const pm25 = rows("pm25");
+  const last = pm25[pm25.length - 1];
   if (!last) return null;
   const t = Date.parse(last.hour_utc);
-  const day = rows.filter((r) => r.value != null && Date.parse(r.hour_utc) > ref - 86400000);
-  const avg24 = day.length >= 18 ? day.reduce((s, r) => s + r.value!, 0) / day.length : null; // same 18-hour rule as the pipeline
-  return { now: last.value!, nowT: t, stations: last.n_stations, avg24, hours24: day.length };
+  const mean24 = (rs: typeof pm25) => {
+    const d = rs.filter((r) => Date.parse(r.hour_utc) > t - 86400000);
+    return { v: d.length >= 18 ? d.reduce((s2, r) => s2 + r.value!, 0) / d.length : null, n: d.length };
+  };
+  const p25 = mean24(pm25);
+  const p10 = mean24(rows("pm10"));
+  return {
+    now: last.value!, nowT: t, stations: last.n_stations,
+    avg24: p25.v, hours24: p25.n, pm10avg24: p10.v,
+    aqi: aqiFrom(p25.v, p10.v),
+  };
 }
 
 // ---- Wind ------------------------------------------------------------------------------------
@@ -364,7 +396,10 @@ export type CityInfo = {
   name: string;
   lon: number;
   lat: number;
-  pm25?: { value: number; hour_utc: string; stations: number; avg24: number | null } | null;
+  pm25?: {
+    value: number; hour_utc: string; stations: number; avg24: number | null; pm10_avg24?: number | null;
+    aqi?: { value: number; band: string; driver: string; pollutants: string[] } | null;
+  } | null;
   wind_850?: { speed: number; dir_from: number } | null;
   upwind_today?: { date: string; load: number; state: [string, number] | null } | null;
 };
