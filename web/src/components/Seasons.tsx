@@ -84,6 +84,7 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
       firesLag: i - lag >= 0 ? (A.fires.india[i - lag] ?? null) : null,
       firesA: A.fires.india[i] ?? null,
       pmA: A.pm25[i] ?? null,
+      cpcbA: A.pm25_source?.[i] === "cpcb",
       firesB: B?.fires.india[i] ?? null,
       pmB: B?.pm25[i] ?? null,
     }));
@@ -233,6 +234,7 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
                       )}
                       <span>
                         PM2.5: {r.pmA != null ? <b>{fmtInt(r.pmA)}</b> : "gap"} {band ? `· ${band.name}` : ""}
+                        {r.cpcbA ? " · CPCB" : ""}
                       </span>
                     </div>
                   );
@@ -245,14 +247,15 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
           </ResponsiveContainer>
         </div>
         <p className="trend-note muted">
-          Bars: NOAA-20 detections in India. Line: Delhi daily PM2.5; breaks are days with too few stations. Click a day to show it on the map.
+          Bars: NOAA-20 detections in India. Line: Delhi daily PM2.5 (OpenAQ{A.pm25_source?.includes("cpcb") ? "; days OpenAQ lacks are from CPCB's own reports" : ""}); breaks are days with too
+          few stations. Click a day to show it on the map.
         </p>
       </figure>
 
       {sa.pmDays < 0.8 * A.fires.india.length && (
         <p className="gap-note">
-          Delhi PM2.5 is missing for {A.fires.india.length - A.pm25.filter((v) => v != null).length} of {A.fires.india.length} days this season: OpenAQ has no
-          daily readings from Delhi's monitors for that period. The gaps are left empty, not filled.
+          Delhi PM2.5 is missing for {A.fires.india.length - A.pm25.filter((v) => v != null).length} of {A.fires.india.length} days this season: neither OpenAQ
+          nor the CPCB reports loaded so far have enough Delhi stations for those days. The gaps are left empty, not filled.
         </p>
       )}
       <div className="lag-result">

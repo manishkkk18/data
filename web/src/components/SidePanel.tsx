@@ -216,7 +216,9 @@ function SeasonDay({ data, day, at, window: w, fires, onPick, season }: Props & 
         <>
           <div className="big-number">
             <span className={`big-value aqi-value ${band?.cls ?? ""}`}>{fmtInt(pm)}</span>
-            <span className="big-unit">µg/m³ PM2.5 · Delhi daily mean of reference monitors</span>
+            <span className="big-unit">
+              µg/m³ PM2.5 · Delhi daily mean of reference monitors{season.pm25_source?.[i] === "cpcb" ? " · from CPCB's own station reports" : ""}
+            </span>
           </div>
           {band && (
             <p className="plain">

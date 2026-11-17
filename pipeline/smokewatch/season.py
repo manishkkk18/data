@@ -29,6 +29,7 @@ from .boundaries import load_districts
 from .config import DATA, FOCUS_STATES, secret
 
 log = logging.getLogger("smokewatch.season")
+CPCB_DAILY = DATA / "cpcb" / "delhi_pm25_daily.json"
 SEASON_DIR = DATA / "seasons"
 START = (9, 15)
 END = (12, 15)
@@ -110,6 +111,29 @@ def delhi_daily_pm25(sensor_days: pd.DataFrame) -> dict[str, float | None]:
     return {d: (round(float(r["mean"]), 1) if good[d] else None) for d, r in g.iterrows()}
 
 
+def merge_cpcb(season: dict, cpcb: dict[str, float | None]) -> dict:
+    """Fill a season's PM2.5 gaps from CPCB's own daily Delhi series (measurements, not
+    estimates). OpenAQ values are never replaced. Adds pm25_source per day: 'openaq', 'cpcb' or None."""
+    days = [(date.fromisoformat(season["start"]) + timedelta(days=i)).isoformat() for i in range(len(season["pm25"]))]
+    old_src = season.get("pm25_source") or ["openaq" if v is not None else None for v in season["pm25"]]
+    pm, src = [], []
+    for d, v, s0 in zip(days, season["pm25"], old_src):
+        if v is not None and s0 == "openaq":
+            pm.append(v)
+            src.append("openaq")
+        elif cpcb.get(d) is not None:
+            pm.append(cpcb[d])
+            src.append("cpcb")
+        else:
+            pm.append(None)
+            src.append(None)
+    return {**season, "pm25": pm, "pm25_source": src}
+
+
+def load_cpcb() -> dict[str, float | None]:
+    return json.loads(CPCB_DAILY.read_text(encoding="utf-8"))["daily"] if CPCB_DAILY.exists() else {}
+
+
 def fetch_pm25(key: str, start: date, end: date) -> tuple[dict, int]:
     sensors = openaq.list_sensors(key)
     if sensors.empty:
@@ -171,7 +195,7 @@ def build(year: int, firms_key: str, aq_key: str | None, today: date) -> dict:
     if aq_key:
         pm, n_sensors = fetch_pm25(aq_key, start, end)
     days = [(start + timedelta(days=i)).isoformat() for i in range((end - start).days + 1)]
-    return {
+    out = {
         "year": year, "start": start.isoformat(), "end": end.isoformat(), "complete": complete,
         "built_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "fire_products": used, "pm25_sensors": n_sensors,
@@ -179,14 +203,30 @@ def build(year: int, firms_key: str, aq_key: str | None, today: date) -> dict:
         "pm25": [pm.get(d) for d in days],  # None = gap (not enough stations), never filled
         **totals(fires, districts),
     }
+    return merge_cpcb(out, load_cpcb())
 
 
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--years", default=f"{FIRST_YEAR}-{datetime.now(IST).year}")
     ap.add_argument("--force", action="store_true", help="rebuild seasons that are already complete")
+    ap.add_argument("--apply-cpcb", action="store_true", help="only fill PM2.5 gaps in the existing index from CPCB data (no keys needed)")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
+    if args.apply_cpcb:
+        index_path = SEASON_DIR / "index.json"
+        index = json.loads(index_path.read_text(encoding="utf-8"))
+        cpcb = load_cpcb()
+        if not cpcb:
+            raise SystemExit(f"No CPCB series at {CPCB_DAILY}: run python -m smokewatch.cpcb first")
+        index["seasons"] = [merge_cpcb(s, cpcb) for s in index["seasons"]]
+        index["note"] = ("NOAA-20 VIIRS detections only, for fair comparison across years. PM2.5: Delhi reference monitors via OpenAQ; "
+                         "days OpenAQ is missing are filled from CPCB's own station reports where available (see pm25_source).")
+        index_path.write_text(json.dumps(index, separators=(",", ":")), encoding="utf-8")
+        for s in index["seasons"]:
+            src = s["pm25_source"]
+            log.info("season %d: %d OpenAQ days, %d CPCB days, %d gaps", s["year"], src.count("openaq"), src.count("cpcb"), src.count(None))
+        return
     a, _, b = args.years.partition("-")
     years = range(int(a), int(b or a) + 1)
     firms_key, aq_key = secret("FIRMS_MAP_KEY"), secret("OPENAQ_API_KEY")
