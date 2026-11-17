@@ -200,6 +200,8 @@ def fetch_archive_days(location_ids: list[int], days: list[str]) -> pd.DataFrame
     from concurrent.futures import ThreadPoolExecutor
 
     session = requests.Session()
+    adapter = requests.adapters.HTTPAdapter(pool_connections=ARCHIVE_WORKERS, pool_maxsize=ARCHIVE_WORKERS)
+    session.mount("https://", adapter)
 
     def one(job):
         loc, day = job

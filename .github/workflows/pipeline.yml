@@ -15,6 +15,10 @@ on:
       days:
         description: "How many recent days to fetch"
         default: "7"
+      diagnose_aq:
+        description: "Instead, list Delhi OpenAQ locations and their archive coverage"
+        type: boolean
+        default: false
 
 permissions:
   contents: read
@@ -46,6 +50,13 @@ jobs:
       - name: Tests
         working-directory: pipeline
         run: PYTHONPATH=. python -X utf8 -m pytest -q tests
+
+      - name: Diagnose Delhi air-quality locations
+        if: github.event.inputs.diagnose_aq == 'true'
+        working-directory: pipeline
+        env:
+          OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+        run: PYTHONPATH=. python -X utf8 -m smokewatch.diagnose_aq >> "$GITHUB_STEP_SUMMARY"
 
       - name: Clear old outputs (so a failed step shows as missing, not stale)
         run: rm -f data/*.json
