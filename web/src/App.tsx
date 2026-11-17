@@ -15,6 +15,7 @@ import { readUrl, writeUrl } from "./url";
 import { track } from "./analytics";
 import {
   arrivalAt,
+  overdue,
   satDate,
   CONFIDENCE,
   loadSeasonFires,
@@ -343,7 +344,12 @@ function Main({ data }: { data: AppData }) {
               <span className="spinner" aria-hidden="true" /> Loading the {seasonYear} season…
             </div>
           )}
-          {!mapLoading && !seasonLoading && fires.length === 0 && (
+          {!mapLoading && !season && overdue(data.generated) && (
+            <div className="map-notice" role="status">
+              This data was last updated {overdue(data.generated)}: the scheduled update is late or failed.
+            </div>
+          )}
+          {!mapLoading && !seasonLoading && fires.length === 0 && !overdue(data.generated) && (
             <div className="map-notice" role="status">
               No fire detections in this window. Clouds can hide fires from the satellites.
             </div>
@@ -497,7 +503,7 @@ function Main({ data }: { data: AppData }) {
       <Suspense fallback={<section id="season" className="panel seasons"><p className="muted">Loading seasons…</p></section>}>
         <Seasons data={data} mapSeason={seasonYear} mapDay={day} onShow={(y, d) => showTimeline(y, d)} />
       </Suspense>
-      <About />
+      <About data={data} />
     </>
   );
 }

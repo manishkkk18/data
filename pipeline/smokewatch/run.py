@@ -138,6 +138,18 @@ def main(argv=None) -> None:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 
     meta = {"generated_utc": _now_iso()}
+    # The last published meta (the workflow restores it before running): if a source fails now,
+    # its previous file stays in data/ and its old timestamp is kept, marked stale.
+    prev_path = DATA / "meta.json"
+    prev = json.loads(prev_path.read_text(encoding="utf-8")) if prev_path.exists() else {}
+
+    def failed(section: str, file: str, err: Exception) -> dict:
+        old = prev.get(section) or {}
+        if old.get("updated_utc") and (DATA / file).exists():
+            log.warning("%s failed (%s): keeping the previous data from %s", section, err, old["updated_utc"])
+            return {**old, "stale": True, "error": str(err)[:200]}
+        return {"error": str(err)[:200]}
+
     districts = load_districts()
     today = datetime.now(timezone(timedelta(hours=5, minutes=30))).date()
 
@@ -160,7 +172,7 @@ def main(argv=None) -> None:
         meta["wind"] = {"updated_utc": meta["generated_utc"], "latest_utc": payload["times"][-1] if payload["times"] else None}
     except Exception as e:  # noqa: BLE001 — wind is optional for the map
         log.warning("wind skipped: %s", e)
-        meta["wind"] = {"error": str(e)}
+        meta["wind"] = failed("wind", "wind_recent.json", e)
         w = None
 
     if w is not None:
@@ -183,16 +195,18 @@ def main(argv=None) -> None:
             meta["upwind"] = {"updated_utc": meta["generated_utc"], "arrivals": len(up["arrivals"])}
         except Exception as e:  # noqa: BLE001 — keep the rest of the run
             log.exception("upwind skipped: %s", e)
-            meta["upwind"] = {"error": str(e)}
+            meta["upwind"] = failed("upwind", "upwind_recent.json", e)
+    else:
+        meta["upwind"] = failed("upwind", "upwind_recent.json", RuntimeError("no wind data this run"))
 
     if not args.skip_aq:
         try:
             res = openaq.fetch_delhi(args.days)
             write_json("aq_delhi_recent.json", aq_payload(res))
             meta["aq"] = {"updated_utc": meta["generated_utc"], "sensors_recent": res["sensors_recent"]}
-        except RuntimeError as e:
+        except Exception as e:  # noqa: BLE001 — keep the previous air-quality file
             log.warning("air quality skipped: %s", e)
-            meta["aq"] = {"error": str(e)}
+            meta["aq"] = failed("aq", "aq_delhi_recent.json", e)
 
     write_json("meta.json", meta)
 

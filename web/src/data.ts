@@ -45,9 +45,9 @@ export type UpwindFile = {
 export type Meta = {
   generated_utc: string;
   fires?: { updated_utc: string; method: string; latest_detection_utc: string | null };
-  wind?: { updated_utc?: string; latest_utc?: string | null; error?: string };
-  aq?: { updated_utc?: string; error?: string };
-  upwind?: { updated_utc?: string; error?: string };
+  wind?: { updated_utc?: string; latest_utc?: string | null; error?: string; stale?: boolean };
+  aq?: { updated_utc?: string; error?: string; stale?: boolean };
+  upwind?: { updated_utc?: string; error?: string; stale?: boolean };
 };
 
 // ---- What the app works with -----------------------------------------------------------------
@@ -329,4 +329,13 @@ export const AOD_STOPS: [number, string][] = [
 /** Image date for a map day: the IST date, except today, whose image NASA may not have published yet. */
 export function satDate(day: string, generated: number) {
   return day >= istDate(generated) ? addDays(istDate(generated), -1) : day;
+}
+
+/** The data is overdue if the scheduled refresh (every 3 h in season, daily otherwise) has missed
+ * two or more runs. Returns how old it is, or null if it's on time. */
+export function overdue(generated: number, now = Date.now()) {
+  const md = istDate(now).slice(5).replace("-", "");
+  const inSeason = md >= "0915" && md <= "1215";
+  const limit = (inSeason ? 7 : 30) * 3600000;
+  return now - generated > limit ? ago(generated, now) : null;
 }

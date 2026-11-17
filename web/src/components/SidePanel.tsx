@@ -466,8 +466,10 @@ function Freshness({ data }: { data: AppData }) {
       {data.latestDetection && <> · latest satellite pass {timeLabel(data.latestDetection)}</>}
       {data.firesMethod === "public-7d" && <> · preview data (public 7-day file)</>}
       <br />
-      Wind {m.wind?.updated_utc ? <b className="mono">{ago(Date.parse(m.wind.updated_utc))}</b> : "unavailable"} · Air quality{" "}
+      Wind {m.wind?.updated_utc ? <b className="mono">{ago(Date.parse(m.wind.updated_utc))}</b> : "unavailable"}
+      {m.wind?.stale && " (last update failed)"} · Air quality{" "}
       {m.aq?.updated_utc ? <b className="mono">{ago(Date.parse(m.aq.updated_utc))}</b> : "not loaded"}
+      {m.aq?.stale && " (last update failed)"}
     </p>
   );
 }

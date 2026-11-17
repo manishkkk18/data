@@ -71,7 +71,12 @@ def _get_csv(url: str) -> pd.DataFrame:
     return pd.read_csv(io.StringIO(text))
 
 
-def fetch_api(key: str, sources: list[str], start: date, end: date, bbox=BBOX) -> pd.DataFrame:
+class FirmsUnavailable(RuntimeError):
+    """Every FIRMS request failed: better to keep the last published fires than show none."""
+
+
+def fetch_api(key: str, sources: list[str], start: date, end: date, bbox=BBOX, calls: list | None = None) -> pd.DataFrame:
+    """`calls`, if given, collects True/False per request (succeeded or not)."""
     area = ",".join(str(v) for v in bbox)
     frames = []
     for source in sources:
@@ -81,9 +86,13 @@ def fetch_api(key: str, sources: list[str], start: date, end: date, bbox=BBOX) -
             url = API.format(key=key, source=source, area=area, days=days, start=d.isoformat())
             try:
                 frames.append(normalise(_get_csv(url), source))
+                if calls is not None:
+                    calls.append(True)
             except Exception as e:  # noqa: BLE001 — one failed sensor shouldn't kill the run
                 # Log with the key masked.
                 log.warning("FIRMS %s %s failed: %s", source, d, str(e).replace(key, "***"))
+                if calls is not None:
+                    calls.append(False)
             d += timedelta(days=days)
     return pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=COLUMNS)
 
@@ -104,7 +113,10 @@ def fetch_recent(days: int = 7, today: date | None = None) -> tuple[pd.DataFrame
     today = today or date.today()
     key = secret("FIRMS_MAP_KEY")
     if key:
-        df = fetch_api(key, NRT_SOURCES, today - timedelta(days=days - 1), today)
+        calls: list[bool] = []
+        df = fetch_api(key, NRT_SOURCES, today - timedelta(days=days - 1), today, calls=calls)
+        if calls and not any(calls):
+            raise FirmsUnavailable(f"all {len(calls)} FIRMS requests failed")
         method = "api"
     else:
         log.warning("FIRMS_MAP_KEY not set: using public 7-day files (dev only).")

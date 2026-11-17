@@ -1,0 +1,151 @@
+# Refresh the live data and redeploy the site.
+#
+# Schedule: every 3 hours. Inside the burning season (15 Sep - 15 Dec, IST) every run works;
+# outside it, only the 03:17 UTC run (08:47 IST) does, so the site still updates daily.
+# The current season's files are rebuilt once a day (that same slot), until 17 Dec.
+#
+# The live files (fires, wind, air's path, air quality: ~700 KB) are NOT committed: they are
+# deployed straight to GitHub Pages, whose gh-pages branch keeps a single commit. Only the
+# daily season update and a small status file are committed, which also keeps the schedule
+# from being switched off after 60 days without activity.
+#
+# If a source fails, the last published file is kept (restored from the live site first) and
+# marked stale. If NASA FIRMS fails completely, the run stops and nothing is deployed.
+#
+# Needs FIRMS_MAP_KEY and OPENAQ_API_KEY repository secrets.
+name: Refresh
+
+on:
+  schedule:
+    - cron: "17 */3 * * *"
+  workflow_dispatch:
+    inputs:
+      season:
+        description: "Also rebuild the current season"
+        type: boolean
+        default: false
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-write
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+  SITE: https://manishkkk18.github.io/delhi-smoke-watch
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - name: Decide what this run does
+        id: gate
+        run: |
+          MD=$(TZ=Asia/Kolkata date +%m%d)          # e.g. 1117
+          YEAR=$(TZ=Asia/Kolkata date +%Y)
+          HOUR=$(date -u +%H)
+          IN_SEASON=false; [ "$MD" -ge 0915 ] && [ "$MD" -le 1215 ] && IN_SEASON=true
+          DAILY=false; [ "$HOUR" = "03" ] && DAILY=true
+          MANUAL=false; [ "${{ github.event_name }}" = "workflow_dispatch" ] && MANUAL=true
+          RUN=false; { [ "$IN_SEASON" = true ] || [ "$DAILY" = true ] || [ "$MANUAL" = true ]; } && RUN=true
+          SEASON=false
+          if [ "$MD" -ge 0915 ] && [ "$MD" -le 1217 ]; then
+            { [ "$DAILY" = true ] || [ "${{ github.event.inputs.season }}" = "true" ]; } && SEASON=true
+          fi
+          echo "run=$RUN" >> "$GITHUB_OUTPUT"; echo "season=$SEASON" >> "$GITHUB_OUTPUT"
+          echo "daily=$DAILY" >> "$GITHUB_OUTPUT"; echo "year=$YEAR" >> "$GITHUB_OUTPUT"
+          echo "IST $MD, UTC hour $HOUR: in season $IN_SEASON, run $RUN, season update $SEASON"
+
+      - uses: actions/checkout@v7
+        if: steps.gate.outputs.run == 'true'
+
+      - uses: actions/setup-python@v7
+        if: steps.gate.outputs.run == 'true'
+        with:
+          python-version: "3.13"
+          cache: pip
+          cache-dependency-path: pipeline/requirements.txt
+
+      - name: Install pipeline
+        if: steps.gate.outputs.run == 'true'
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Tests
+        if: steps.gate.outputs.run == 'true'
+        working-directory: pipeline
+        run: PYTHONPATH=. python -m pytest -q tests
+
+      - name: Restore the last published data (kept if a source fails this run)
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          for f in fires_recent.json fires_summary_recent.json wind_recent.json upwind_recent.json aq_delhi_recent.json meta.json; do
+            curl -sf -o "data/$f" "$SITE/data/$f" && echo "restored $f" || echo "no published $f"
+          done
+
+      - name: Live data
+        if: steps.gate.outputs.run == 'true'
+        working-directory: pipeline
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+        run: PYTHONPATH=. python -m smokewatch.run --days 7
+
+      - name: Current season (daily)
+        if: steps.gate.outputs.season == 'true'
+        working-directory: pipeline
+        continue-on-error: true # a failed season update shouldn't block the live refresh
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+        run: PYTHONPATH=. python -m smokewatch.season --years "${{ steps.gate.outputs.year }}"
+
+      - name: Status file (daily)
+        if: steps.gate.outputs.run == 'true' && (steps.gate.outputs.daily == 'true' || steps.gate.outputs.season == 'true')
+        run: |
+          python - <<'EOF'
+          import json, pathlib, datetime
+          meta = json.loads(pathlib.Path("data/meta.json").read_text())
+          status = {"last_daily_run_utc": datetime.datetime.now(datetime.timezone.utc).replace(microsecond=0).isoformat(),
+                    "fires_latest_detection_utc": (meta.get("fires") or {}).get("latest_detection_utc"),
+                    "stale": [k for k, v in meta.items() if isinstance(v, dict) and v.get("stale")]}
+          pathlib.Path("data/status.json").write_text(json.dumps(status, indent=1) + "\n")
+          print(status)
+          EOF
+
+      - name: Commit season data and status
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/seasons data/status.json 2>/dev/null || true
+          if git diff --cached --quiet; then
+            echo "Nothing to commit."
+          else
+            git commit -m "Data $(date -u +%Y-%m-%dT%H:%MZ)"
+            git pull --rebase -q
+            git push
+          fi
+
+      - uses: actions/setup-node@v7
+        if: steps.gate.outputs.run == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+
+      - name: Build and deploy the site
+        if: steps.gate.outputs.run == 'true'
+        working-directory: web
+        env:
+          DEPLOY_REMOTE: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          npm ci
+          npm run deploy
+
+      - name: Summary
+        if: always() && steps.gate.outputs.run == 'true'
+        working-directory: pipeline
+        run: PYTHONPATH=. python -m smokewatch.report >> "$GITHUB_STEP_SUMMARY" || true

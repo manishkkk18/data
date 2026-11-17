@@ -1,8 +1,14 @@
 /** Sources, honest limits and credits. Same card layout as India Night Lights' "About the data". */
-export default function About() {
+import { ago, timeLabel, type AppData } from "../data";
+
+export default function About({ data }: { data: AppData }) {
   return (
     <section id="about" className="panel about" aria-labelledby="about-title">
       <h2 id="about-title">About the data</h2>
+      <p className="last-updated">
+        Data last updated <b className="mono">{timeLabel(data.generated)}</b> ({ago(data.generated)}). Refreshed every 3 hours from 15 Sep to 15 Dec, and
+        daily the rest of the year.
+      </p>
       <div className="about-grid">
         <div>
           <h3>Fires</h3>
