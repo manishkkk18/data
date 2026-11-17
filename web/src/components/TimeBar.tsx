@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import { dayLabel } from "../data";
 
 // Same component as India Night Lights' timeline, stepping through days instead of months.
@@ -12,12 +12,17 @@ type Props = {
   speed: 1 | 2;
   onSpeed: (s: 1 | 2) => void;
   series: (number | null)[]; // detections per day, drawn faintly behind the track
+  // While playing, App's clock moves the thumb between days through this (fractional day index).
+  progress: MutableRefObject<((pos: number) => void) | null>;
 };
 
 const THUMB = 20; // px, matches the CSS thumb size
 
-export default function TimeBar({ days, value, onChange, playing, onTogglePlay, canPlay, speed, onSpeed, series }: Props) {
+export default function TimeBar({ days, value, onChange, playing, onTogglePlay, canPlay, speed, onSpeed, series, progress }: Props) {
   const ref = useRef<HTMLDivElement>(null);
+  const input = useRef<HTMLInputElement>(null);
+  const label = useRef<HTMLSpanElement>(null);
+  const livePos = useRef(value); // where the clock last put the thumb
   const [width, setWidth] = useState(600);
   useEffect(() => {
     const el = ref.current;
@@ -28,7 +33,20 @@ export default function TimeBar({ days, value, onChange, playing, onTogglePlay, 
   }, []);
 
   const n = days.length;
-  const frac = n > 1 ? value / (n - 1) : 1;
+  useEffect(() => {
+    progress.current = (pos: number) => {
+      livePos.current = pos;
+      if (input.current) input.current.value = String(pos);
+      const x = THUMB / 2 + (pos / Math.max(n - 1, 1)) * (width - THUMB);
+      if (label.current) label.current.style.left = `${Math.min(Math.max(x, 32), Math.max(32, width - 32))}px`;
+    };
+    return () => {
+      progress.current = null;
+    };
+  }, [progress, n, width]);
+  // While playing, re-renders keep the thumb where the clock has it rather than snapping to a day.
+  const pos = playing ? livePos.current : value;
+  const frac = n > 1 ? pos / (n - 1) : 1;
   const xAt = (i: number) => THUMB / 2 + (i / Math.max(n - 1, 1)) * (width - THUMB);
   const thumbX = THUMB / 2 + frac * (width - THUMB);
   const labelX = Math.min(Math.max(thumbX, 32), Math.max(32, width - 32));
@@ -78,7 +96,7 @@ export default function TimeBar({ days, value, onChange, playing, onTogglePlay, 
             <path d={path} />
           </svg>
         )}
-        <span className="thumb-label" style={{ left: labelX }} aria-hidden="true">
+        <span className="thumb-label" ref={label} style={{ left: labelX }} aria-hidden="true">
           {n ? dayLabel(days[value]) : "–"}
         </span>
         <label htmlFor="day-slider" className="sr-only">
@@ -89,12 +107,13 @@ export default function TimeBar({ days, value, onChange, playing, onTogglePlay, 
           type="range"
           min={0}
           max={Math.max(n - 1, 1)}
-          step={1}
-          value={n < 2 ? 1 : value}
+          ref={input}
+          step={playing ? "any" : 1}
+          value={n < 2 ? 1 : pos}
           disabled={n < 2}
           aria-valuetext={n ? dayLabel(days[value], true) : undefined}
           aria-describedby="day-slider-help"
-          onChange={(e) => onChange(Number(e.target.value))}
+          onChange={(e) => onChange(Math.round(Number(e.target.value)))}
         />
         <span id="day-slider-help" className="sr-only">
           Use the left and right arrow keys anywhere on the page to step through days.

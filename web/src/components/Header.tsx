@@ -46,9 +46,9 @@ export default function Header({ districts, onPick, compact, phone }: Props & { 
 
   return (
     <header className={`header ${searching ? "searching" : ""}`}>
-      <a className="brand" href="#map" aria-label="Delhi Smoke Watch, back to the map">
+      <a className="brand" href="#map" aria-label="India Smoke Watch, back to the map">
         <Logo />
-        <span className="brand-name">Delhi Smoke Watch</span>
+        <span className="brand-name">India Smoke Watch</span>
       </a>
       <nav className="nav" aria-label="Sections" ref={nav}>
         {SECTIONS.map(([id, label]) => (

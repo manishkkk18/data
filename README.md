@@ -1,4 +1,4 @@
-# Delhi Smoke Watch
+# India Smoke Watch
 
 Whose smoke is Delhi breathing today? Farm-fire detections from NASA satellites, winds,
 the air's path into Delhi and Delhi's air quality, live during the burning season and

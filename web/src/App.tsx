@@ -1,4 +1,4 @@
-import { lazy, Suspense, useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { lazy, startTransition, Suspense, useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import Header from "./components/Header";
 import MapView, { type FireHover, type FlyRequest } from "./components/MapView";
 import LayerSwitcher, { type Layers } from "./components/LayerSwitcher";
@@ -240,26 +240,58 @@ function Main({ data }: { data: AppData }) {
     }
   };
 
-  // Play: step through days, stopping at today.
+  // Play: a clock glides through time, stopping at today. Each animation frame it hands the
+  // map a moment between two days (fires bloom at their satellite pass and age smoothly) and
+  // moves the slider thumb; the rest of the page catches up once per day, at low priority so
+  // it never stalls the animation. Day i on the slider is the end of day i.
+  const clock = useRef<((t: number) => void) | null>(null);
+  const progress = useRef<((pos: number) => void) | null>(null);
+  const playPos = useRef(0);
   useEffect(() => {
     if (!playing) return;
-    const t = setInterval(
-      () =>
-        setDayIndex((i) => {
-          if (i >= days.length - 1) {
-            setPlaying(false);
-            return i;
-          }
-          return i + 1;
-        }),
-      // A season has ~90 days, so it plays faster than the 7-day view.
-      (season ? 500 : 1200) / speed,
-    );
-    return () => clearInterval(t);
-  }, [playing, speed, days.length, season]);
+    const ends = days.map((d) => refTime(data, d));
+    const msPerDay = (season ? 500 : 1200) / speed; // a season has ~90 days, so it plays faster than the 7-day view
+    const stepwise = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    const last = days.length - 1;
+    let pos = playPos.current;
+    let shownDay = Math.ceil(pos);
+    let prev = performance.now();
+    let raf = 0;
+    const frame = (now: number) => {
+      pos = Math.min(pos + (now - prev) / msPerDay, last);
+      prev = now;
+      playPos.current = pos;
+      const p = stepwise ? Math.floor(pos) : pos;
+      const i = Math.floor(p);
+      const t = i < last ? ends[i] + (p - i) * (ends[i + 1] - ends[i]) : ends[last];
+      clock.current?.(t);
+      progress.current?.(p);
+      const d = Math.ceil(p);
+      if (d !== shownDay) {
+        shownDay = d;
+        startTransition(() => setDayIndex(d));
+      }
+      if (pos >= last) {
+        setDayIndex(last);
+        setPlaying(false);
+        return;
+      }
+      raf = requestAnimationFrame(frame);
+    };
+    raf = requestAnimationFrame(frame);
+    return () => cancelAnimationFrame(raf);
+  }, [playing, speed, days, season, data]);
   const togglePlay = () => {
-    if (!playing && dayIndex >= days.length - 1) setDayIndex(0);
-    if (!playing) track("play");
+    if (playing) {
+      // Pause on a whole day, so the map, panel and link all agree.
+      const d = Math.ceil(playPos.current);
+      setDayIndex(d);
+      progress.current?.(d);
+    } else {
+      playPos.current = dayIndex >= days.length - 1 ? 0 : dayIndex;
+      if (dayIndex >= days.length - 1) setDayIndex(0);
+      track("play");
+    }
     setPlaying((p) => !p);
   };
 
@@ -355,6 +387,10 @@ function Main({ data }: { data: AppData }) {
             satDate={imageDate}
             selectedId={selectedId}
             fly={fly}
+            allFires={sourceFires}
+            upwind={cityData?.upwind ?? null}
+            playing={playing}
+            clock={clock}
             padding={padding}
             onFireHover={setHover}
             onLoaded={() => setMapLoading(false)}
@@ -529,6 +565,7 @@ function Main({ data }: { data: AppData }) {
             speed={speed}
             onSpeed={setSpeed}
             series={series}
+            progress={progress}
           />
           {!isPhone && legend}
         </div>

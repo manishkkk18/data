@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type MutableRefObject } from "react";
 import * as maplibregl from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
 // MapLibre v6 finds its worker relative to its own file, which bundlers move. Let Vite
@@ -7,7 +7,7 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 maplibregl.setWorkerUrl(workerUrl);
 import type { ExpressionSpecification, GeoJSONSource } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
-import { SAT, type Arrival, type BBox, type CityInfo, type DistrictFC, type Fire, type SatLayer, type WindFile, type WindLevel } from "../data";
+import { SAT, arrivalAt, firesBetween, windFrame, type Arrival, type BBox, type CityInfo, type DistrictFC, type Fire, type SatLayer, type UpwindFile, type WindFile, type WindLevel } from "../data";
 import { FIRE_NEW, FIRE_OLD, WIND_BLUE } from "./Legend";
 
 // OpenFreeMap: free, no API key, no view limits. Attribution comes from the style.
@@ -37,6 +37,11 @@ type Props = {
   satDate: string; // its date (YYYY-MM-DD)
   selectedId: string | null;
   fly: FlyRequest | null;
+  // Playback: the full time-sorted fire list and the city's upwind file, so the clock can draw any moment.
+  allFires: Fire[];
+  upwind: UpwindFile | null;
+  playing: boolean;
+  clock: MutableRefObject<((t: number) => void) | null>;
   padding: { top: number; bottom: number; left: number; right: number };
   onFireHover: (h: FireHover | null) => void;
   onSelect: (districtId: string | null) => void;
@@ -50,6 +55,56 @@ const AGE_COLOR: ExpressionSpecification = ["interpolate", ["linear"], ["get", "
 const FRP_RADIUS: ExpressionSpecification = ["interpolate", ["linear"], ["get", "frp"], 0, 1.6, 10, 2.4, 50, 4, 200, 7];
 const zoomed = (base: ExpressionSpecification, k: number): ExpressionSpecification =>
   ["interpolate", ["linear"], ["zoom"], 4, ["*", base, 0.8], 7, base, 10, ["*", base, k]] as ExpressionSpecification;
+
+// During playback a fire fades in over its first hour and out over the last tenth of the
+// window, so each satellite pass blooms and leaves rather than popping. Paused views show
+// every fire in the window at full strength.
+const FADE_IN_MS = 3600000;
+const playFade = (age: number, sinceMs: number) => Math.min(Math.max(sinceMs / FADE_IN_MS, 0.15), 1) * Math.min((1 - age) / 0.1, 1);
+
+function drawFires(map: maplibregl.Map, fires: Fire[], at: number, hours: number, playing = false) {
+  const span = hours * 3600000;
+  (map.getSource("fires") as GeoJSONSource).setData({
+    type: "FeatureCollection",
+    features: fires.map((f, i) => {
+      const age = Math.min(Math.max((at - f.t) / span, 0), 1);
+      return {
+        type: "Feature",
+        id: i,
+        properties: { i, frp: f.frp, age, fade: playing ? playFade(age, at - f.t) : 1 },
+        geometry: { type: "Point", coordinates: [f.lon, f.lat] },
+      };
+    }),
+  });
+}
+
+/** Wind arrows for one frame and height (the cities' own points are left out of the grid). Returns a key for what was drawn. */
+function drawWind(map: maplibregl.Map, w: WindFile | null, frameIdx: number | null, level: WindLevel, show: boolean) {
+  const frame = w && frameIdx != null ? w.levels[level]?.[frameIdx] : null;
+  const features = frame
+    ? frame.slice(0, frame.length - (w!.cities?.length ?? 1)).flatMap((v, i) =>
+        v ? [{ type: "Feature" as const, properties: { speed: v[0], to: (v[1] + 180) % 360 }, geometry: { type: "Point" as const, coordinates: w!.points[i] } }] : [],
+      )
+    : [];
+  (map.getSource("wind") as GeoJSONSource).setData({ type: "FeatureCollection", features });
+  map.setLayoutProperty("wind-arrows", "visibility", show && features.length ? "visible" : "none");
+  return `${frameIdx}|${level}|${show}`;
+}
+
+/** The air's path into the city: one line per height, dots every 6 hours back. */
+function drawPath(map: maplibregl.Map, a: Arrival | null) {
+  const features: GeoJSON.Feature[] = [];
+  if (a) {
+    for (const [level, path] of Object.entries(a.paths)) {
+      if (path.length < 2) continue;
+      features.push({ type: "Feature", properties: { level }, geometry: { type: "LineString", coordinates: path } });
+      path.forEach((p, h) => {
+        if (h > 0 && h % 6 === 0) features.push({ type: "Feature", properties: { level, h }, geometry: { type: "Point", coordinates: p } });
+      });
+    }
+  }
+  (map.getSource("traj") as GeoJSONSource).setData({ type: "FeatureCollection", features });
+}
 
 export default function MapView(props: Props) {
   const container = useRef<HTMLDivElement>(null);
@@ -152,42 +207,50 @@ export default function MapView(props: Props) {
     };
   }, []);
 
-  // Fires for the window, with age measured from the map's moment.
+  // Fires for the window, with age measured from the map's moment. While playing, the clock
+  // below draws them instead, so React isn't in the animation loop.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready) return;
-    const span = props.windowHours * 3600000;
-    (map.getSource("fires") as GeoJSONSource).setData({
-      type: "FeatureCollection",
-      features: props.fires.map((f, i) => ({
-        type: "Feature",
-        id: i,
-        properties: { i, frp: f.frp, age: Math.min(Math.max((props.at - f.t) / span, 0), 1) },
-        geometry: { type: "Point", coordinates: [f.lon, f.lat] },
-      })),
-    });
+    if (!map || !ready || props.playing) return;
+    drawFires(map, props.fires, props.at, props.windowHours);
     // The first time, clear the loading screen once these fires are on screen.
     const done = firstDraw.current;
     if (done) {
       firstDraw.current = null;
       map.once("idle", done);
     }
-  }, [props.fires, props.at, props.windowHours, ready]);
+  }, [props.fires, props.at, props.windowHours, props.playing, ready]);
 
-  // Wind arrows for the chosen frame and height (the cities' own points are left out of the grid).
+  // Wind arrows for the chosen frame and height.
+  const windDrawn = useRef("");
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready) return;
-    const w = props.wind;
-    const frame = w && props.windFrame != null ? w.levels[props.windLevel]?.[props.windFrame] : null;
-    const features = frame
-      ? frame.slice(0, frame.length - (w!.cities?.length ?? 1)).flatMap((v, i) =>
-          v ? [{ type: "Feature" as const, properties: { speed: v[0], to: (v[1] + 180) % 360 }, geometry: { type: "Point" as const, coordinates: w!.points[i] } }] : [],
-        )
-      : [];
-    (map.getSource("wind") as GeoJSONSource).setData({ type: "FeatureCollection", features });
-    map.setLayoutProperty("wind-arrows", "visibility", props.showWind && features.length ? "visible" : "none");
-  }, [props.wind, props.windFrame, props.windLevel, props.showWind, ready]);
+    if (!map || !ready || props.playing) return;
+    windDrawn.current = drawWind(map, props.wind, props.windFrame, props.windLevel, props.showWind);
+  }, [props.wind, props.windFrame, props.windLevel, props.showWind, props.playing, ready]);
+
+  // Playback clock: App calls this every animation frame with a moment between two days.
+  // Fires fade in at their pass time and age smoothly; wind and the air's path follow their
+  // own hourly and 3-hourly steps.
+  const pathDrawn = useRef<Arrival | null | undefined>(undefined);
+  useEffect(() => {
+    props.clock.current = (t: number) => {
+      const map = mapRef.current;
+      const p = cb.current;
+      if (!map || !ready) return;
+      drawFires(map, firesBetween(p.allFires, t - p.windowHours * 3600000, t), t, p.windowHours, true);
+      const key = `${windFrame(p.wind, t)}|${p.windLevel}|${p.showWind}`;
+      if (key !== windDrawn.current) windDrawn.current = drawWind(map, p.wind, windFrame(p.wind, t), p.windLevel, p.showWind);
+      const a = arrivalAt(p.upwind, t);
+      if (a !== pathDrawn.current) {
+        pathDrawn.current = a;
+        drawPath(map, p.showTrajectory ? a : null);
+      }
+    };
+    return () => {
+      props.clock.current = null;
+    };
+  }, [ready]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     const map = mapRef.current;
@@ -229,20 +292,10 @@ export default function MapView(props: Props) {
   // The air's path into Delhi: one line per height, dots every 6 hours back.
   useEffect(() => {
     const map = mapRef.current;
-    if (!map || !ready) return;
-    const a = props.showTrajectory ? props.arrival : null;
-    const features: GeoJSON.Feature[] = [];
-    if (a) {
-      for (const [level, path] of Object.entries(a.paths)) {
-        if (path.length < 2) continue;
-        features.push({ type: "Feature", properties: { level }, geometry: { type: "LineString", coordinates: path } });
-        path.forEach((p, h) => {
-          if (h > 0 && h % 6 === 0) features.push({ type: "Feature", properties: { level, h }, geometry: { type: "Point", coordinates: p } });
-        });
-      }
-    }
-    (map.getSource("traj") as GeoJSONSource).setData({ type: "FeatureCollection", features });
-  }, [props.arrival, props.showTrajectory, ready]);
+    if (!map || !ready || props.playing) return;
+    pathDrawn.current = props.arrival;
+    drawPath(map, props.showTrajectory ? props.arrival : null);
+  }, [props.arrival, props.showTrajectory, props.playing, ready]);
 
   // Blue outline on the selected district.
   useEffect(() => {
@@ -365,7 +418,7 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
       // A halo about 2.4× the dot, not a second dot.
       "circle-radius": zoomed(["*", FRP_RADIUS, 2.4] as ExpressionSpecification, 1.8) as unknown as number,
       "circle-blur": 1,
-      "circle-opacity": ["interpolate", ["linear"], ["get", "age"], 0, 0.55, 1, 0.12],
+      "circle-opacity": ["*", ["get", "fade"], ["interpolate", ["linear"], ["get", "age"], 0, 0.55, 1, 0.12]],
     },
   });
   map.addLayer({
@@ -376,7 +429,7 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
     paint: {
       "circle-color": AGE_COLOR,
       "circle-radius": zoomed(FRP_RADIUS, 1.8) as unknown as number,
-      "circle-opacity": ["interpolate", ["linear"], ["get", "age"], 0, 0.95, 1, 0.45],
+      "circle-opacity": ["*", ["get", "fade"], ["interpolate", ["linear"], ["get", "age"], 0, 0.95, 1, 0.45]],
       "circle-stroke-color": "#FFD2B8",
       "circle-stroke-width": ["case", ["boolean", ["feature-state", "hover"], false], 1.5, 0],
     },

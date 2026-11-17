@@ -234,6 +234,21 @@ export function refTime(data: AppData, day: string) {
 }
 
 /** Fires in (ref - window, ref] from a time-sorted list. */
+/** Fires in (from, to] from a time-sorted list (binary search, cheap enough for every animation frame). */
+export function firesBetween(fires: Fire[], from: number, to: number) {
+  const first = (x: number) => {
+    let lo = 0;
+    let hi = fires.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (fires[mid].t <= x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  return fires.slice(first(from), first(to));
+}
+
 export function windowFires(fires: Fire[], ref: number, w: Window) {
   const from = ref - WINDOW_HOURS[w] * 3600000;
   const out: Fire[] = [];

@@ -17,7 +17,7 @@ def main() -> None:
     fires = _load("live/index.json")
     summary = _load("fires_summary_recent.json") or {}
     aq = _load("aq_delhi_recent.json")
-    out = ["## Delhi Smoke Watch: pipeline run", ""]
+    out = ["## India Smoke Watch: pipeline run", ""]
 
     if fires:
         out += [f"**Fires:** {sum(d['n'] for d in fires['days']):,} detections, source `{fires['method']}`, "
