@@ -31,8 +31,9 @@ export default function About() {
           <p>
             Each season runs 15 Sep – 15 Dec. Only NOAA-20 detections are used, so every year is counted by the same satellite; archive (standard
             processing) data where NASA has it, near-real-time data for recent weeks. Delhi's daily PM2.5 is the mean of reference monitors that reported
-            at least 18 hours that day; a day with too few such stations is a gap. OpenAQ's API has no daily averages for Delhi from mid-October 2022
-            through 2024, so those days are rebuilt from the same monitors' readings in OpenAQ's public archive, with the same rules.
+            at least 18 hours that day; a day with too few such stations is a gap. OpenAQ has no government-monitor data for Delhi from mid-October 2022
+            through 2024. For those days the site shows the US Embassy monitor alone, labelled as one station: in seasons with both, it tracks the city
+            average closely (correlation 0.98) but reads about 8% lower. Its values are not adjusted.
           </p>
           <p>The fires-vs-PM2.5 correlation is shown for interest. Weather moves Delhi's air too, so a correlation is not a measure of cause.</p>
         </div>

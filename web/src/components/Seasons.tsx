@@ -85,6 +85,7 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
       firesA: A.fires.india[i] ?? null,
       pmA: A.pm25[i] ?? null,
       cpcbA: A.pm25_source?.[i] === "cpcb",
+      embA: A.pm25_source?.[i] === "embassy",
       firesB: B?.fires.india[i] ?? null,
       pmB: B?.pm25[i] ?? null,
     }));
@@ -235,6 +236,7 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
                       <span>
                         PM2.5: {r.pmA != null ? <b>{fmtInt(r.pmA)}</b> : "gap"} {band ? `· ${band.name}` : ""}
                         {r.cpcbA ? " · CPCB" : ""}
+                        {r.embA ? " · US Embassy only" : ""}
                       </span>
                     </div>
                   );
@@ -247,7 +249,8 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
           </ResponsiveContainer>
         </div>
         <p className="trend-note muted">
-          Bars: NOAA-20 detections in India. Line: Delhi daily PM2.5 (OpenAQ{A.pm25_source?.includes("openaq-archive") ? ", some days rebuilt from its archive" : ""}{A.pm25_source?.includes("cpcb") ? "; some days from CPCB's own reports" : ""}); breaks are days with too
+          Bars: NOAA-20 detections in India. Line: Delhi daily PM2.5 (OpenAQ{A.pm25_source?.includes("openaq-archive") ? ", some days rebuilt from its archive" : ""}{A.pm25_source?.includes("cpcb") ? "; some days from CPCB's own reports" : ""}
+          {A.pm25_source?.includes("embassy") ? `; ${A.pm25_source.filter((x) => x === "embassy").length} days from the US Embassy monitor alone, as OpenAQ has no government-monitor data for them` : ""}); breaks are days with too
           few stations. Click a day to show it on the map.
         </p>
       </figure>
@@ -330,7 +333,11 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
           </div>
           <p className="trend-note muted compare-note">
             {common && common < 92 ? `Compared over the same ${common} days (15 Sep – ${dayLabel(addDays(`${A.year}-09-15`, common - 1))}), as one season is still in progress. ` : ""}
-            Change is {Math.min(A.year, B.year)} → {Math.max(A.year, B.year)}. PM2.5 averages are left out ("–") when fewer than 80% of days have data.
+            Change is {Math.min(A.year, B.year)} → {Math.max(A.year, B.year)}.{" "}
+            {[A, B]
+              .filter((x) => x.pm25_source?.includes("embassy"))
+              .map((x) => `${x.year} PM2.5 is mostly the US Embassy monitor alone, which reads about 8% below the city average. `)
+              .join("")} PM2.5 averages are left out ("–") when fewer than 80% of days have data.
           </p>
         </div>
       )}

@@ -55,3 +55,10 @@ def test_merge_fills_gaps_only():
     # Re-applying with newer CPCB data updates CPCB days but still never touches OpenAQ days.
     again = merge_cpcb(out, {"2023-09-15": 1.0, "2023-09-16": 61.0, "2023-09-17": 70.0})
     assert again["pm25"] == [50.0, 61.0, 70.0]
+
+
+def test_merge_keeps_embassy_unless_cpcb_city_average():
+    season = {"start": "2023-11-01", "pm25": [300.0, 280.0], "pm25_source": ["embassy", "embassy"]}
+    out = merge_cpcb(season, {"2023-11-01": 310.0})
+    assert out["pm25"] == [310.0, 280.0]
+    assert out["pm25_source"] == ["cpcb", "embassy"]

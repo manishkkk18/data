@@ -30,6 +30,11 @@ from .config import DATA, FOCUS_STATES, secret
 
 log = logging.getLogger("smokewatch.season")
 CPCB_DAILY = DATA / "cpcb" / "delhi_pm25_daily.json"
+# US Embassy New Delhi (AirNow) in OpenAQ. OpenAQ has no government-monitor data for Delhi from
+# mid-Oct 2022 through 2024; this one reference monitor is there. In seasons with both, it tracks
+# the city average closely (r = 0.98, ~8% lower), so it stands in, labelled, for days with no city
+# average. Its values are used as they are, never adjusted.
+EMBASSY_LOCATION = 8118
 SEASON_DIR = DATA / "seasons"
 START = (9, 15)
 END = (12, 15)
@@ -121,9 +126,12 @@ def merge_cpcb(season: dict, cpcb: dict[str, float | None]) -> dict:
         if v is not None and s0 in ("openaq", "openaq-archive"):
             pm.append(v)
             src.append(s0)
-        elif cpcb.get(d) is not None:
+        elif cpcb.get(d) is not None:  # a CPCB city average beats a single station
             pm.append(cpcb[d])
             src.append("cpcb")
+        elif v is not None and s0 == "embassy":
+            pm.append(v)
+            src.append("embassy")
         else:
             pm.append(None)
             src.append(None)
@@ -170,6 +178,18 @@ def fetch_pm25(key: str, start: date, end: date) -> tuple[dict, int, dict]:
                 src[d] = "openaq-archive"
                 n_new += 1
         log.info("PM2.5 %s..%s: %d days from the API, %d more from the archive (%d locations)", start, end, len(days) - len(missing), n_new, len(locs))
+
+    # Last resort: the US Embassy monitor on its own, labelled as a single station.
+    still = [d for d in days if pm.get(d) is None]
+    if still:
+        emb = openaq.fetch_archive_days([EMBASSY_LOCATION], still)
+        n_emb = 0
+        for d, v in zip(emb["date"], emb["value"]):
+            if v is not None and v == v:  # not NaN
+                pm[d] = round(float(v), 1)
+                src[d] = "embassy"
+                n_emb += 1
+        log.info("PM2.5 %s..%s: %d days from the US Embassy monitor alone", start, end, n_emb)
     return pm, len(s), src
 
 
@@ -287,7 +307,8 @@ def main(argv=None) -> None:
         # Write after every season, so a later failure keeps the work done so far.
         index = {"generated_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
                  "note": "NOAA-20 VIIRS detections only, for fair comparison across years. PM2.5: Delhi reference monitors via OpenAQ "
-                         "(API daily averages; days the API lacks rebuilt from OpenAQ's public archive, see pm25_source).",
+                         "(API daily averages; days the API lacks rebuilt from OpenAQ's public archive; where no city average exists, "
+                         "the US Embassy monitor alone, see pm25_source).",
                  "seasons": [have[k] for k in sorted(have)]}
         index_path.write_text(json.dumps(index, separators=(",", ":")), encoding="utf-8")
 
