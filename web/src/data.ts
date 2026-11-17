@@ -4,7 +4,9 @@ import type { Feature, FeatureCollection, Geometry, MultiPolygon, Polygon, Posit
 export type BBox = [number, number, number, number];
 
 // ---- Files written by pipeline/smokewatch/run.py -------------------------------------------
-type FiresFile = {
+type LiveRow = [lon: number, lat: number, tMin: number, frp: number, conf: string, sat: number, night: 0 | 1, district: number];
+/** data/live/index.json: the live window's days; each day's detections are in its own file. */
+export type LiveIndex = {
   generated_utc: string;
   method: "api" | "public-7d";
   window_days: number;
@@ -12,9 +14,10 @@ type FiresFile = {
   latest_detection_utc: string | null;
   satellites: string[];
   district_ids: string[];
-  rows: [lon: number, lat: number, tMin: number, frp: number, conf: string, sat: number, night: 0 | 1, district: number][];
+  days: { date: string; file: string; n: number }[];
 };
 type SummaryFile = {
+  by_day?: { date: string; detections: number; detections_india?: number }[];
   same_day_last_year: { available: boolean; reason?: string; date?: string; count?: number; last_year_date?: string; last_year_count?: number; sensor?: string } | null;
 };
 export type WindFile = {
@@ -57,8 +60,10 @@ export type DistrictFC = FeatureCollection<Polygon | MultiPolygon, DistrictProps
 export type District = DistrictProps & { name: string; bbox: BBox; search: string; aliases: string[] };
 
 export type AppData = {
-  fires: Fire[]; // sorted by time
-  firesMethod: FiresFile["method"];
+  fires: Fire[]; // the live days loaded so far (the latest two at start), sorted by time
+  live: LiveIndex;
+  dayCounts: Map<string, number>; // detections in India per IST day, for the timeline
+  firesMethod: LiveIndex["method"];
   latestDetection: number | null;
   generated: number;
   days: string[]; // IST dates (YYYY-MM-DD) covered by the fire window, oldest first
@@ -83,8 +88,8 @@ const getJson = async <T,>(f: string): Promise<T> => {
 export async function loadData(): Promise<AppData> {
   const manifest = await getJson<{ files: string[] }>("manifest.json").catch(() => ({ files: [] as string[] }));
   const opt = <T,>(f: string) => (manifest.files.includes(f) ? getJson<T>(f).catch(() => null) : Promise.resolve(null));
-  const [firesFile, summary, districts, outline, meta, wind, aq, upwind, seasons] = await Promise.all([
-    getJson<FiresFile>("fires_recent.json"),
+  const [live, summary, districts, outline, meta, wind, aq, upwind, seasons] = await Promise.all([
+    getJson<LiveIndex>("live/index.json"),
     getJson<SummaryFile>("fires_summary_recent.json"),
     getJson<DistrictFC>("districts_web.geojson"),
     getJson<FeatureCollection>("india_outline.geojson"),
@@ -95,12 +100,8 @@ export async function loadData(): Promise<AppData> {
     opt<SeasonIndex>("seasons/index.json"),
   ]);
 
-  const t0 = Date.parse(firesFile.t0);
-  const fires: Fire[] = firesFile.rows.map(([lon, lat, tMin, frp, conf, sat, night, di]) => ({
-    lon, lat, t: t0 + tMin * 60000, frp, conf, sat: firesFile.satellites[sat], night: night === 1,
-    district: di >= 0 ? firesFile.district_ids[di] : null,
-  }));
-  fires.sort((a, b) => a.t - b.t);
+  // Start with the latest two days (all a 24-hour window needs); the rest load in the background.
+  const fires = await loadLiveDays(live, live.days.slice(-2).map((d) => d.date));
 
   const byId = new Map<string, District>();
   for (const f of districts.features) {
@@ -108,18 +109,33 @@ export async function loadData(): Promise<AppData> {
     byId.set(p.id, { ...p, name: p.district, bbox: bboxOf(f.geometry), search: fold(`${p.district} ${p.state}`), aliases: [] });
   }
 
-  const generated = Date.parse(firesFile.generated_utc);
-  const latestDetection = firesFile.latest_detection_utc ? Date.parse(firesFile.latest_detection_utc) : null;
-  // One slider step per IST day, from the oldest detection's day to today.
+  const generated = Date.parse(live.generated_utc);
+  const latestDetection = live.latest_detection_utc ? Date.parse(live.latest_detection_utc) : null;
+  // One slider step per IST day, from the oldest day with detections to today.
   const days: string[] = [];
-  if (fires.length) {
-    for (let d = istDate(fires[0].t); d <= istDate(generated); d = addDays(d, 1)) days.push(d);
+  if (live.days.length) {
+    for (let d = live.days[0].date; d <= istDate(generated); d = addDays(d, 1)) days.push(d);
   }
+  const dayCounts = new Map((summary.by_day ?? []).map((r) => [r.date, r.detections_india ?? r.detections] as [string, number]));
 
   return {
-    fires, firesMethod: firesFile.method, latestDetection, generated, days,
+    fires, live, dayCounts, firesMethod: live.method, latestDetection, generated, days,
     districts, outline, byId, wind, aq, upwind, seasons, lastYear: summary.same_day_last_year, meta,
   };
+}
+
+/** Detections for the given IST days of the live window, as Fire objects sorted by time. */
+export async function loadLiveDays(live: LiveIndex, dates: string[]): Promise<Fire[]> {
+  const t0 = Date.parse(live.t0);
+  const files = live.days.filter((d) => dates.includes(d.date));
+  const parts = await Promise.all(files.map((d) => getJson<{ rows: LiveRow[] }>(`live/${d.file}`)));
+  const fires: Fire[] = parts.flatMap((p) =>
+    p.rows.map(([lon, lat, tMin, frp, conf, sat, night, di]) => ({
+      lon, lat, t: t0 + tMin * 60000, frp, conf, sat: live.satellites[sat], night: night === 1,
+      district: di >= 0 ? live.district_ids[di] : null,
+    })),
+  );
+  return fires.sort((a, b) => a.t - b.t);
 }
 
 // ---- Burning seasons (NOAA-20 only, 15 Sep – 15 Dec) -----------------------------------------
@@ -339,3 +355,6 @@ export function overdue(generated: number, now = Date.now()) {
   const limit = (inSeason ? 7 : 30) * 3600000;
   return now - generated > limit ? ago(generated, now) : null;
 }
+
+/** Area the season history covers until it is rebuilt for the whole country. */
+export const SEASON_AREA = "north-west India (Punjab, Haryana, Delhi, west UP, edges of Rajasthan and MP)";

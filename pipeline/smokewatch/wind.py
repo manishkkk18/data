@@ -1,6 +1,6 @@
 """Hourly wind over north-west India and its upwind approaches, from Open-Meteo (no key).
 
-Two 1° grids, both aligned on .5° so one is a subset of the other:
+Two 2° grids, aligned so one is a subset of the other:
 - TRAJ_BBOX, wide enough for 48-hour back-trajectories (air can cover ~1,500 km in 2 days).
 - BBOX (the study area), the only part drawn as arrows on the map.
 Levels: 10 m and 850 hPa (~1.5 km). Directions are meteorological: where the wind blows FROM.
@@ -19,7 +19,7 @@ from .trajectory import WindField
 
 API = "https://api.open-meteo.com/v1/forecast"
 LEVELS = ("10m", "850hPa")
-STEP_DEG = 1.0
+STEP_DEG = 2.0
 CHUNK = 40  # locations per request: small enough that Open-Meteo answers quickly
 RETRIES = 4
 

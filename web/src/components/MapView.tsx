@@ -12,7 +12,7 @@ import { FIRE_NEW, FIRE_OLD, WIND_BLUE } from "./Legend";
 
 // OpenFreeMap: free, no API key, no view limits. Attribution comes from the style.
 export const STYLE_URL = "https://tiles.openfreemap.org/styles/dark";
-export const STUDY: BBox = [72.5, 25.5, 80.5, 32.6]; // Punjab, Haryana, Delhi-NCR, West UP and edges of Rajasthan/MP
+export const STUDY: BBox = [68.1, 6.7, 97.4, 37.1]; // all of India (same frame as India Night Lights)
 const DELHI: [number, number] = [77.2167, 28.6315];
 
 export type FireHover = { fire: Fire; x: number; y: number };

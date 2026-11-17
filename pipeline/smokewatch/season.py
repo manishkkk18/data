@@ -26,7 +26,7 @@ import pandas as pd
 from . import firms, openaq
 from .attribute import attribute_fires
 from .boundaries import load_districts
-from .config import DATA, FOCUS_STATES, secret
+from .config import DATA, FOCUS_STATES, SEASON_BBOX, secret
 
 log = logging.getLogger("smokewatch.season")
 CPCB_DAILY = DATA / "cpcb" / "delhi_pm25_daily.json"
@@ -63,10 +63,10 @@ def fetch_fires(key: str, start: date, end: date, today: date) -> tuple[pd.DataF
     d = start
     while d <= end:
         days = min(firms.MAX_DAYS_PER_CALL, (end - d).days + 1)
-        chunk = firms.fetch_api(key, [SP], d, d + timedelta(days=days - 1))
+        chunk = firms.fetch_api(key, [SP], d, d + timedelta(days=days - 1), bbox=SEASON_BBOX)
         src = "SP"
         if chunk.empty and (today - d).days <= NRT_DAYS:
-            chunk = firms.fetch_api(key, [NRT], d, d + timedelta(days=days - 1))
+            chunk = firms.fetch_api(key, [NRT], d, d + timedelta(days=days - 1), bbox=SEASON_BBOX)
             src = "NRT"
         frames.append(chunk)
         used.append(f"{d.isoformat()}:{src if len(chunk) else 'none'}")
@@ -76,7 +76,7 @@ def fetch_fires(key: str, start: date, end: date, today: date) -> tuple[pd.DataF
         return df, used
     df["acq_utc"] = pd.to_datetime(df["acq_utc"], utc=True)
     df[["latitude", "longitude", "frp"]] = df[["latitude", "longitude", "frp"]].apply(pd.to_numeric)
-    df = firms.in_bbox(df).drop_duplicates(subset=["latitude", "longitude", "acq_utc"])
+    df = firms.in_bbox(df, SEASON_BBOX).drop_duplicates(subset=["latitude", "longitude", "acq_utc"])
     # Keep detections whose IST date is inside the season.
     ist_day = df["acq_utc"].dt.tz_convert("Asia/Kolkata").dt.date
     return df[(ist_day >= start) & (ist_day <= end)].reset_index(drop=True), used

@@ -14,13 +14,13 @@ def _load(name: str):
 
 def main() -> None:
     meta = _load("meta.json") or {}
-    fires = _load("fires_recent.json")
+    fires = _load("live/index.json")
     summary = _load("fires_summary_recent.json") or {}
     aq = _load("aq_delhi_recent.json")
     out = ["## Delhi Smoke Watch: pipeline run", ""]
 
     if fires:
-        out += [f"**Fires:** {len(fires['rows']):,} detections, source `{fires['method']}`, "
+        out += [f"**Fires:** {sum(d['n'] for d in fires['days']):,} detections, source `{fires['method']}`, "
                 f"latest {fires['latest_detection_utc']}, satellites {', '.join(fires['satellites'])}", ""]
         out += ["| State | Detections | NOAA-20 only |", "|---|---:|---:|"]
         out += [f"| {r['state']} | {r['detections']:,} | {r['detections_n20']:,} |" for r in summary.get("by_state", [])]

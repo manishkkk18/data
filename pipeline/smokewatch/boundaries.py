@@ -78,10 +78,10 @@ def load_districts() -> gpd.GeoDataFrame:
         DISTRICTS_OUT.parent.mkdir(parents=True, exist_ok=True)
         # Simplify to ~100 m: far finer than a 375 m VIIRS pixel, and keeps the file
         # small enough for the web map. Pipeline and web use this same file.
-        d["geometry"] = d.geometry.simplify(0.001, preserve_topology=True)
+        d["geometry"] = d.geometry.simplify(0.002, preserve_topology=True)  # ~200 m, still finer than a 375 m pixel
         d.to_file(DISTRICTS_OUT, driver="GeoJSON", COORDINATE_PRECISION=4)
         # Lighter copy for the web map only (~500 m; outlines, not attribution).
         web = d.copy()
-        web["geometry"] = web.geometry.simplify(0.005, preserve_topology=True)
+        web["geometry"] = web.geometry.simplify(0.008, preserve_topology=True)  # ~800 m, keeps all-India light
         web.to_file(DISTRICTS_WEB, driver="GeoJSON", COORDINATE_PRECISION=3)
     return gpd.read_file(DISTRICTS_OUT)

@@ -101,7 +101,7 @@ export default function LayerSwitcher({ layers, onChange, windAvailable, traject
             <span className="switch-track" aria-hidden="true" />
             <span>
               <span className="layer-label">District outlines</span>
-              <span className="layer-note">Punjab, Haryana, Delhi, UP, Rajasthan, MP</span>
+              <span className="layer-note">All of India's districts</span>
             </span>
           </label>
           <p className="layers-credit">

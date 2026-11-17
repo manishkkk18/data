@@ -14,7 +14,7 @@ export default function About({ data }: { data: AppData }) {
           <h3>Fires</h3>
           <p>
             Active-fire detections from <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a>: VIIRS (375 m) on NOAA-20 and
-            NOAA-21, plus MODIS (1 km) on Aqua and Terra. Each dot is one satellite pixel that saw heat, with its fire radiative power (FRP, in megawatts).
+            NOAA-21, across India. Each dot is one satellite pixel that saw heat, with its fire radiative power (FRP, in megawatts).
           </p>
           <p>
             Counts are <em>detections</em>, not fires or area burned: one field can be seen by several satellites. Year-on-year comparisons use NOAA-20 alone,

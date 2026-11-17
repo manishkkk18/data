@@ -19,6 +19,7 @@ import {
   satDate,
   CONFIDENCE,
   loadSeasonFires,
+  loadLiveDays,
   seasonDays,
   type Fire,
   SATELLITE,
@@ -81,6 +82,18 @@ function Main({ data }: { data: AppData }) {
     return i >= 0 ? i : Math.max(days.length - 1, 0);
   });
   const [seasonFires, setSeasonFires] = useState<Record<number, Fire[]>>({});
+  // Live fires: the latest two days come with the first load; the rest of the week follows.
+  const [liveFires, setLiveFires] = useState<Fire[]>(data.fires);
+  const [liveComplete, setLiveComplete] = useState(data.live.days.length <= 2);
+  useEffect(() => {
+    if (liveComplete) return;
+    loadLiveDays(data.live, data.live.days.map((d) => d.date))
+      .then((all) => {
+        setLiveFires(all);
+        setLiveComplete(true);
+      })
+      .catch(() => say("Couldn't load the earlier days' fires."));
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const [seasonLoading, setSeasonLoading] = useState(false);
   const [win, setWin] = useState<Window>(initial.w ?? "24h");
   const [layers, setLayers] = useState<Layers>({
@@ -124,7 +137,7 @@ function Main({ data }: { data: AppData }) {
 
   const day = days[Math.min(dayIndex, days.length - 1)] ?? today;
   const at = refTime(data, day);
-  const sourceFires = season ? (seasonFires[season.year] ?? []) : data.fires;
+  const sourceFires = season ? (seasonFires[season.year] ?? []) : liveFires;
   const fires = useMemo(() => windowFires(sourceFires, at, win), [sourceFires, at, win]);
   const seasonPm = season ? (season.pm25[days.indexOf(day)] ?? null) : null;
   const indiaCount = useMemo(() => fires.filter((f) => f.district).length, [fires]);
@@ -136,9 +149,7 @@ function Main({ data }: { data: AppData }) {
   const band = pm25Band(pmValue);
   const series = useMemo(() => {
     if (season) return season.fires.india;
-    const counts = new Map<string, number>();
-    for (const f of data.fires) if (f.district) counts.set(istDate(f.t), (counts.get(istDate(f.t)) ?? 0) + 1);
-    return data.days.map((d) => counts.get(d) ?? 0);
+    return data.days.map((d) => data.dayCounts.get(d) ?? 0);
   }, [data, season]);
 
   // A season's detections are fetched the first time it is shown.

@@ -13,11 +13,16 @@ OUT = ROOT / "pipeline" / "out"
 
 load_dotenv(ROOT / ".env")
 
-# Study area: Punjab, Haryana, Delhi-NCR, West UP and the northern edges of
-# Rajasthan / MP. (west, south, east, north) in degrees.
-BBOX = (72.5, 25.5, 80.5, 32.6)
-# Wider grid for 48-hour back-trajectories (same .5° alignment as BBOX).
-TRAJ_BBOX = (64.5, 23.5, 82.5, 36.5)
+# Live map: all of India (and the edges of neighbouring countries in the frame).
+# (west, south, east, north) in degrees.
+BBOX = (68.0, 6.5, 97.5, 37.5)
+# Burning-season history (season.py) still covers north-west India until it is rebuilt
+# for the whole country; keeping it separate stops the daily season update mixing areas.
+SEASON_BBOX = (72.5, 25.5, 80.5, 32.6)
+# Wind grid for 48-hour back-trajectories: India plus its upwind approaches (Pakistan,
+# Afghanistan, the Arabian Sea, Bay of Bengal). 2° steps keep it within Open-Meteo's free
+# daily limit (~460 points x 8 runs). Aligned with BBOX so the map's arrows are a subset.
+TRAJ_BBOX = (58.0, 0.5, 100.0, 40.5)
 
 # States we report on. Fires elsewhere in the bbox are kept but grouped as "Other".
 FOCUS_STATES = ["Punjab", "Haryana", "Delhi", "Uttar Pradesh", "Rajasthan", "Madhya Pradesh"]
@@ -29,7 +34,9 @@ DELHI = (77.2167, 28.6315)  # lon, lat
 # Suomi NPP stopped delivering data in early Nov 2026 and NOAA-21 only starts in
 # 2023/24, so NOAA-20 (data every season since 2018) is the only VIIRS sensor
 # present in every season 2020-2026. S-NPP is still queried for past seasons.
-NRT_SOURCES = ["VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT", "VIIRS_SNPP_NRT", "MODIS_NRT"]
+# The live map uses VIIRS only: across India MODIS (1 km) mostly duplicates it and would
+# add volume without detail.
+NRT_SOURCES = ["VIIRS_NOAA20_NRT", "VIIRS_NOAA21_NRT", "VIIRS_SNPP_NRT"]
 CONSISTENT_SENSORS = {"N20"}  # satellite codes as they appear in FIRMS CSVs
 
 

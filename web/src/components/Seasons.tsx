@@ -1,6 +1,6 @@
 import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
-import { addDays, dayLabel, fmtInt, fmtPct, pm25Band, type AppData, type Season } from "../data";
+import { addDays, dayLabel, fmtInt, fmtPct, pm25Band, SEASON_AREA, type AppData, type Season } from "../data";
 import { track } from "../analytics";
 import { COLOR_A, COLOR_B, MARKER } from "./chartColors";
 import { FIRE_NEW } from "./Legend";
@@ -122,7 +122,7 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
         <div>
           <h2 id="season-title">Burning seasons, {seasons[0].year}–{latest.year}</h2>
           <p className="muted">
-            Fire detections in India each day from 15 Sep to 15 Dec, against Delhi's daily PM2.5. Same satellite (NOAA-20) every year, so seasons compare
+            Fire detections in {SEASON_AREA} each day from 15 Sep to 15 Dec, against Delhi's daily PM2.5. Same satellite (NOAA-20) every year, so seasons compare
             fairly.
           </p>
         </div>

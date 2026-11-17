@@ -15,9 +15,10 @@ from .config import BBOX, DATA, DELHI, FOCUS_STATES, OUT
 
 def main() -> None:
     d = load_districts()
-    p = json.loads((DATA / "fires_recent.json").read_text(encoding="utf-8"))
-    f = pd.DataFrame(p["rows"], columns=p["columns"])
-    f["t"] = pd.to_datetime(f["t"], utc=True)
+    p = json.loads((DATA / "live" / "index.json").read_text(encoding="utf-8"))
+    rows = [r for d in p["days"] for r in json.loads((DATA / "live" / d["file"]).read_text(encoding="utf-8"))["rows"]]
+    f = pd.DataFrame(rows, columns=p["columns"])
+    f["t"] = pd.Timestamp(p["t0"]) + pd.to_timedelta(f["t_min"], unit="m")
     age_h = (f["t"].max() - f["t"]).dt.total_seconds() / 3600
 
     fig, ax = plt.subplots(figsize=(10, 10), facecolor="#0B0F1A")

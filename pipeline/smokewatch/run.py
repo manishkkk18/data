@@ -15,7 +15,7 @@ import pandas as pd
 from . import firms, openaq, upwind, wind
 from .attribute import attribute_fires
 from .boundaries import load_districts
-from .config import CONSISTENT_SENSORS, DATA, DELHI, FOCUS_STATES, secret
+from .config import CONSISTENT_SENSORS, DATA, DELHI, secret
 
 log = logging.getLogger("smokewatch")
 IST = "Asia/Kolkata"
@@ -39,32 +39,49 @@ def write_json(name: str, obj) -> None:
     log.info("wrote %s (%.1f KB)", path.relative_to(DATA.parent), path.stat().st_size / 1024)
 
 
-def fires_payload(fires: pd.DataFrame, districts, method: str, days: int) -> dict:
-    """Compact rows for the map. Time is minutes after `t0`; district is an index into
-    `districts` (-1 = outside India, e.g. Pakistan)."""
+LIVE = DATA / "live"
+
+
+def write_live(fires: pd.DataFrame, districts, method: str, days: int) -> dict:
+    """The live map's fires: one compact file per IST day (data/live/fires_YYYY-MM-DD.json) plus
+    data/live/index.json, so the site loads only the days it shows. Rows: lon, lat, minutes after
+    `t0`, FRP, confidence, satellite index, night flag, district index (-1 = outside India)."""
     ids = list(districts["id"])
     pos = {(s, d): i for i, (s, d) in enumerate(zip(districts["state"], districts["district"]))}
     t0 = fires["acq_utc"].min().floor("D") if len(fires) else pd.Timestamp.now(tz="UTC").floor("D")
     sat_codes = sorted(fires["satellite"].unique()) if len(fires) else []
-    rows = []
-    for r in fires.itertuples():
-        di = pos.get((r.state, r.district), -1) if r.district else -1
-        rows.append([round(r.longitude, 3), round(r.latitude, 3), int((r.acq_utc - t0).total_seconds() // 60),
-                     round(float(r.frp), 1), (r.confidence or "?")[0], sat_codes.index(r.satellite),
-                     1 if r.daynight == "N" else 0, di])
-    return {
+    LIVE.mkdir(parents=True, exist_ok=True)
+    for old in LIVE.glob("fires_*.json"):
+        old.unlink()  # days that left the window
+    by_day: dict[str, list] = {}
+    if len(fires):
+        ist_day = fires["acq_utc"].dt.tz_convert(IST).dt.date.astype(str)
+        for r, day in zip(fires.itertuples(), ist_day):
+            di = pos.get((r.state, r.district), -1) if r.district else -1
+            by_day.setdefault(day, []).append([
+                round(r.longitude, 3), round(r.latitude, 3), int((r.acq_utc - t0).total_seconds() // 60),
+                round(float(r.frp), 1), (r.confidence or "?")[0], sat_codes.index(r.satellite), 1 if r.daynight == "N" else 0, di])
+    files = []
+    for day in sorted(by_day):
+        name = f"fires_{day}.json"
+        (LIVE / name).write_text(json.dumps({"date": day, "rows": by_day[day]}, separators=(",", ":")), encoding="utf-8")
+        files.append({"date": day, "file": name, "n": len(by_day[day])})
+    index = {
         "generated_utc": _now_iso(), "method": method, "window_days": days,
         "t0": t0.isoformat(), "latest_detection_utc": fires["acq_utc"].max().isoformat() if len(fires) else None,
         "satellites": sat_codes, "district_ids": ids,
         "columns": ["lon", "lat", "t_min", "frp", "conf", "sat", "night", "district"],
-        "rows": rows,
+        "days": files,
     }
+    (LIVE / "index.json").write_text(json.dumps(index, separators=(",", ":")), encoding="utf-8")
+    log.info("wrote data/live: %d days, %d detections, %.1f MB", len(files), len(fires),
+             sum((LIVE / f["file"]).stat().st_size for f in files) / 1e6)
+    return index
 
 
 def summary_payload(fires: pd.DataFrame, last_year: dict | None) -> dict:
     f = fires.copy()
     f["state"] = f["state"].fillna("Outside India")
-    f.loc[~f["state"].isin(FOCUS_STATES + ["Outside India"]), "state"] = "Other"
     f["date"] = f["acq_utc"].dt.tz_convert(IST).dt.date.astype(str)
     f["consistent"] = f["satellite"].isin(CONSISTENT_SENSORS)
 
@@ -74,14 +91,15 @@ def summary_payload(fires: pd.DataFrame, last_year: dict | None) -> dict:
     by_district = (f.dropna(subset=["district"]).groupby(["state", "district"])
                    .agg(detections=("frp", "size"), frp_sum=("frp", "sum"))
                    .sort_values("detections", ascending=False).round(1).reset_index().head(30))
-    by_day = (f.groupby("date").agg(detections=("frp", "size"), detections_n20=("consistent", "sum"))
+    f["india"] = f["state"] != "Outside India"
+    by_day = (f.groupby("date").agg(detections=("frp", "size"), detections_india=("india", "sum"), detections_n20=("consistent", "sum"))
               .reset_index())
     return {
         "by_state": by_state.to_dict("records"),
         "top_districts": by_district.to_dict("records"),
         "by_day": by_day.to_dict("records"),
         "same_day_last_year": last_year,
-        "note": "Counts are satellite detections (375 m VIIRS / 1 km MODIS pixels), not individual fires or area burned.",
+        "note": "Counts are VIIRS satellite detections (375 m pixels), not individual fires or area burned.",
     }
 
 
@@ -159,7 +177,7 @@ def main(argv=None) -> None:
     window_start = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=args.days)
     fires = all_fires[all_fires["acq_utc"] > window_start].reset_index(drop=True)
     log.info("fires: %d detections in %d days (%s); outside India: %d", len(fires), args.days, method, fires["district"].isna().sum())
-    write_json("fires_recent.json", fires_payload(fires, districts, method, args.days))
+    write_live(fires, districts, method, args.days)
     write_json("fires_summary_recent.json", summary_payload(fires, last_year_compare(fires, today)))
     meta["fires"] = {"updated_utc": meta["generated_utc"], "method": method,
                      "latest_detection_utc": fires["acq_utc"].max().isoformat() if len(fires) else None}

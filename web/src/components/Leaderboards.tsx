@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { addDays, dayLabel, fmtInt, fmtPct, istDate, loadSeasonFires, type AppData, type Fire, type Season } from "../data";
+import { addDays, dayLabel, fmtInt, fmtPct, istDate, loadSeasonFires, SEASON_AREA, type AppData, type Fire, type Season } from "../data";
 import { track } from "../analytics";
 
 // Fires by state and district: a season so far vs the same dates a year earlier (NOAA-20 only).
@@ -66,7 +66,7 @@ export default function Leaderboards({ data, onPick, phone }: Props) {
   const maxTop = Math.max(1, ...top.map((d) => d.now));
   const cut = <T,>(xs: T[]) => (phone && !more ? xs.slice(0, PHONE_TOP) : xs);
   const range = `15 Sep – ${dayLabel(addDays(A.start, n - 1))}`;
-  const sub = `${range}, ${A.year} vs ${B.year} · NOAA-20 detections`;
+  const sub = `${range}, ${A.year} vs ${B.year} · NOAA-20 detections in ${SEASON_AREA.split(" (")[0]}`;
   const pct = (now: number, then: number) => (then ? ((now - then) / then) * 100 : null);
   // More fire is fire-coloured; fewer is plain text (blue is kept for selection and wind).
   const tone = (now: number, then: number) => (now > then ? "fire" : "");

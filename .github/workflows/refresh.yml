@@ -81,7 +81,7 @@ jobs:
       - name: Restore the last published data (kept if a source fails this run)
         if: steps.gate.outputs.run == 'true'
         run: |
-          for f in fires_recent.json fires_summary_recent.json wind_recent.json upwind_recent.json aq_delhi_recent.json meta.json; do
+          for f in fires_summary_recent.json wind_recent.json upwind_recent.json aq_delhi_recent.json meta.json; do
             curl -sf -o "data/$f" "$SITE/data/$f" && echo "restored $f" || echo "no published $f"
           done
 

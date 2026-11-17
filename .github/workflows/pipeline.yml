@@ -81,4 +81,5 @@ jobs:
           name: data
           path: |
             data/*.json
+            data/live/*.json
           retention-days: 7
