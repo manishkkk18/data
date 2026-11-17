@@ -13,6 +13,10 @@ on:
         description: "Rebuild complete seasons too"
         type: boolean
         default: false
+      pm25_only:
+        description: "Only redo Delhi PM2.5 (keeps the fire data)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -51,7 +55,7 @@ jobs:
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
         run: |
           PYTHONPATH=. python -m smokewatch.season --years "${{ github.event.inputs.years || '2020-2026' }}" \
-            ${{ github.event.inputs.force == 'true' && '--force' || '' }}
+            ${{ github.event.inputs.force == 'true' && '--force' || '' }}             ${{ github.event.inputs.pm25_only == 'true' && '--pm25-only' || '' }}
 
       - name: Summary
         if: always()
@@ -68,7 +72,9 @@ jobs:
               india = s["fires"]["india"]; pm = [v for v in s["pm25"] if v is not None]
               peak = max(range(len(india)), key=india.__getitem__) if india else None
               when = (date.fromisoformat(s["start"]) + timedelta(days=peak)).isoformat() if peak is not None else "–"
-              print(f"| {s['year']} | {len(india)} | {s['complete']} | {sum(india):,} | {len(pm)} of {len(s['pm25'])} | {when} ({india[peak] if india else 0}) |")
+              src = s.get("pm25_source") or []
+              print(f"| {s['year']} | {len(india)} | {s['complete']} | {sum(india):,} | {len(pm)} of {len(s['pm25'])} "
+                    f"(archive {src.count('openaq-archive')}) | {when} ({india[peak] if india else 0}) |")
           EOF
 
       - name: Commit season data

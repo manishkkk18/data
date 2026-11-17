@@ -118,9 +118,9 @@ def merge_cpcb(season: dict, cpcb: dict[str, float | None]) -> dict:
     old_src = season.get("pm25_source") or ["openaq" if v is not None else None for v in season["pm25"]]
     pm, src = [], []
     for d, v, s0 in zip(days, season["pm25"], old_src):
-        if v is not None and s0 == "openaq":
+        if v is not None and s0 in ("openaq", "openaq-archive"):
             pm.append(v)
-            src.append("openaq")
+            src.append(s0)
         elif cpcb.get(d) is not None:
             pm.append(cpcb[d])
             src.append("cpcb")
@@ -134,10 +134,13 @@ def load_cpcb() -> dict[str, float | None]:
     return json.loads(CPCB_DAILY.read_text(encoding="utf-8"))["daily"] if CPCB_DAILY.exists() else {}
 
 
-def fetch_pm25(key: str, start: date, end: date) -> tuple[dict, int]:
+def fetch_pm25(key: str, start: date, end: date) -> tuple[dict, int, dict]:
+    """Delhi daily PM2.5 for a season: the API's daily averages first; days still missing are
+    rebuilt from OpenAQ's public archive (same monitors, same rules).
+    Returns (date -> value or None, number of PM2.5 sensors, date -> 'openaq' | 'openaq-archive')."""
     sensors = openaq.list_sensors(key)
     if sensors.empty:
-        return {}, 0
+        return {}, 0, {}
     s = sensors[sensors["parameter"] == "pm25"].copy()
     first = pd.to_datetime(s["first_utc"], utc=True, errors="coerce")
     last = pd.to_datetime(s["last_utc"], utc=True, errors="coerce")
@@ -151,7 +154,23 @@ def fetch_pm25(key: str, start: date, end: date) -> tuple[dict, int]:
         time.sleep(1.1)
     df = pd.concat(frames, ignore_index=True) if frames else pd.DataFrame(columns=["sensor_id", "date", "value", "pct"])
     df = df[(df["date"] >= start.isoformat()) & (df["date"] <= end.isoformat())]
-    return delhi_daily_pm25(df), len(s)
+    pm = delhi_daily_pm25(df)
+    src = {d: "openaq" for d, v in pm.items() if v is not None}
+
+    days = [(start + timedelta(days=i)).isoformat() for i in range((end - start).days + 1)]
+    missing = [d for d in days if pm.get(d) is None]
+    if missing:
+        locs = sorted({int(x) for x in s["location_id"]})
+        arch = openaq.fetch_archive_days(locs, missing)
+        filled = delhi_daily_pm25(arch)
+        n_new = 0
+        for d in missing:
+            if filled.get(d) is not None:
+                pm[d] = filled[d]
+                src[d] = "openaq-archive"
+                n_new += 1
+        log.info("PM2.5 %s..%s: %d days from the API, %d more from the archive (%d locations)", start, end, len(days) - len(missing), n_new, len(locs))
+    return pm, len(s), src
 
 
 def fires_payload(fires: pd.DataFrame, districts, start: date) -> dict:
@@ -191,9 +210,9 @@ def build(year: int, firms_key: str, aq_key: str | None, today: date) -> dict:
     log.info("season %d: %d NOAA-20 detections (%d in India)", year, len(fires), fires["state"].notna().sum() if len(fires) else 0)
     (SEASON_DIR / f"fires_{year}.json").write_text(json.dumps(fires_payload(fires, districts, start), separators=(",", ":")), encoding="utf-8")
 
-    pm, n_sensors = ({}, 0)
+    pm, n_sensors, src = ({}, 0, {})
     if aq_key:
-        pm, n_sensors = fetch_pm25(aq_key, start, end)
+        pm, n_sensors, src = fetch_pm25(aq_key, start, end)
     days = [(start + timedelta(days=i)).isoformat() for i in range((end - start).days + 1)]
     out = {
         "year": year, "start": start.isoformat(), "end": end.isoformat(), "complete": complete,
@@ -201,6 +220,7 @@ def build(year: int, firms_key: str, aq_key: str | None, today: date) -> dict:
         "fire_products": used, "pm25_sensors": n_sensors,
         "fires": daily_counts(fires, start, end),
         "pm25": [pm.get(d) for d in days],  # None = gap (not enough stations), never filled
+        "pm25_source": [src.get(d) if pm.get(d) is not None else None for d in days],
         **totals(fires, districts),
     }
     return merge_cpcb(out, load_cpcb())
@@ -211,6 +231,7 @@ def main(argv=None) -> None:
     ap.add_argument("--years", default=f"{FIRST_YEAR}-{datetime.now(IST).year}")
     ap.add_argument("--force", action="store_true", help="rebuild seasons that are already complete")
     ap.add_argument("--apply-cpcb", action="store_true", help="only fill PM2.5 gaps in the existing index from CPCB data (no keys needed)")
+    ap.add_argument("--pm25-only", action="store_true", help="redo only Delhi PM2.5 for seasons already in the index (fires untouched)")
     args = ap.parse_args(argv)
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     if args.apply_cpcb:
@@ -240,6 +261,24 @@ def main(argv=None) -> None:
     index = json.loads(index_path.read_text(encoding="utf-8")) if index_path.exists() else {"seasons": []}
     have = {s["year"]: s for s in index["seasons"]}
     today = datetime.now(IST).date()
+    if args.pm25_only:
+        if not aq_key:
+            raise SystemExit("OPENAQ_API_KEY is required for --pm25-only")
+        for y in years:
+            if y not in have:
+                log.warning("season %d not in the index: skipped", y)
+                continue
+            s = have[y]
+            start, end = date.fromisoformat(s["start"]), date.fromisoformat(s["end"])
+            pm, n, src = fetch_pm25(aq_key, start, end)
+            days = [(start + timedelta(days=i)).isoformat() for i in range((end - start).days + 1)]
+            s = {**s, "pm25": [pm.get(d) for d in days], "pm25_source": [src.get(d) if pm.get(d) is not None else None for d in days], "pm25_sensors": n}
+            have[y] = merge_cpcb(s, load_cpcb())
+            got = [v for v in have[y]["pm25"] if v is not None]
+            log.info("season %d: PM2.5 on %d of %d days", y, len(got), len(days))
+            index = {**index, "generated_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(), "seasons": [have[k] for k in sorted(have)]}
+            index_path.write_text(json.dumps(index, separators=(",", ":")), encoding="utf-8")
+        return
     for y in years:
         if y in have and have[y]["complete"] and not args.force and (SEASON_DIR / f"fires_{y}.json").exists():
             log.info("season %d already complete: skipped", y)
@@ -247,7 +286,8 @@ def main(argv=None) -> None:
         have[y] = build(y, firms_key, aq_key, today)
         # Write after every season, so a later failure keeps the work done so far.
         index = {"generated_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
-                 "note": "NOAA-20 VIIRS detections only, for fair comparison across years. PM2.5: Delhi reference monitors via OpenAQ.",
+                 "note": "NOAA-20 VIIRS detections only, for fair comparison across years. PM2.5: Delhi reference monitors via OpenAQ "
+                         "(API daily averages; days the API lacks rebuilt from OpenAQ's public archive, see pm25_source).",
                  "seasons": [have[k] for k in sorted(have)]}
         index_path.write_text(json.dumps(index, separators=(",", ":")), encoding="utf-8")
 

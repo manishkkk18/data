@@ -68,7 +68,7 @@ def list_sensors(key: str) -> pd.DataFrame:
             if p in PARAMS:
                 last = (loc.get("datetimeLast") or {}).get("utc")
                 first = (loc.get("datetimeFirst") or {}).get("utc")
-                rows.append({"sensor_id": s["id"], "parameter": p, "location": loc.get("name"),
+                rows.append({"sensor_id": s["id"], "location_id": loc["id"], "parameter": p, "location": loc.get("name"),
                              "provider": provider, "first_utc": first, "last_utc": last,
                              "lat": loc["coordinates"]["latitude"], "lon": loc["coordinates"]["longitude"]})
     return pd.DataFrame(rows)
@@ -160,3 +160,66 @@ def fetch_delhi(days: int = 7, now: datetime | None = None) -> dict:
         "hourly": hourly,
         "daily": daily,
     }
+
+
+# ---- OpenAQ's public S3 archive (no key) -----------------------------------------------------
+# The API's daily averages are missing for Delhi from mid-Oct 2022 through 2024, but the raw
+# measurements are in OpenAQ's public archive: one gzipped CSV per location per local day,
+# readings stamped at the END of their period (e.g. 00:30 ... next day 00:00, IST).
+ARCHIVE = ("https://openaq-data-archive.s3.amazonaws.com/records/csv.gz/"
+           "locationid={loc}/year={y}/month={m:02d}/location-{loc}-{ymd}.csv.gz")
+ARCHIVE_WORKERS = 16
+MIN_HOURS_PER_STATION_DAY = 18
+
+
+def archive_station_day(csv_text: str, day: str) -> tuple[float | None, int]:
+    """PM2.5 daily mean for one station-day from an archive file: readings -> hourly means ->
+    mean of hours. Returns (value or None if fewer than MIN_HOURS_PER_STATION_DAY hours, hours)."""
+    import io
+
+    df = pd.read_csv(io.StringIO(csv_text), usecols=["datetime", "parameter", "value"])
+    df = df[(df["parameter"] == "pm25")]
+    if df.empty:
+        return None, 0
+    lo, hi = VALID_RANGE
+    df = df[df["value"].between(lo, hi, inclusive="neither")]
+    # Stamps mark the period end: shift back a minute so 00:00 next day belongs to 23:xx today.
+    t = pd.to_datetime(df["datetime"], utc=True).dt.tz_convert(IST) - pd.Timedelta(minutes=1)
+    df = df.assign(date=t.dt.date.astype(str), hour=t.dt.hour)
+    df = df[df["date"] == day]
+    hourly = df.groupby("hour")["value"].mean()
+    if len(hourly) < MIN_HOURS_PER_STATION_DAY:
+        return None, len(hourly)
+    return round(float(hourly.mean()), 1), len(hourly)
+
+
+def fetch_archive_days(location_ids: list[int], days: list[str]) -> pd.DataFrame:
+    """Station-days for the given IST dates from the archive. Columns as fetch_days plus
+    sensor_id (= location id here): date, value, pct (hours/24), sensor_id. Missing files are skipped."""
+    import gzip
+    from concurrent.futures import ThreadPoolExecutor
+
+    session = requests.Session()
+
+    def one(job):
+        loc, day = job
+        y, m, d = day.split("-")
+        url = ARCHIVE.format(loc=loc, y=y, m=int(m), ymd=f"{y}{m}{d}")
+        for attempt in range(3):
+            try:
+                r = session.get(url, timeout=60)
+                if r.status_code in (403, 404):
+                    return None  # no file for that day
+                r.raise_for_status()
+                v, hours = archive_station_day(gzip.decompress(r.content).decode("utf-8"), day)
+                return {"sensor_id": loc, "date": day, "value": v, "pct": hours / 24 * 100}
+            except (requests.RequestException, OSError, ValueError) as e:
+                if attempt == 2:
+                    log.warning("archive %s %s failed: %s", loc, day, e)
+                    return None
+                time.sleep(3 * (attempt + 1))
+
+    jobs = [(loc, day) for loc in location_ids for day in days]
+    with ThreadPoolExecutor(ARCHIVE_WORKERS) as pool:
+        rows = [r for r in pool.map(one, jobs) if r]
+    return pd.DataFrame(rows, columns=["sensor_id", "date", "value", "pct"])

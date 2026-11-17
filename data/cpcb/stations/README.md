@@ -1,8 +1,9 @@
-# CPCB station reports (Delhi PM2.5, 2022–2024)
+# CPCB station reports (optional fallback)
 
-OpenAQ has no Delhi readings from mid-October 2022 through 2024. These files fill that gap
-with CPCB's own daily station averages. They are downloaded by hand because the CPCB portal
-needs a captcha.
+**Not needed at the moment.** OpenAQ's API lacks Delhi daily averages from mid-October 2022
+through 2024, but the pipeline now rebuilds those days from OpenAQ's public archive
+automatically. Use this folder only if some days are still gaps and you want CPCB's own daily
+station averages for them. They are downloaded by hand because the CPCB portal needs a captcha.
 
 ## Download
 

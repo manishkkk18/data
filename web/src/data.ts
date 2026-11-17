@@ -132,7 +132,7 @@ export type Season = {
   pm25_sensors: number;
   fires: { total: number[]; india: number[]; states: Record<string, number[]> };
   pm25: (number | null)[]; // Delhi daily mean, null = gap
-  pm25_source?: ("openaq" | "cpcb" | null)[]; // where each day's value came from
+  pm25_source?: ("openaq" | "openaq-archive" | "cpcb" | null)[]; // where each day's value came from
   by_state: { state: string; n: number; frp: number }[];
   top_districts: { id: string; n: number; frp: number }[];
 };
