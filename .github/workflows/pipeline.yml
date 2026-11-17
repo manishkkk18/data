@@ -56,12 +56,14 @@ jobs:
         working-directory: pipeline
         env:
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
-        run: PYTHONPATH=. python -X utf8 -m smokewatch.diagnose_aq >> "$GITHUB_STEP_SUMMARY"
+        run: PYTHONPATH=. python -X utf8 -m smokewatch.diagnose_aq | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Clear old outputs (so a failed step shows as missing, not stale)
+        if: github.event.inputs.diagnose_aq != 'true'
         run: rm -f data/*.json
 
       - name: Run pipeline
+        if: github.event.inputs.diagnose_aq != 'true'
         working-directory: pipeline
         env:
           FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
