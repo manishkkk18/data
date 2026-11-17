@@ -16,6 +16,8 @@ load_dotenv(ROOT / ".env")
 # Study area: Punjab, Haryana, Delhi-NCR, West UP and the northern edges of
 # Rajasthan / MP. (west, south, east, north) in degrees.
 BBOX = (72.5, 25.5, 80.5, 32.6)
+# Wider grid for 48-hour back-trajectories (same .5° alignment as BBOX).
+TRAJ_BBOX = (64.5, 23.5, 82.5, 36.5)
 
 # States we report on. Fires elsewhere in the bbox are kept but grouped as "Other".
 FOCUS_STATES = ["Punjab", "Haryana", "Delhi", "Uttar Pradesh", "Rajasthan", "Madhya Pradesh"]

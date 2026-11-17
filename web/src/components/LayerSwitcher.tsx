@@ -2,7 +2,7 @@ import { useId, useState, type ReactNode } from "react";
 import type { WindLevel } from "../data";
 
 // Same component and classes as India Night Lights' Layers sheet; the options are this app's.
-export type Layers = { wind: boolean; windLevel: WindLevel; districts: boolean };
+export type Layers = { wind: boolean; windLevel: WindLevel; districts: boolean; trajectory: boolean };
 
 const WIND_OPTIONS: { value: WindLevel; label: string; note: string }[] = [
   { value: "850hPa", label: "Wind aloft (~1.5 km)", note: "850 hPa, where smoke travels far" },
@@ -13,11 +13,12 @@ type Props = {
   layers: Layers;
   onChange: (l: Layers) => void;
   windAvailable: boolean;
+  trajectoryAvailable: boolean;
   compact?: boolean; // phones: one button holds every map option
   after?: ReactNode; // shown after the Layers button (the legend chip on phones)
 };
 
-export default function LayerSwitcher({ layers, onChange, windAvailable, compact, after }: Props) {
+export default function LayerSwitcher({ layers, onChange, windAvailable, trajectoryAvailable, compact, after }: Props) {
   const [open, setOpen] = useState(false);
   const id = useId();
   const set = (patch: Partial<Layers>) => onChange({ ...layers, ...patch });
@@ -25,6 +26,20 @@ export default function LayerSwitcher({ layers, onChange, windAvailable, compact
     <div className={`layers ${compact ? "compact" : ""} ${open ? "open" : ""}`}>
       {open && (
         <div className="layers-panel" id={`${id}-panel`}>
+          <label className={`switch ${trajectoryAvailable ? "" : "disabled"}`}>
+            <input
+              type="checkbox"
+              role="switch"
+              checked={layers.trajectory && trajectoryAvailable}
+              disabled={!trajectoryAvailable}
+              onChange={(e) => set({ trajectory: e.target.checked })}
+            />
+            <span className="switch-track" aria-hidden="true" />
+            <span>
+              <span className="layer-label">Air's path into Delhi</span>
+              <span className="layer-note">{trajectoryAvailable ? "Last 48 h; solid ~1.5 km up, dashed near the ground" : "Not available this run"}</span>
+            </span>
+          </label>
           <label className={`switch ${windAvailable ? "" : "disabled"}`}>
             <input type="checkbox" role="switch" checked={layers.wind && windAvailable} disabled={!windAvailable} onChange={(e) => set({ wind: e.target.checked })} />
             <span className="switch-track" aria-hidden="true" />

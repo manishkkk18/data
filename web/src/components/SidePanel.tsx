@@ -1,6 +1,9 @@
 import {
+  OUTSIDE,
   ago,
+  arrivalAt,
   compass,
+  upwindDay,
   dayLabel,
   delhiPm25,
   fmtInt,
@@ -41,7 +44,7 @@ export default function SidePanel(p: Props) {
       <button className="sheet-handle" type="button" aria-expanded={p.expanded} onClick={p.onToggle}>
         <span className="sheet-grip" aria-hidden="true" />
         <span className="sheet-peek">
-          <span className="sheet-title">{d ? d.name : "Today in Delhi"}</span>
+          <span className="sheet-title">{d ? d.name : p.day === istDate(p.data.generated) ? "Today in Delhi" : `Delhi on ${dayLabel(p.day)}`}</span>
           <span className="sheet-value">
             {d ? (
               <span className="fire">{fmtInt(mine.length)}</span>
@@ -135,6 +138,8 @@ function Today({ data, day, at, window: w, fires, windLevel, onPick, aq }: Props
           hint2={windLevel === "850hPa" ? "~1.5 km up" : "near the ground"}
         />
       </div>
+
+      <WhoseSmoke data={data} day={day} at={at} onPick={onPick} />
 
       <div className="stories">
         <p className="stories-intro muted">Most fire detections in the last {WINDOW_LABEL[w]}. Tap one to fly there.</p>
@@ -256,6 +261,111 @@ function DayBars({ rows }: { rows: { day: string; n: number }[] }) {
       </svg>
     </figure>
   );
+}
+
+/** Indicative upwind fire share: where the air reaching Delhi passed, and what was burning there. */
+function WhoseSmoke({ data, day, at, onPick }: { data: AppData; day: string; at: number; onPick: (id: string) => void }) {
+  const u = data.upwind;
+  if (!u) return <p className="gap-note">The air's path into Delhi isn't available for this run, so upwind shares can't be shown.</p>;
+  const d = upwindDay(u, day);
+  const a = arrivalAt(u, at);
+  const total = u.days.filter((x) => x.complete).map((x) => x.load);
+  const typical = total.length ? [...total].sort((p, q) => p - q)[Math.floor(total.length / 2)] : null;
+  const from = a?.paths["850hPa"] ?? a?.paths["10m"];
+  const start = from && from.length > 12 ? from[12] : null;
+  const dirFrom = start ? bearingFrom(start, from![0]) : null;
+  const states = (d?.states ?? []).slice(0, 5);
+  const districts = (d?.districts ?? []).filter(([id]) => id !== OUTSIDE).slice(0, 5);
+  const maxS = states[0]?.[1] ?? 1;
+  const maxD = districts[0]?.[1] ?? 1;
+  const name = (s: string) => (s === OUTSIDE ? "Across the border" : s);
+
+  return (
+    <section className="whose" aria-labelledby="whose-title">
+      <div className="whose-head">
+        <h3 id="whose-title" className="trend-title">
+          Whose smoke is reaching Delhi?
+        </h3>
+        <p className="whose-note">Indicative, based on wind and fire detections. Not a source-apportionment study.</p>
+      </div>
+      {a && dirFrom && (
+        <p className="plain">
+          Air arriving at {timeLabel(Date.parse(a.t)).split(", ")[1]} came from the <b className="blue-b">{dirFrom}</b>
+          {d && d.load > 0 && typical ? (
+            <>
+              {" "}
+              · upwind fire load {d.load >= typical * 1.3 ? "above" : d.load <= typical * 0.7 ? "below" : "near"} this week's typical day
+            </>
+          ) : null}
+        </p>
+      )}
+      {!d || !states.length ? (
+        <p className="gap-note">No fires were detected along the air's path {d ? "on this day" : "yet"}. Clouds can hide fires from the satellites.</p>
+      ) : (
+        <>
+          {!d.complete &&
+            (day === istDate(data.generated) && d.arrivals < 8 ? (
+              <p className="muted small">So far today: {d.arrivals} of 8 three-hourly arrivals.</p>
+            ) : (
+              <p className="gap-note">Partial day: {d.arrivals} of 8 three-hourly arrivals, or fire records don't reach back 48 hours.</p>
+            ))}
+          <p className="insights-sub">Share of upwind fire load · {dayLabel(day)}</p>
+          <ol className="bars">
+            {states.map(([s, v], k) => (
+              <li key={s}>
+                <div className="bar-row static">
+                  <span className="bar-rank">{k + 1}</span>
+                  <span className="bar-name">{name(s)}</span>
+                  <span className="bar-value">{fmtPct(v * 100)}</span>
+                  <span className="bar-track" aria-hidden="true">
+                    <span className="bar-fill fire-bg" style={{ width: `${(v / maxS) * 100}%` }} />
+                  </span>
+                </div>
+              </li>
+            ))}
+          </ol>
+          {districts.length > 0 && (
+            <>
+              <p className="insights-sub">Top upwind districts</p>
+              <ol className="bars">
+                {districts.map(([id, v], k) => {
+                  const dist = data.byId.get(id);
+                  if (!dist) return null;
+                  return (
+                    <li key={id}>
+                      <button type="button" className="bar-row" onClick={() => onPick(id)}>
+                        <span className="bar-rank">{k + 1}</span>
+                        <span className="bar-name">
+                          {dist.name}
+                          <span className="muted"> · {dist.state}</span>
+                        </span>
+                        <span className="bar-value">{fmtPct(v * 100)}</span>
+                        <span className="bar-track" aria-hidden="true">
+                          <span className="bar-fill fire-bg" style={{ width: `${(v / maxD) * 100}%` }} />
+                        </span>
+                      </button>
+                    </li>
+                  );
+                })}
+              </ol>
+            </>
+          )}
+          <p className="trend-note muted">
+            Fires along the air's 48-hour path, weighted by fire power, closeness to the path and how recently the air passed. It shows where upwind
+            burning was, not how much of Delhi's PM2.5 it caused.
+          </p>
+        </>
+      )}
+    </section>
+  );
+}
+
+/** Compass direction the air came FROM: from Delhi (end) back to an earlier point (start). */
+function bearingFrom(start: [number, number], end: [number, number]) {
+  const dx = (start[0] - end[0]) * Math.cos((end[1] * Math.PI) / 180);
+  const dy = start[1] - end[1];
+  const deg = (Math.atan2(dx, dy) * 180) / Math.PI;
+  return compass((deg + 360) % 360);
 }
 
 function Freshness({ data }: { data: AppData }) {

@@ -1,9 +1,9 @@
 // Shareable URLs: the view lives in the query string (same approach as India Night Lights).
-//   ?day=2026-11-15&w=3d&d=punjab--sangrur&wind=10m
+//   ?day=2026-11-15&w=3d&d=punjab--sangrur&wind=10m&path=off
 
 import type { Window, WindLevel } from "./data";
 
-export type UrlState = { day?: string; w?: Window; d?: string; wind?: WindLevel | "off" };
+export type UrlState = { day?: string; w?: Window; d?: string; wind?: WindLevel | "off"; path?: "off" };
 
 export function readUrl(): UrlState {
   const q = new URLSearchParams(window.location.search);
@@ -14,6 +14,7 @@ export function readUrl(): UrlState {
     w: w === "3d" || w === "7d" || w === "24h" ? w : undefined,
     d: /^[a-z0-9-]+$/.test(q.get("d") ?? "") ? q.get("d")! : undefined,
     wind: wind === "10m" || wind === "off" ? wind : undefined,
+    path: q.get("path") === "off" ? "off" : undefined,
   };
 }
 
@@ -25,6 +26,7 @@ export function writeUrl(s: UrlState, defaults: { day: string }) {
   set("w", s.w && s.w !== "24h" ? s.w : undefined);
   set("d", s.d);
   set("wind", s.wind && s.wind !== "850hPa" ? s.wind : undefined);
+  set("path", s.path);
   const qs = q.toString();
   const url = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
   if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(null, "", url);

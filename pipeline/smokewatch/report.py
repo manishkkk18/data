@@ -29,6 +29,16 @@ def main() -> None:
     else:
         out += ["**Fires:** no output", ""]
 
+    up = _load("upwind_recent.json")
+    if up:
+        out += ["**Upwind fire share (indicative)**, by IST day:", "", "| Day | Complete | Load/arrival | Top states |", "|---|---|---:|---|"]
+        for d in up["days"]:
+            top = ", ".join(f"{s} {v:.0%}" for s, v in d["states"][:3]) or "–"
+            out.append(f"| {d['date']} | {'yes' if d['complete'] else 'partial'} | {d['load']:,} | {top} |")
+        out.append("")
+    else:
+        out += [f"**Upwind:** not produced ({meta.get('upwind', {}).get('error', 'no wind')})", ""]
+
     w = meta.get("wind", {})
     out += [f"**Wind:** {'latest ' + str(w.get('latest_utc')) if 'latest_utc' in w else 'error: ' + str(w.get('error'))}", ""]
 

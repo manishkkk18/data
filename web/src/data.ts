@@ -31,11 +31,23 @@ export type AqFile = {
   hourly: (AqRow & { hour_utc: string; n_stations: number })[];
   daily: (AqRow & { date: string; n_hours: number })[];
 };
+/** Back-trajectories and upwind fire shares (pipeline/smokewatch/upwind.py). share is 0–1. */
+export type Shares = [name: string, share: number][];
+export type Arrival = { t: string; complete: boolean; paths: Record<WindLevel, [number, number][]>; load: number; states: Shares; districts: Shares };
+export type UpwindDay = { date: string; arrivals: number; complete: boolean; load: number; states: Shares; districts: Shares };
+export type UpwindFile = {
+  generated_utc: string;
+  note: string;
+  method: { hours_back: number; arrival_every_h: number; corridor_km: number; corridor_growth_km_per_h: number; decay_h: number; time_slack_h: number };
+  arrivals: Arrival[];
+  days: UpwindDay[];
+};
 export type Meta = {
   generated_utc: string;
   fires?: { updated_utc: string; method: string; latest_detection_utc: string | null };
   wind?: { updated_utc?: string; latest_utc?: string | null; error?: string };
   aq?: { updated_utc?: string; error?: string };
+  upwind?: { updated_utc?: string; error?: string };
 };
 
 // ---- What the app works with -----------------------------------------------------------------
@@ -55,6 +67,7 @@ export type AppData = {
   byId: Map<string, District>;
   wind: WindFile | null;
   aq: AqFile | null;
+  upwind: UpwindFile | null;
   lastYear: SummaryFile["same_day_last_year"];
   meta: Meta;
 };
@@ -69,7 +82,7 @@ const getJson = async <T,>(f: string): Promise<T> => {
 export async function loadData(): Promise<AppData> {
   const manifest = await getJson<{ files: string[] }>("manifest.json").catch(() => ({ files: [] as string[] }));
   const opt = <T,>(f: string) => (manifest.files.includes(f) ? getJson<T>(f).catch(() => null) : Promise.resolve(null));
-  const [firesFile, summary, districts, outline, meta, wind, aq] = await Promise.all([
+  const [firesFile, summary, districts, outline, meta, wind, aq, upwind] = await Promise.all([
     getJson<FiresFile>("fires_recent.json"),
     getJson<SummaryFile>("fires_summary_recent.json"),
     getJson<DistrictFC>("districts_web.geojson"),
@@ -77,6 +90,7 @@ export async function loadData(): Promise<AppData> {
     getJson<Meta>("meta.json"),
     opt<WindFile>("wind_recent.json"),
     opt<AqFile>("aq_delhi_recent.json"),
+    opt<UpwindFile>("upwind_recent.json"),
   ]);
 
   const t0 = Date.parse(firesFile.t0);
@@ -102,9 +116,22 @@ export async function loadData(): Promise<AppData> {
 
   return {
     fires, firesMethod: firesFile.method, latestDetection, generated, days,
-    districts, outline, byId, wind, aq, lastYear: summary.same_day_last_year, meta,
+    districts, outline, byId, wind, aq, upwind, lastYear: summary.same_day_last_year, meta,
   };
 }
+
+// ---- Upwind (indicative) ---------------------------------------------------------------------
+/** The latest air arrival in Delhi at or before `ref`. */
+export function arrivalAt(u: UpwindFile | null, ref: number): Arrival | null {
+  if (!u) return null;
+  let best: Arrival | null = null;
+  for (const a of u.arrivals) if (Date.parse(a.t) <= ref) best = a;
+  return best;
+}
+export function upwindDay(u: UpwindFile | null, day: string): UpwindDay | null {
+  return u?.days.find((d) => d.date === day) ?? null;
+}
+export const OUTSIDE = "Outside India";
 
 // ---- Time (all labels in IST) ----------------------------------------------------------------
 const IST_MS = 5.5 * 3600 * 1000;

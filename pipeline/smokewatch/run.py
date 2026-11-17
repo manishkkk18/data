@@ -12,13 +12,14 @@ from datetime import date, datetime, timedelta, timezone
 
 import pandas as pd
 
-from . import firms, openaq, wind
+from . import firms, openaq, upwind, wind
 from .attribute import attribute_fires
 from .boundaries import load_districts
-from .config import CONSISTENT_SENSORS, DATA, FOCUS_STATES, secret
+from .config import CONSISTENT_SENSORS, DATA, DELHI, FOCUS_STATES, secret
 
 log = logging.getLogger("smokewatch")
 IST = "Asia/Kolkata"
+HISTORY_DAYS = 3  # extra days of fires and wind behind the window, for 48 h trajectories
 
 
 def _now_iso() -> str:
@@ -140,23 +141,49 @@ def main(argv=None) -> None:
     districts = load_districts()
     today = datetime.now(timezone(timedelta(hours=5, minutes=30))).date()
 
-    fires, method = firms.fetch_recent(args.days)
-    fires = attribute_fires(fires, districts)
-    log.info("fires: %d detections (%s); outside India: %d", len(fires), method, fires["district"].isna().sum())
+    # Fires: HISTORY_DAYS extra so the earliest trajectories in the window have their 48 h of fires.
+    all_fires, method = firms.fetch_recent(args.days + HISTORY_DAYS)
+    all_fires = attribute_fires(all_fires, districts)
+    window_start = pd.Timestamp.now(tz="UTC") - pd.Timedelta(days=args.days)
+    fires = all_fires[all_fires["acq_utc"] > window_start].reset_index(drop=True)
+    log.info("fires: %d detections in %d days (%s); outside India: %d", len(fires), args.days, method, fires["district"].isna().sum())
     write_json("fires_recent.json", fires_payload(fires, districts, method, args.days))
     write_json("fires_summary_recent.json", summary_payload(fires, last_year_compare(fires, today)))
     meta["fires"] = {"updated_utc": meta["generated_utc"], "method": method,
                      "latest_detection_utc": fires["acq_utc"].max().isoformat() if len(fires) else None}
 
     try:
-        pts = wind.grid_points()
-        w = wind.fetch(pts, past_days=args.days)
-        payload = wind.web_payload(w, pts)
+        pts, keep = wind.all_points()
+        w = wind.fetch(pts, past_days=args.days + HISTORY_DAYS)
+        payload = wind.web_payload(w, pts, keep, since=window_start)
         write_json("wind_recent.json", payload)
         meta["wind"] = {"updated_utc": meta["generated_utc"], "latest_utc": payload["times"][-1] if payload["times"] else None}
     except Exception as e:  # noqa: BLE001 — wind is optional for the map
         log.warning("wind skipped: %s", e)
         meta["wind"] = {"error": str(e)}
+        w = None
+
+    if w is not None:
+        try:
+            fields = {lvl: wind.wind_field(w, pts, lvl) for lvl in wind.LEVELS}
+            # District ids (as the map uses), not names: some names repeat across states.
+            ids = {(s, d): i for i, s, d in zip(districts["id"], districts["state"], districts["district"])}
+            f = all_fires.assign(
+                hour=all_fires["acq_utc"].map(lambda t: t.timestamp() / 3600),
+                district=[ids.get((s, d)) for s, d in zip(all_fires["state"], all_fires["district"])],
+            )
+            now_h = pd.Timestamp.now(tz="UTC").timestamp() / 3600
+            latest_wind = min(fld.hours[-1] for fld in fields.values())
+            up = upwind.compute_payload(
+                f, fields, DELHI, start_hour=window_start.timestamp() / 3600, end_hour=min(now_h, latest_wind),
+                fires_from_hour=f["hour"].min() if len(f) else now_h,
+            )
+            up["generated_utc"] = meta["generated_utc"]
+            write_json("upwind_recent.json", up)
+            meta["upwind"] = {"updated_utc": meta["generated_utc"], "arrivals": len(up["arrivals"])}
+        except Exception as e:  # noqa: BLE001 — keep the rest of the run
+            log.exception("upwind skipped: %s", e)
+            meta["upwind"] = {"error": str(e)}
 
     if not args.skip_aq:
         try:

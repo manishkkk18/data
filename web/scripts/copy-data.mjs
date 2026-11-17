@@ -9,7 +9,7 @@ const required = [
   "fires_summary_recent.json",
   "meta.json",
 ];
-const optional = ["wind_recent.json", "aq_delhi_recent.json"]; // missing when that source failed or has no key yet
+const optional = ["wind_recent.json", "aq_delhi_recent.json", "upwind_recent.json"]; // missing when that source failed or has no key yet
 const out = new URL("../public/data/", import.meta.url);
 mkdirSync(out, { recursive: true });
 let n = 0;

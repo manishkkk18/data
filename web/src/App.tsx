@@ -10,6 +10,7 @@ import About from "./components/About";
 import { readUrl, writeUrl } from "./url";
 import { track } from "./analytics";
 import {
+  arrivalAt,
   CONFIDENCE,
   SATELLITE,
   WINDOW_HOURS,
@@ -65,7 +66,12 @@ function Main({ data }: { data: AppData }) {
     return i >= 0 ? i : Math.max(data.days.length - 1, 0);
   });
   const [win, setWin] = useState<Window>(initial.w ?? "24h");
-  const [layers, setLayers] = useState<Layers>({ wind: initial.wind !== "off", windLevel: initial.wind === "10m" ? "10m" : "850hPa", districts: true });
+  const [layers, setLayers] = useState<Layers>({
+    wind: initial.wind !== "off",
+    windLevel: initial.wind === "10m" ? "10m" : "850hPa",
+    districts: true,
+    trajectory: initial.path !== "off",
+  });
   const [selectedId, setSelectedId] = useState<string | null>(() => (initial.d && data.byId.has(initial.d) ? initial.d : null));
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState<1 | 2>(1);
@@ -103,6 +109,7 @@ function Main({ data }: { data: AppData }) {
   const fires = useMemo(() => windowFires(data, at, win), [data, at, win]);
   const indiaCount = useMemo(() => fires.filter((f) => f.district).length, [fires]);
   const wFrame = windFrame(data.wind, at);
+  const arrival = arrivalAt(data.upwind, at);
   const aq = delhiPm25(data.aq, at);
   const band = pm25Band(aq?.now);
   const series = useMemo(() => {
@@ -129,7 +136,7 @@ function Main({ data }: { data: AppData }) {
 
   // Keep the address bar in step with the view, so any moment can be shared.
   useEffect(() => {
-    writeUrl({ day, w: win, d: selectedId ?? undefined, wind: layers.wind ? layers.windLevel : "off" }, { day: today });
+    writeUrl({ day, w: win, d: selectedId ?? undefined, wind: layers.wind ? layers.windLevel : "off", path: layers.trajectory ? undefined : "off" }, { day: today });
   }, [day, win, selectedId, layers, today]);
 
   const share = async () => {
@@ -211,7 +218,7 @@ function Main({ data }: { data: AppData }) {
       <span className="chip-text">Delhi</span>
     </button>
   );
-  const legend = <Legend window={win} wind={layers.wind && !!data.wind} />;
+  const legend = <Legend window={win} wind={layers.wind && !!data.wind} path={layers.trajectory && !!arrival} />;
   const pmText = aq ? (
     <>
       <span className={`mono ${band?.cls ?? ""}`}>{fmtInt(aq.now)}</span> <span className={band?.cls}>{band?.name}</span>
@@ -245,6 +252,8 @@ function Main({ data }: { data: AppData }) {
             windLevel={layers.windLevel}
             showWind={layers.wind}
             showDistricts={layers.districts}
+            arrival={arrival}
+            showTrajectory={layers.trajectory}
             selectedId={selectedId}
             fly={fly}
             padding={padding}
@@ -261,9 +270,11 @@ function Main({ data }: { data: AppData }) {
             onChange={(l) => {
               if (l.windLevel !== layers.windLevel) track(`wind-${l.windLevel}`);
               if (!l.wind && layers.wind) track("wind-off");
+              if (!l.trajectory && layers.trajectory) track("path-off");
               setLayers(l);
             }}
-            windAvailable={!!data.wind} compact={isPhone} after={isPhone ? <LegendChip>{legend}</LegendChip> : undefined} />
+            windAvailable={!!data.wind}
+            trajectoryAvailable={!!data.upwind} compact={isPhone} after={isPhone ? <LegendChip>{legend}</LegendChip> : undefined} />
           {mapLoading && <LoadingOutline outline={data.outline} />}
           {!mapLoading && fires.length === 0 && (
             <div className="map-notice" role="status">

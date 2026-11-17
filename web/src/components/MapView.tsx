@@ -7,7 +7,7 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 maplibregl.setWorkerUrl(workerUrl);
 import type { ExpressionSpecification, GeoJSONSource } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
-import type { BBox, DistrictFC, Fire, WindFile, WindLevel } from "../data";
+import type { Arrival, BBox, DistrictFC, Fire, WindFile, WindLevel } from "../data";
 import { FIRE_NEW, FIRE_OLD, WIND_BLUE } from "./Legend";
 
 // OpenFreeMap: free, no API key, no view limits. Attribution comes from the style.
@@ -29,6 +29,8 @@ type Props = {
   windLevel: WindLevel;
   showWind: boolean;
   showDistricts: boolean;
+  arrival: Arrival | null; // back-trajectories of the air reaching Delhi at the map's moment
+  showTrajectory: boolean;
   selectedId: string | null;
   fly: FlyRequest | null;
   padding: { top: number; bottom: number; left: number; right: number };
@@ -173,6 +175,24 @@ export default function MapView(props: Props) {
     if (!map || !ready) return;
     map.setLayoutProperty("district-line", "visibility", props.showDistricts ? "visible" : "none");
   }, [props.showDistricts, ready]);
+
+  // The air's path into Delhi: one line per height, dots every 6 hours back.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!map || !ready) return;
+    const a = props.showTrajectory ? props.arrival : null;
+    const features: GeoJSON.Feature[] = [];
+    if (a) {
+      for (const [level, path] of Object.entries(a.paths)) {
+        if (path.length < 2) continue;
+        features.push({ type: "Feature", properties: { level }, geometry: { type: "LineString", coordinates: path } });
+        path.forEach((p, h) => {
+          if (h > 0 && h % 6 === 0) features.push({ type: "Feature", properties: { level, h }, geometry: { type: "Point", coordinates: p } });
+        });
+      }
+    }
+    (map.getSource("traj") as GeoJSONSource).setData({ type: "FeatureCollection", features });
+  }, [props.arrival, props.showTrajectory, ready]);
 
   // Blue outline on the selected district.
   useEffect(() => {
@@ -324,6 +344,46 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
       "icon-size": ["interpolate", ["linear"], ["get", "speed"], 0, 0.45, 4, 0.8, 10, 1.25, 20, 1.6],
     },
     paint: { "icon-opacity": 0.9 },
+  });
+  // Back-trajectories on top of everything: a soft glow, then the line (solid aloft, dashed near the ground).
+  map.addSource("traj", { type: "geojson", data: empty });
+  const isLine: ExpressionSpecification = ["==", ["geometry-type"], "LineString"];
+  const aloft: ExpressionSpecification = ["==", ["get", "level"], "850hPa"];
+  map.addLayer({
+    id: "traj-glow",
+    type: "line",
+    source: "traj",
+    filter: isLine,
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: { "line-color": WIND_BLUE, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 9, 8, 16], "line-blur": 8, "line-opacity": ["case", aloft, 0.45, 0.3] },
+  });
+  map.addLayer({
+    id: "traj-line-aloft",
+    type: "line",
+    source: "traj",
+    filter: ["all", isLine, aloft],
+    layout: { "line-join": "round", "line-cap": "round" },
+    paint: { "line-color": "#CFE0FF", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 2.2, 8, 3.5] },
+  });
+  map.addLayer({
+    id: "traj-line-ground",
+    type: "line",
+    source: "traj",
+    filter: ["all", isLine, ["!", aloft]],
+    layout: { "line-join": "round" },
+    paint: { "line-color": WIND_BLUE, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 2, 8, 3], "line-dasharray": [2, 1.5] },
+  });
+  map.addLayer({
+    id: "traj-ticks",
+    type: "circle",
+    source: "traj",
+    filter: ["==", ["geometry-type"], "Point"],
+    paint: {
+      "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 8, 4.5],
+      "circle-color": "#0B0F1A",
+      "circle-stroke-color": ["case", aloft, "#CFE0FF", WIND_BLUE],
+      "circle-stroke-width": 2,
+    },
   });
 }
 

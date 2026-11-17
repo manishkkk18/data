@@ -68,3 +68,22 @@
 .day-bars figcaption { margin-bottom: 2px; }
 .freshness b { color: var(--text); font-weight: 500; }
 .also-by a { color: var(--amber); }
+
+/* Whose smoke: indicative upwind share (Night Lights' bar list, fire fill) */
+.whose { display: grid; gap: 8px; padding-top: 4px; }
+.whose-head { display: grid; gap: 4px; }
+.whose-head .trend-title { font-size: 18px; }
+.whose-note {
+  margin: 0; padding: 6px 10px; border-radius: 8px; font-size: 12px; color: var(--muted);
+  border: 1px dashed var(--border); background: rgba(11, 15, 26, 0.5);
+}
+.whose .insights-sub { margin: 4px 0 0; }
+.whose .bars { margin: 0; }
+.bar-row.static { cursor: default; }
+.bar-row.static:hover { background: transparent; }
+.fire-bg { background: linear-gradient(90deg, var(--fire-new), var(--fire-old)); }
+.plain b.blue-b, .blue-b { color: var(--blue); font-family: var(--font-body); font-weight: 500; }
+.legend-path { width: 18px; height: 10px; }
+@media (max-width: 639px) {
+  .whose-note { border: 0; border-left: 2px dashed var(--border); border-radius: 0; background: none; padding: 0 0 0 12px; }
+}

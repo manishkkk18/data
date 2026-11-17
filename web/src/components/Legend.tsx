@@ -5,7 +5,7 @@ export const FIRE_OLD = "#E5484D";
 export const WIND_BLUE = "#6EA8FF";
 
 /** Fire key: colour = age within the window, size = fire radiative power. Same layout as India Night Lights' legend. */
-export default function Legend({ window: w, wind }: { window: Window; wind: boolean }) {
+export default function Legend({ window: w, wind, path }: { window: Window; wind: boolean; path?: boolean }) {
   const hours = WINDOW_HOURS[w];
   const ticks = hours <= 24 ? [0, 12, 24] : hours <= 72 ? [0, 24, 48, 72] : [0, 2, 4, 7].map((d) => d * 24);
   const label = (h: number) => (h === 0 ? "now" : h < 48 ? `${h} h` : `${h / 24} d`);
@@ -35,6 +35,15 @@ export default function Legend({ window: w, wind }: { window: Window; wind: bool
               <path d="M2 8h10M9 4.5L12.5 8 9 11.5" fill="none" stroke={WIND_BLUE} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
             </svg>
             Wind
+          </span>
+        )}
+        {path && (
+          <span className="legend-gap">
+            <svg className="legend-path" viewBox="0 0 18 10" aria-hidden="true">
+              <path d="M1 5h16" stroke="#CFE0FF" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="9" cy="5" r="2.5" fill="#0B0F1A" stroke="#CFE0FF" strokeWidth="1.5" />
+            </svg>
+            Air's path
           </span>
         )}
       </div>
