@@ -1,0 +1,43 @@
+import { WINDOW_HOURS, type Window } from "../data";
+
+export const FIRE_NEW = "#FF7A3D";
+export const FIRE_OLD = "#E5484D";
+export const WIND_BLUE = "#6EA8FF";
+
+/** Fire key: colour = age within the window, size = fire radiative power. Same layout as India Night Lights' legend. */
+export default function Legend({ window: w, wind }: { window: Window; wind: boolean }) {
+  const hours = WINDOW_HOURS[w];
+  const ticks = hours <= 24 ? [0, 12, 24] : hours <= 72 ? [0, 24, 48, 72] : [0, 2, 4, 7].map((d) => d * 24);
+  const label = (h: number) => (h === 0 ? "now" : h < 48 ? `${h} h` : `${h / 24} d`);
+  return (
+    <div className="legend" aria-label={`Legend: fire detections coloured by age, from newest (orange) to ${hours} hours old (red); dot size shows fire power`}>
+      <div className="legend-bar fire-bar" style={{ background: `linear-gradient(90deg, ${FIRE_NEW}, ${FIRE_OLD})` }} />
+      <div className="legend-ticks" aria-hidden="true">
+        {ticks.map((h) => {
+          const p = (h / hours) * 100;
+          return (
+            <span key={h} style={{ left: `${p}%`, transform: p <= 0 ? "none" : p >= 100 ? "translateX(-100%)" : undefined }}>
+              {label(h)}
+            </span>
+          );
+        })}
+      </div>
+      <div className="legend-foot">
+        <span className="muted">Detection age</span>
+        <span className="legend-gap legend-size" title="Fire radiative power">
+          <i className="dot s" aria-hidden="true" />
+          <i className="dot m" aria-hidden="true" />
+          <i className="dot l" aria-hidden="true" /> Fire power
+        </span>
+        {wind && (
+          <span className="legend-gap">
+            <svg className="legend-arrow" viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M2 8h10M9 4.5L12.5 8 9 11.5" fill="none" stroke={WIND_BLUE} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+            </svg>
+            Wind
+          </span>
+        )}
+      </div>
+    </div>
+  );
+}

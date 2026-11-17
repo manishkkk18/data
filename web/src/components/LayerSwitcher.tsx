@@ -1,0 +1,74 @@
+import { useId, useState, type ReactNode } from "react";
+import type { WindLevel } from "../data";
+
+// Same component and classes as India Night Lights' Layers sheet; the options are this app's.
+export type Layers = { wind: boolean; windLevel: WindLevel; districts: boolean };
+
+const WIND_OPTIONS: { value: WindLevel; label: string; note: string }[] = [
+  { value: "850hPa", label: "Wind aloft (~1.5 km)", note: "850 hPa, where smoke travels far" },
+  { value: "10m", label: "Wind near the ground", note: "10 m above ground" },
+];
+
+type Props = {
+  layers: Layers;
+  onChange: (l: Layers) => void;
+  windAvailable: boolean;
+  compact?: boolean; // phones: one button holds every map option
+  after?: ReactNode; // shown after the Layers button (the legend chip on phones)
+};
+
+export default function LayerSwitcher({ layers, onChange, windAvailable, compact, after }: Props) {
+  const [open, setOpen] = useState(false);
+  const id = useId();
+  const set = (patch: Partial<Layers>) => onChange({ ...layers, ...patch });
+  return (
+    <div className={`layers ${compact ? "compact" : ""} ${open ? "open" : ""}`}>
+      {open && (
+        <div className="layers-panel" id={`${id}-panel`}>
+          <label className={`switch ${windAvailable ? "" : "disabled"}`}>
+            <input type="checkbox" role="switch" checked={layers.wind && windAvailable} disabled={!windAvailable} onChange={(e) => set({ wind: e.target.checked })} />
+            <span className="switch-track" aria-hidden="true" />
+            <span>
+              <span className="layer-label">Wind arrows</span>
+              <span className="layer-note">{windAvailable ? "Point the way the wind blows; longer is faster" : "Wind data unavailable this run"}</span>
+            </span>
+          </label>
+          <fieldset disabled={!layers.wind || !windAvailable}>
+            <legend>Wind height</legend>
+            {WIND_OPTIONS.map((o) => (
+              <label key={o.value} className={`layer-opt ${layers.windLevel === o.value ? "on" : ""}`}>
+                <input type="radio" name={`${id}-wind`} value={o.value} checked={layers.windLevel === o.value} onChange={() => set({ windLevel: o.value })} />
+                <span>
+                  <span className="layer-label">{o.label}</span>
+                  <span className="layer-note">{o.note}</span>
+                </span>
+              </label>
+            ))}
+          </fieldset>
+          <label className="switch">
+            <input type="checkbox" role="switch" checked={layers.districts} onChange={(e) => set({ districts: e.target.checked })} />
+            <span className="switch-track" aria-hidden="true" />
+            <span>
+              <span className="layer-label">District outlines</span>
+              <span className="layer-note">Punjab, Haryana, Delhi, UP, Rajasthan, MP</span>
+            </span>
+          </label>
+          <p className="layers-credit">
+            Fires: <a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener">NASA FIRMS</a> · Wind:{" "}
+            <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a>
+          </p>
+        </div>
+      )}
+      <div className="layers-row">
+        <button type="button" className="layers-btn" aria-expanded={open} aria-controls={`${id}-panel`} onClick={() => setOpen((o) => !o)}>
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M10 2l8 4-8 4-8-4z" fill="currentColor" />
+            <path d="M2 10l8 4 8-4M2 14l8 4 8-4" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinejoin="round" />
+          </svg>
+          <span>Layers</span>
+        </button>
+        {after}
+      </div>
+    </div>
+  );
+}

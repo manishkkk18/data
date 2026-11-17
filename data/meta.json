@@ -1,0 +1,1 @@
+{"generated_utc":"2026-11-17T06:59:54+00:00","fires":{"updated_utc":"2026-11-17T06:59:54+00:00","method":"public-7d","latest_detection_utc":"2026-11-16T21:57:00+00:00"},"wind":{"updated_utc":"2026-11-17T06:59:54+00:00","latest_utc":"2026-11-17T06:00Z"},"aq":{"error":"OPENAQ_API_KEY not set in .env"}}

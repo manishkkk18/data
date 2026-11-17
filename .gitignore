@@ -1,0 +1,22 @@
+# Secrets — never commit
+.env
+.env.*
+!.env.example
+
+# Python
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Raw downloads (large, re-fetchable)
+data/raw/
+pipeline/out/
+
+# Web
+web/node_modules/
+web/dist/
+web/public/data/
+
+# Local editor/agent settings
+.claude/settings.local.json

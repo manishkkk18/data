@@ -1,0 +1,284 @@
+import {
+  ago,
+  compass,
+  dayLabel,
+  delhiPm25,
+  fmtInt,
+  fmtPct,
+  istDate,
+  pm25Band,
+  timeLabel,
+  windFrame,
+  WINDOW_LABEL,
+  type AppData,
+  type Fire,
+  type Window,
+  type WindLevel,
+} from "../data";
+
+type Props = {
+  data: AppData;
+  day: string; // selected IST day
+  at: number; // the map's moment
+  window: Window;
+  fires: Fire[]; // in the window
+  windLevel: WindLevel;
+  selectedId: string | null;
+  expanded: boolean; // bottom-sheet state on phones; ignored on desktop
+  onToggle: () => void;
+  onClear: () => void;
+  onPick: (id: string) => void;
+  onShare: () => void;
+  away?: boolean;
+};
+
+export default function SidePanel(p: Props) {
+  const d = p.selectedId ? p.data.byId.get(p.selectedId) : undefined;
+  const aq = delhiPm25(p.data.aq, p.at);
+  const mine = d ? p.fires.filter((f) => f.district === d.id) : [];
+  return (
+    <aside className="side panel" aria-label={d ? "District details" : "Today in Delhi"} data-expanded={p.expanded} data-away={p.away || undefined} aria-hidden={p.away || undefined}>
+      <button className="sheet-handle" type="button" aria-expanded={p.expanded} onClick={p.onToggle}>
+        <span className="sheet-grip" aria-hidden="true" />
+        <span className="sheet-peek">
+          <span className="sheet-title">{d ? d.name : "Today in Delhi"}</span>
+          <span className="sheet-value">
+            {d ? (
+              <span className="fire">{fmtInt(mine.length)}</span>
+            ) : aq ? (
+              <span className={pm25Band(aq.now)?.cls}>{fmtInt(aq.now)}</span>
+            ) : (
+              <span className="fire">{fmtInt(p.fires.filter((f) => f.district).length)}</span>
+            )}
+          </span>
+        </span>
+        <span className="sr-only">{p.expanded ? "Collapse details" : "Expand details"}</span>
+      </button>
+      <div className="side-body">{d ? <DistrictCard {...p} fires={mine} all={p.fires} /> : <Today {...p} aq={aq} />}</div>
+    </aside>
+  );
+}
+
+function Today({ data, day, at, window: w, fires, windLevel, onPick, aq }: Props & { aq: ReturnType<typeof delhiPm25> }) {
+  const india = fires.filter((f) => f.district);
+  const abroad = fires.length - india.length;
+  const band = pm25Band(aq?.now);
+  const band24 = pm25Band(aq?.avg24);
+
+  // Wind at Delhi: the last grid point is Delhi itself.
+  const wi = windFrame(data.wind, at);
+  const atDelhi = data.wind && wi != null ? data.wind.levels[windLevel][wi]?.[data.wind.points.length - 1] : null;
+
+  // Top districts in the window.
+  const byDistrict = new Map<string, { n: number; frp: number; last: number }>();
+  for (const f of india) {
+    const e = byDistrict.get(f.district!) ?? { n: 0, frp: 0, last: 0 };
+    e.n++;
+    e.frp += f.frp;
+    e.last = Math.max(e.last, f.t);
+    byDistrict.set(f.district!, e);
+  }
+  const top = [...byDistrict.entries()].sort((a, b) => b[1].n - a[1].n).slice(0, 3);
+
+  const ly = data.lastYear;
+  const lyChange = ly?.available && ly.last_year_count ? ((ly.count! - ly.last_year_count) / ly.last_year_count) * 100 : null;
+  const isToday = day === istDate(data.generated);
+
+  return (
+    <>
+      <div className="side-head">
+        <div>
+          <h2 className="side-name">{isToday ? "Today in Delhi" : `Delhi on ${dayLabel(day)}`}</h2>
+          <p className="muted">{isToday ? `As of ${timeLabel(at)}` : `${dayLabel(day, true)}, end of day`}</p>
+        </div>
+      </div>
+
+      {aq ? (
+        <>
+          <div className="big-number">
+            <span className={`big-value aqi-value ${band?.cls ?? ""}`}>{fmtInt(aq.now)}</span>
+            <span className="big-unit">
+              µg/m³ PM2.5 · Delhi average of {aq.stations} stations, {timeLabel(aq.nowT)}
+            </span>
+          </div>
+          <p className="plain">
+            {band && <span className={`aqi-badge ${band.cls}`}>{band.name}</span>} 24-hour average{" "}
+            {aq.avg24 != null ? (
+              <>
+                <b>{fmtInt(aq.avg24)}</b> µg/m³ {band24 && <span className={`aqi-badge ${band24.cls}`}>{band24.name}</span>}
+              </>
+            ) : (
+              <span className="muted">not enough hours to average ({aq.hours24} of 18)</span>
+            )}
+          </p>
+        </>
+      ) : (
+        <p className="gap-note">
+          Delhi's air-quality readings aren't loaded yet. They come from CPCB stations via OpenAQ, which needs an API key in the pipeline. We show a gap rather than
+          guess.
+        </p>
+      )}
+
+      <div className="tiles">
+        <Tile label={`Fires · ${WINDOW_LABEL[w]}`} value={fmtInt(india.length)} tone="fire" hint={abroad ? `+${fmtInt(abroad)} across the border` : "in India"} />
+        <Tile
+          label="vs a year ago"
+          value={lyChange != null ? fmtPct(lyChange, true) : "–"}
+          hint={ly?.available ? `${dayLabel(ly.date!)}: ${fmtInt(ly.count)} vs ${fmtInt(ly.last_year_count)}` : "needs the FIRMS key"}
+          hint2={ly?.available ? "NOAA-20 only, so it's fair" : undefined}
+        />
+        <Tile
+          label="Wind at Delhi"
+          value={atDelhi ? `${atDelhi[0].toFixed(0)} m/s` : "–"}
+          tone="blue"
+          hint={atDelhi ? `from the ${compass(atDelhi[1])}` : "no wind data"}
+          hint2={windLevel === "850hPa" ? "~1.5 km up" : "near the ground"}
+        />
+      </div>
+
+      <div className="stories">
+        <p className="stories-intro muted">Most fire detections in the last {WINDOW_LABEL[w]}. Tap one to fly there.</p>
+        {top.map(([id, e], k) => {
+          const dist = data.byId.get(id);
+          if (!dist) return null;
+          return (
+            <button key={id} type="button" className="story" onClick={() => onPick(id)}>
+              <span className="story-kicker">
+                #{k + 1} · {dist.state}
+              </span>
+              <span className="story-name">{dist.name}</span>
+              <span className="story-value fire">
+                {fmtInt(e.n)}
+                <span className="story-unit"> detections</span>
+              </span>
+              <span className="story-line muted">
+                {fmtInt(e.frp)} MW total fire power · latest {timeLabel(e.last)}
+              </span>
+              <span className="story-go" aria-hidden="true">
+                Fly there →
+              </span>
+            </button>
+          );
+        })}
+        {!top.length && <p className="gap-note">No fire detections in India in this window. Cloud cover can hide fires from the satellites.</p>}
+        <Freshness data={data} />
+      </div>
+    </>
+  );
+}
+
+function DistrictCard({ data, selectedId, fires, all, window: w, at, onClear, onShare }: Props & { all: Fire[] }) {
+  const d = selectedId ? data.byId.get(selectedId) : undefined;
+  if (!d) return null;
+  const frp = fires.reduce((s, f) => s + f.frp, 0);
+  const indiaTotal = all.filter((f) => f.district).length;
+  const share = indiaTotal ? (fires.length / indiaTotal) * 100 : null;
+  // Rank among districts with detections in the window.
+  const counts = new Map<string, number>();
+  for (const f of data.fires) if (f.district && f.t <= at && f.t > at - 7 * 86400000) counts.set(f.district, (counts.get(f.district) ?? 0) + 1);
+  const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]);
+  const rank = ranked.findIndex(([k]) => k === d.id) + 1;
+  const n24 = data.fires.filter((f) => f.district === d.id && f.t <= at && f.t > at - 86400000).length;
+  const n7 = counts.get(d.id) ?? 0;
+  // Detections per IST day, for the small chart (empty days are real zeros: the satellites passed).
+  const perDay = data.days.map((day) => ({ day, n: data.fires.filter((f) => f.district === d.id && istDate(f.t) === day).length }));
+
+  return (
+    <>
+      <div className="side-head">
+        <div>
+          <h2 className="side-name">{d.name}</h2>
+          <p className="muted">{d.state}</p>
+        </div>
+        <button type="button" className="icon-btn" onClick={onClear} aria-label="Clear selection">
+          <svg viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M5 5l10 10M15 5L5 15" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
+          </svg>
+        </button>
+      </div>
+      <div className="big-number">
+        <span className="big-value fire">{fmtInt(fires.length)}</span>
+        <span className="big-unit">fire detections · last {WINDOW_LABEL[w]} to {timeLabel(at)}</span>
+      </div>
+      {fires.length ? (
+        <p className="plain">
+          <b>{fmtPct(share)}</b> of detections in north-west India · <b>{fmtInt(frp)}</b> MW total fire power
+        </p>
+      ) : (
+        <p className="gap-note">No detections in this window. That can mean no burning, or fires the satellites missed (cloud, or burning between passes).</p>
+      )}
+      <div className="tiles">
+        <Tile label="Last 24 h" value={fmtInt(n24)} tone="fire" />
+        <Tile label="Last 7 days" value={fmtInt(n7)} tone="fire" />
+        <Tile label="Rank, 7 days" value={rank ? `#${rank}` : "–"} hint={rank ? `of ${ranked.length} districts` : "no detections"} />
+      </div>
+      <DayBars rows={perDay} />
+      <div className="side-actions">
+        <button type="button" className="btn" onClick={onClear}>
+          Back to today
+        </button>
+        <button type="button" className="btn" onClick={onShare}>
+          Share
+        </button>
+      </div>
+      <Freshness data={data} />
+    </>
+  );
+}
+
+/** Detections per day as small bars (same look as India Night Lights' hw-chart). */
+function DayBars({ rows }: { rows: { day: string; n: number }[] }) {
+  const max = Math.max(1, ...rows.map((r) => r.n));
+  const W = 320;
+  const H = 96;
+  const bw = W / rows.length;
+  return (
+    <figure className="hw-chart day-bars">
+      <figcaption className="trend-title">Detections per day</figcaption>
+      <svg viewBox={`0 0 ${W} ${H + 16}`} role="img" aria-label={rows.map((r) => `${dayLabel(r.day)}: ${r.n}`).join(", ")}>
+        <line className="grid" x1="0" x2={W} y1={H} y2={H} />
+        {rows.map((r, i) => {
+          const h = (r.n / max) * (H - 14);
+          return (
+            <g key={r.day}>
+              <rect x={i * bw + bw * 0.18} width={bw * 0.64} y={H - h} height={h} rx="2" className="fire-fill" />
+              {r.n > 0 && (
+                <text className="axis" x={i * bw + bw / 2} y={H - h - 3} textAnchor="middle">
+                  {r.n}
+                </text>
+              )}
+              <text className="axis" x={i * bw + bw / 2} y={H + 12} textAnchor="middle">
+                {dayLabel(r.day).split(" ")[0]}
+              </text>
+            </g>
+          );
+        })}
+      </svg>
+    </figure>
+  );
+}
+
+function Freshness({ data }: { data: AppData }) {
+  const m = data.meta;
+  return (
+    <p className="stories-foot muted small freshness">
+      Fires updated <b className="mono">{ago(Date.parse(m.fires?.updated_utc ?? ""))}</b>
+      {data.latestDetection && <> · latest satellite pass {timeLabel(data.latestDetection)}</>}
+      {data.firesMethod === "public-7d" && <> · preview data (public 7-day file)</>}
+      <br />
+      Wind {m.wind?.updated_utc ? <b className="mono">{ago(Date.parse(m.wind.updated_utc))}</b> : "unavailable"} · Air quality{" "}
+      {m.aq?.updated_utc ? <b className="mono">{ago(Date.parse(m.aq.updated_utc))}</b> : "not loaded"}
+    </p>
+  );
+}
+
+function Tile({ label, value, hint, hint2, tone }: { label: string; value: string; hint?: string; hint2?: string; tone?: "fire" | "blue" }) {
+  return (
+    <div className="tile">
+      <span className="tile-label">{label}</span>
+      <span className={`tile-value ${tone ?? ""}`}>{value}</span>
+      {hint && <span className="tile-hint">{hint}</span>}
+      {hint2 && <span className="tile-hint">{hint2}</span>}
+    </div>
+  );
+}

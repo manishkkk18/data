@@ -1,0 +1,70 @@
+/* ============================================================================
+   Delhi Smoke Watch additions. Everything else is India Night Lights' styles.css,
+   stage.css and phone.css, copied unchanged. Loaded last.
+   Colour rules: amber = primary accent, blue = selection + wind, fire scale only
+   for fire data, AQI band colours only next to their text label.
+   ========================================================================== */
+:root {
+  --fire-new: #ff7a3d;
+  --fire-old: #e5484d;
+  /* India NAQI bands, tuned for the dark panel; always shown with their name */
+  --aqi-good: #3fb37f;
+  --aqi-sat: #9ccb5b;
+  --aqi-mod: #e8d44d;
+  --aqi-poor: #f0a040;
+  --aqi-vpoor: #e0524f;
+  --aqi-severe: #c2417a;
+}
+
+.fire { color: var(--fire-new); }
+.big-value.fire, .story-value.fire { color: var(--fire-new); text-shadow: 0 0 28px rgba(255, 122, 61, 0.35); }
+.tile-value.fire { color: var(--fire-new); }
+.tile-value.blue { color: var(--blue); }
+.fire-fill { fill: var(--fire-new); }
+.kpi-value.fire { color: var(--fire-new); }
+
+/* AQI: colour + label, never colour alone */
+.aqi-good { color: var(--aqi-good); }
+.aqi-sat { color: var(--aqi-sat); }
+.aqi-mod { color: var(--aqi-mod); }
+.aqi-poor { color: var(--aqi-poor); }
+.aqi-vpoor { color: var(--aqi-vpoor); }
+.aqi-severe { color: var(--aqi-severe); }
+.big-value.aqi-value { text-shadow: 0 0 28px currentColor; text-shadow: 0 0 28px color-mix(in srgb, currentColor 35%, transparent); }
+.aqi-badge {
+  display: inline-block; padding: 1px 8px; margin-right: 4px; border-radius: 999px; font-family: var(--font-body);
+  font-size: 12px; font-weight: 500; border: 1px solid currentColor; background: color-mix(in srgb, currentColor 12%, transparent);
+}
+
+/* Legend: fire age bar + FRP dots + wind arrow, in Night Lights' legend layout */
+.legend-bar.fire-bar { box-shadow: 0 0 16px rgba(255, 122, 61, 0.2); }
+.legend-size { gap: 3px; }
+.legend-size .dot { width: auto; height: auto; border-radius: 50%; background: var(--fire-new); }
+.legend-size .dot.s { width: 4px; height: 4px; }
+.legend-size .dot.m { width: 7px; height: 7px; }
+.legend-size .dot.l { width: 10px; height: 10px; margin-right: 3px; }
+.legend-arrow { width: 16px; height: 16px; }
+.legend-swatch.fire { background: linear-gradient(90deg, var(--fire-new), var(--fire-old)); }
+
+/* Layers sheet: the first switch has no divider above it */
+.layers-panel > .switch:first-child { border-top: 0; border-radius: 10px; padding-top: 6px; }
+
+/* Delhi marker */
+.delhi-pin { display: flex; align-items: center; gap: 6px; pointer-events: none; }
+.delhi-dot {
+  width: 14px; height: 14px; border-radius: 50%; background: var(--bg); border: 3px solid var(--blue);
+  box-shadow: 0 0 0 4px rgba(110, 168, 255, 0.18), 0 0 18px rgba(110, 168, 255, 0.7);
+}
+.delhi-name {
+  font-family: var(--font-head); font-size: 17px; color: var(--text);
+  text-shadow: 0 1px 2px #000, 0 0 10px rgba(11, 15, 26, 0.9);
+}
+
+/* Fire tooltip */
+.tooltip .tip-fire { color: var(--fire-new); }
+
+/* District day bars */
+.day-bars { margin: 0; }
+.day-bars figcaption { margin-bottom: 2px; }
+.freshness b { color: var(--text); font-weight: 500; }
+.also-by a { color: var(--amber); }
