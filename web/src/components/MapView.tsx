@@ -187,7 +187,8 @@ export default function MapView(props: Props) {
       const on = props.sat === key;
       const tiles = [s.url(props.satDate)];
       if (on && !map.getSource(id)) {
-        map.addSource(id, { type: "raster", tiles, tileSize: 256, maxzoom: s.maxzoom, attribution: '<a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a>' });
+        // Only request tiles over South Asia: saves downloads, and NASA errors on some far-off empty tiles.
+        map.addSource(id, { type: "raster", tiles, tileSize: 256, maxzoom: s.maxzoom, bounds: [60, 5, 100, 40], attribution: '<a href="https://earthdata.nasa.gov/gibs" target="_blank" rel="noopener">NASA GIBS</a>' });
         map.addLayer({ id, type: "raster", source: id, paint: { "raster-opacity": s.opacity } }, "district-fill");
       } else if (on) {
         (map.getSource(id) as maplibregl.RasterTileSource).setTiles(tiles);
