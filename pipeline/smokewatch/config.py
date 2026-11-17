@@ -30,6 +30,24 @@ FOCUS_STATES = ["Punjab", "Haryana", "Delhi", "Uttar Pradesh", "Rajasthan", "Mad
 # Delhi reference point (Connaught Place) for distances and trajectories.
 DELHI = (77.2167, 28.6315)  # lon, lat
 
+# Cities with their own air quality, wind, air's path and upwind share. lon/lat is the
+# city centre (where trajectories arrive). Air quality uses reference monitors inside
+# `aq_bbox` (Delhi: all of NCT) or within `aq_radius_km` of the centre (OpenAQ allows <= 25 km).
+CITIES: dict[str, dict] = {
+    "delhi": {"name": "Delhi", "lon": 77.2167, "lat": 28.6315, "aq_bbox": (76.84, 28.40, 77.35, 28.88)},
+    "mumbai": {"name": "Mumbai", "lon": 72.8777, "lat": 19.0760, "aq_radius_km": 25},
+    "kolkata": {"name": "Kolkata", "lon": 88.3639, "lat": 22.5726, "aq_radius_km": 25},
+    "chennai": {"name": "Chennai", "lon": 80.2707, "lat": 13.0827, "aq_radius_km": 25},
+    "bengaluru": {"name": "Bengaluru", "lon": 77.5946, "lat": 12.9716, "aq_radius_km": 25},
+    "hyderabad": {"name": "Hyderabad", "lon": 78.4867, "lat": 17.3850, "aq_radius_km": 25},
+    "ahmedabad": {"name": "Ahmedabad", "lon": 72.5714, "lat": 23.0225, "aq_radius_km": 25},
+    "lucknow": {"name": "Lucknow", "lon": 80.9462, "lat": 26.8467, "aq_radius_km": 25},
+    "patna": {"name": "Patna", "lon": 85.1376, "lat": 25.5941, "aq_radius_km": 25},
+    "jaipur": {"name": "Jaipur", "lon": 75.7873, "lat": 26.9124, "aq_radius_km": 25},
+    "guwahati": {"name": "Guwahati", "lon": 91.7362, "lat": 26.1445, "aq_radius_km": 25},
+    "bhopal": {"name": "Bhopal", "lon": 77.4126, "lat": 23.2599, "aq_radius_km": 25},
+}
+
 # Sensors. "consistent" is the set used for year-over-year comparison.
 # Suomi NPP stopped delivering data in early Nov 2026 and NOAA-21 only starts in
 # 2023/24, so NOAA-20 (data every season since 2018) is the only VIIRS sensor

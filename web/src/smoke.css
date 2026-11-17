@@ -145,3 +145,35 @@
 /* Last-updated stamp (About) */
 .about .last-updated { margin: -8px 0 16px; font-size: 13px; color: var(--muted); }
 .about .last-updated b { color: var(--text); font-weight: 500; }
+
+/* City markers: every city clickable; the chosen one gets the blue ring (as Delhi had) */
+.city-pin {
+  display: flex; align-items: center; gap: 5px; padding: 4px 6px 4px 0; margin: 0; border: 0; background: none; cursor: pointer;
+  min-height: 28px; color: var(--muted);
+}
+.city-pin .city-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bg); border: 2px solid var(--muted); flex: none; }
+.city-pin .city-name { font-family: var(--font-head); font-size: 14px; color: var(--muted); text-shadow: 0 1px 2px #000, 0 0 8px rgba(11, 15, 26, 0.9); }
+.city-pin:hover .city-name, .city-pin:focus-visible .city-name { color: var(--text); }
+.city-pin.on { z-index: 2; }
+.city-pin.on .city-dot {
+  width: 14px; height: 14px; border: 3px solid var(--blue);
+  box-shadow: 0 0 0 4px rgba(110, 168, 255, 0.18), 0 0 18px rgba(110, 168, 255, 0.7);
+}
+.city-pin.on .city-name { font-size: 17px; color: var(--text); }
+
+/* City picker: Night Lights' chip, opening a search-results style list */
+.city-picker { position: relative; }
+.city-chip .chev { width: 14px; height: 14px; color: var(--muted); }
+.city-chip-name { font-weight: 500; }
+.city-list { min-width: 260px; left: 0; right: auto; max-height: min(420px, 60svh); overflow: auto; }
+.city-list li { gap: 16px; }
+.city-list .city-pm { white-space: nowrap; }
+.chip.wide { width: 100%; justify-content: flex-start; }
+.chip.wide .chev { margin-left: auto; }
+.kpi-more .city-list { left: 0; right: 0; min-width: 0; }
+@media (min-width: 900px) and (max-width: 1279px) {
+  .city-chip .city-chip-name { display: inline; }
+}
+@media (max-width: 899px) {
+  .kpi-actions .city-picker .chip { width: auto; padding: 0 10px; }
+}

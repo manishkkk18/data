@@ -8,6 +8,7 @@ import Legend from "./components/Legend";
 import LoadingOutline from "./components/LoadingOutline";
 import About from "./components/About";
 import WhyItMatters from "./components/WhyItMatters";
+import CityPicker from "./components/CityPicker";
 import Leaderboards from "./components/Leaderboards";
 // The chart library is ~110 KB gzipped: load it with the Seasons section, not with the map.
 const Seasons = lazy(() => import("./components/Seasons"));
@@ -26,7 +27,9 @@ import {
   WINDOW_HOURS,
   WINDOW_LABEL,
   dayLabel,
-  delhiPm25,
+  cityPm25,
+  loadCityData,
+  type CityData,
   fmtInt,
   istDate,
   loadData,
@@ -41,7 +44,7 @@ import {
 
 const MOBILE = "(max-width: 899px)";
 const PHONE = "(max-width: 639px)";
-const TAGLINE = "Whose smoke is Delhi breathing? Farm fires seen from space, and the wind that carries their smoke.";
+const tagline = (city: string) => `Whose smoke is ${city} breathing? Fires seen from space, and the wind that carries their smoke.`;
 
 function useMedia(q: string) {
   const [match, setMatch] = useState(() => window.matchMedia(q).matches);
@@ -82,6 +85,27 @@ function Main({ data }: { data: AppData }) {
     return i >= 0 ? i : Math.max(days.length - 1, 0);
   });
   const [seasonFires, setSeasonFires] = useState<Record<number, Fire[]>>({});
+  // The chosen city: its air quality and air's path load when it's picked, and stay cached.
+  const [cityId, setCityId] = useState(() => (initial.city && data.cities.some((c) => c.id === initial.city) ? initial.city : "delhi"));
+  const city = data.cities.find((c) => c.id === cityId) ?? data.cities[0];
+  const [cityCache, setCityCache] = useState<Record<string, CityData>>({});
+  const cityData = cityCache[cityId] ?? null;
+  useEffect(() => {
+    if (cityCache[cityId]) return;
+    let live = true;
+    loadCityData(cityId).then((d) => live && setCityCache((m) => ({ ...m, [cityId]: d })));
+    return () => {
+      live = false;
+    };
+  }, [cityId]); // eslint-disable-line react-hooks/exhaustive-deps
+  const pickCity = (id: string) => {
+    const c = data.cities.find((x) => x.id === id);
+    if (!c) return;
+    setCityId(id);
+    setFly({ bbox: [c.lon - 3, c.lat - 2.5, c.lon + 3, c.lat + 2.5], n: Date.now() });
+    track(`city-${id}`);
+  };
+
   // Live fires: the latest two days come with the first load; the rest of the week follows.
   const [liveFires, setLiveFires] = useState<Fire[]>(data.fires);
   const [liveComplete, setLiveComplete] = useState(data.live.days.length <= 2);
@@ -139,12 +163,13 @@ function Main({ data }: { data: AppData }) {
   const at = refTime(data, day);
   const sourceFires = season ? (seasonFires[season.year] ?? []) : liveFires;
   const fires = useMemo(() => windowFires(sourceFires, at, win), [sourceFires, at, win]);
-  const seasonPm = season ? (season.pm25[days.indexOf(day)] ?? null) : null;
+  // Season PM2.5 is Delhi's for now (other cities' history comes with the whole-year rebuild).
+  const seasonPm = season && cityId === "delhi" ? (season.pm25[days.indexOf(day)] ?? null) : null;
   const indiaCount = useMemo(() => fires.filter((f) => f.district).length, [fires]);
   const wFrame = windFrame(data.wind, at);
-  const arrival = arrivalAt(data.upwind, at);
+  const arrival = arrivalAt(cityData?.upwind ?? null, at);
   const imageDate = satDate(day, data.generated);
-  const aq = delhiPm25(data.aq, at);
+  const aq = cityPm25(cityData?.aq ?? null, at);
   const pmValue = season ? seasonPm : (aq?.now ?? null);
   const band = pm25Band(pmValue);
   const series = useMemo(() => {
@@ -199,10 +224,10 @@ function Main({ data }: { data: AppData }) {
   // Keep the address bar in step with the view, so any moment can be shared.
   useEffect(() => {
     writeUrl(
-      { day, w: win, d: selectedId ?? undefined, wind: layers.wind ? layers.windLevel : "off", path: layers.trajectory ? undefined : "off", season: seasonYear ?? undefined, sat: layers.sat },
+      { day, w: win, d: selectedId ?? undefined, wind: layers.wind ? layers.windLevel : "off", path: layers.trajectory ? undefined : "off", season: seasonYear ?? undefined, sat: layers.sat, city: cityId },
       { day: season ? days[days.length - 1] : today },
     );
-  }, [day, win, selectedId, layers, today, seasonYear, season, days]);
+  }, [day, win, selectedId, layers, today, seasonYear, season, days, cityId]);
 
   const share = async () => {
     track("share");
@@ -273,15 +298,15 @@ function Main({ data }: { data: AppData }) {
   );
   const delhiBtn = (cls: string) => (
     <button type="button" className={cls} onClick={() => {
-        setFly({ bbox: [76.6, 28.1, 77.8, 29.1], n: Date.now() });
-        track("zoom-delhi");
-      }} aria-label="Zoom to Delhi">
+        setFly({ bbox: [city.lon - 0.6, city.lat - 0.5, city.lon + 0.6, city.lat + 0.5], n: Date.now() });
+        track("zoom-city");
+      }} aria-label={`Zoom to ${city.name}`}>
       <svg viewBox="0 0 20 20" aria-hidden="true">
         <circle cx="10" cy="10" r="3" fill="currentColor" />
         <path d="M10 1v3M10 16v3M1 10h3M16 10h3" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" />
         <circle cx="10" cy="10" r="6.5" fill="none" stroke="currentColor" strokeWidth="1.4" />
       </svg>
-      <span className="chip-text">Delhi</span>
+      <span className="chip-text">Zoom in</span>
     </button>
   );
   const legend = <Legend window={win} wind={layers.wind && wFrame != null} path={layers.trajectory && !!arrival} sensor={season ? "NOAA-20 only" : undefined} sat={layers.sat} satDate={imageDate} />;
@@ -293,7 +318,7 @@ function Main({ data }: { data: AppData }) {
     ) : (
       <span className="muted">{season ? "gap" : "–"}</span>
     );
-  const pmLabel = season ? "Delhi PM2.5 · day" : "Delhi PM2.5";
+  const pmLabel = season ? `${city.name} PM2.5 · day` : `${city.name} PM2.5`;
 
   return (
     <>
@@ -321,6 +346,9 @@ function Main({ data }: { data: AppData }) {
             showWind={layers.wind}
             showDistricts={layers.districts}
             arrival={arrival}
+            cities={data.cities}
+            cityId={cityId}
+            onCity={pickCity}
             showTrajectory={layers.trajectory}
             sat={layers.sat}
             satDate={imageDate}
@@ -345,7 +373,7 @@ function Main({ data }: { data: AppData }) {
               setLayers(l);
             }}
             windAvailable={!!data.wind}
-            trajectoryAvailable={!!data.upwind}
+            trajectoryAvailable={!!cityData?.upwind}
             seasons={[...(data.seasons?.seasons ?? [])].map((x) => x.year).reverse()}
             season={seasonYear}
             onTimeline={(y) => showTimeline(y)} compact={isPhone} after={isPhone ? <LegendChip>{legend}</LegendChip> : undefined} />
@@ -381,10 +409,12 @@ function Main({ data }: { data: AppData }) {
                 }}
               >
                 {intro ? (
-                  <span className="kpi-tagline">{TAGLINE}</span>
+                  <span className="kpi-tagline">{tagline(city.name)}</span>
                 ) : (
                   <span className="kpi-summary">
-                    <b>{dayLabel(day)}</b>
+                    <b>{city.name}</b>
+                    <span className="sep"> · </span>
+                    {dayLabel(day)}
                     <span className="sep"> · </span>
                     <span className="fire mono">{fmtInt(indiaCount)}</span> fires
                     <span className="sep"> · </span>PM2.5 {pmText}
@@ -396,6 +426,10 @@ function Main({ data }: { data: AppData }) {
               </button>
               {statsOpen && (
                 <div className="kpi-more">
+                  <div className="kpi">
+                    <span className="kpi-label">City</span>
+                    <CityPicker cities={data.cities} value={cityId} onPick={pickCity} className="chip wide" />
+                  </div>
                   <div className="kpi">
                     <span className="kpi-label">Day</span>
                     <span className="kpi-month">{dayLabel(day, true)}</span>
@@ -413,7 +447,7 @@ function Main({ data }: { data: AppData }) {
                       <small className="muted">{season ? "µg/m³, daily mean" : aq ? "µg/m³, latest hour" : "air-quality data not loaded yet"}</small>
                     </span>
                   </div>
-                  <p className="muted small">{TAGLINE}</p>
+                  <p className="muted small">{tagline(city.name)}</p>
                 </div>
               )}
             </div>
@@ -440,13 +474,14 @@ function Main({ data }: { data: AppData }) {
               </div>
               {windowToggle("")}
               <div className="kpi-actions">
+                <CityPicker cities={data.cities} value={cityId} onPick={pickCity} />
                 {delhiBtn("chip")}
                 {shareBtn("chip")}
               </div>
             </div>
             {intro && (
               <div className="intro-line" role="note">
-                <span>{TAGLINE}</span>
+                <span>{tagline(city.name)}</span>
                 <button type="button" className="link-btn" aria-label="Dismiss" onClick={() => setIntro(false)}>
                   ×
                 </button>
@@ -463,6 +498,8 @@ function Main({ data }: { data: AppData }) {
           fires={fires}
           windLevel={layers.windLevel}
           selectedId={selectedId}
+          city={city}
+          cityData={cityData}
           allFires={sourceFires}
           days={days}
           season={season}

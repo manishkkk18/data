@@ -14,7 +14,11 @@ import numpy as np
 import pandas as pd
 import requests
 
-from .config import BBOX, DELHI, TRAJ_BBOX
+import logging
+
+from .config import BBOX, CITIES, TRAJ_BBOX
+
+log = logging.getLogger(__name__)
 from .trajectory import WindField
 
 API = "https://api.open-meteo.com/v1/forecast"
@@ -22,6 +26,7 @@ LEVELS = ("10m", "850hPa")
 STEP_DEG = 2.0
 CHUNK = 40  # locations per request: small enough that Open-Meteo answers quickly
 RETRIES = 4
+PAUSE_S = 3  # between requests: GitHub's shared machines are rate-limited quickly
 
 
 def _get_with_retry(params: dict):
@@ -38,6 +43,7 @@ def _get_with_retry(params: dict):
             if isinstance(e, requests.HTTPError) and e.response is not None and 400 <= e.response.status_code < 500 and e.response.status_code != 429:
                 raise  # a real request error: retrying won't help
             last = e
+            log.warning("Open-Meteo try %d failed (%s); retrying", attempt + 1, str(e)[:120])
             time.sleep(10 * (attempt + 1))
     raise RuntimeError(f"Open-Meteo failed after {RETRIES} tries: {last}")
 
@@ -55,6 +61,8 @@ def fetch(points: list[tuple[float, float]], past_days: int = 7) -> pd.DataFrame
     variables = [f"wind_{q}_{lvl}" for lvl in LEVELS for q in ("speed", "direction")]
     frames = []
     for c0 in range(0, len(points), CHUNK):
+        if c0:
+            time.sleep(PAUSE_S)
         chunk = points[c0:c0 + CHUNK]
         params = {
             "latitude": ",".join(str(p[1]) for p in chunk),
@@ -129,7 +137,7 @@ def web_payload(df: pd.DataFrame, points, keep: list[int], every_hours: int = 3,
         d = d[d["time"] >= since]
     d = d.dropna(subset=["speed", "dir_from"])
     times = sorted(d["time"].unique())
-    out = {"points": [[points[i][0], points[i][1]] for i in keep],
+    out = {"points": [[points[i][0], points[i][1]] for i in keep], "cities": list(CITIES),
            "times": [pd.Timestamp(t).strftime("%Y-%m-%dT%H:%MZ") for t in times], "levels": {}}
     for lvl in LEVELS:
         sub = d[d["level"] == lvl].set_index(["time", "point"])
@@ -148,8 +156,10 @@ def web_payload(df: pd.DataFrame, points, keep: list[int], every_hours: int = 3,
 
 
 def all_points() -> tuple[list[tuple[float, float]], list[int]]:
-    """Trajectory grid + Delhi, and the indices the map draws (study grid, Delhi last)."""
-    pts = grid_points(TRAJ_BBOX) + [DELHI]
+    """Trajectory grid + each city's centre, and the indices the map uses: the study grid,
+    then the cities in CITIES order (so the site can read "wind at <city>")."""
+    grid = grid_points(TRAJ_BBOX)
+    pts = grid + [(c["lon"], c["lat"]) for c in CITIES.values()]
     w, s, e, n = BBOX
-    keep = [i for i, (lo, la) in enumerate(pts[:-1]) if w - 1e-6 <= lo <= e + 1e-6 and s - 1e-6 <= la <= n + 1e-6]
-    return pts, keep + [len(pts) - 1]
+    keep = [i for i, (lo, la) in enumerate(grid) if w - 1e-6 <= lo <= e + 1e-6 and s - 1e-6 <= la <= n + 1e-6]
+    return pts, keep + list(range(len(grid), len(pts)))

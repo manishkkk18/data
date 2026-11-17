@@ -6,7 +6,8 @@ import {
   compass,
   upwindDay,
   dayLabel,
-  delhiPm25,
+  cityPm25,
+  windIndex,
   fmtInt,
   fmtPct,
   istDate,
@@ -16,6 +17,8 @@ import {
   WINDOW_LABEL,
   seasonDays,
   type AppData,
+  type CityData,
+  type CityInfo,
   type Fire,
   type Season,
   type Window,
@@ -24,6 +27,8 @@ import {
 
 type Props = {
   data: AppData;
+  city: CityInfo;
+  cityData: CityData | null; // null while loading
   day: string; // selected IST day
   at: number; // the map's moment
   window: Window;
@@ -43,15 +48,16 @@ type Props = {
 
 export default function SidePanel(p: Props) {
   const d = p.selectedId ? p.data.byId.get(p.selectedId) : undefined;
-  const aq = delhiPm25(p.data.aq, p.at);
+  const aq = cityPm25(p.cityData?.aq ?? null, p.at);
+  const place = p.city.name;
   const mine = d ? p.fires.filter((f) => f.district === d.id) : [];
   return (
-    <aside className="side panel" aria-label={d ? "District details" : "Today in Delhi"} data-expanded={p.expanded} data-away={p.away || undefined} aria-hidden={p.away || undefined}>
+    <aside className="side panel" aria-label={d ? "District details" : `Today in ${place}`} data-expanded={p.expanded} data-away={p.away || undefined} aria-hidden={p.away || undefined}>
       <button className="sheet-handle" type="button" aria-expanded={p.expanded} onClick={p.onToggle}>
         <span className="sheet-grip" aria-hidden="true" />
         <span className="sheet-peek">
           <span className="sheet-title">
-            {d ? d.name : p.season ? `${dayLabel(p.day)} ${p.season.year}` : p.day === istDate(p.data.generated) ? "Today in Delhi" : `Delhi on ${dayLabel(p.day)}`}
+            {d ? d.name : p.season ? `${dayLabel(p.day)} ${p.season.year}` : p.day === istDate(p.data.generated) ? `Today in ${place}` : `${place} on ${dayLabel(p.day)}`}
           </span>
           <span className="sheet-value">
             {d ? (
@@ -72,15 +78,16 @@ export default function SidePanel(p: Props) {
   );
 }
 
-function Today({ data, day, at, window: w, fires, windLevel, onPick, aq }: Props & { aq: ReturnType<typeof delhiPm25> }) {
+function Today({ data, city, cityData, day, at, window: w, fires, windLevel, onPick, aq }: Props & { aq: ReturnType<typeof cityPm25> }) {
   const india = fires.filter((f) => f.district);
   const abroad = fires.length - india.length;
   const band = pm25Band(aq?.now);
   const band24 = pm25Band(aq?.avg24);
 
-  // Wind at Delhi: the last grid point is Delhi itself.
+  // Wind at the city: its own point in the wind file.
   const wi = windFrame(data.wind, at);
-  const atDelhi = data.wind && wi != null ? data.wind.levels[windLevel][wi]?.[data.wind.points.length - 1] : null;
+  const ci = windIndex(data.wind, city.id);
+  const atCity = data.wind && wi != null && ci != null ? data.wind.levels[windLevel][wi]?.[ci] : null;
 
   const ly = data.lastYear;
   const lyChange = ly?.available && ly.last_year_count ? ((ly.count! - ly.last_year_count) / ly.last_year_count) * 100 : null;
@@ -90,7 +97,7 @@ function Today({ data, day, at, window: w, fires, windLevel, onPick, aq }: Props
     <>
       <div className="side-head">
         <div>
-          <h2 className="side-name">{isToday ? "Today in Delhi" : `Delhi on ${dayLabel(day)}`}</h2>
+          <h2 className="side-name">{isToday ? `Today in ${city.name}` : `${city.name} on ${dayLabel(day)}`}</h2>
           <p className="muted">{isToday ? `As of ${timeLabel(at)}` : `${dayLabel(day, true)}, end of day`}</p>
         </div>
       </div>
@@ -100,7 +107,7 @@ function Today({ data, day, at, window: w, fires, windLevel, onPick, aq }: Props
           <div className="big-number">
             <span className={`big-value aqi-value ${band?.cls ?? ""}`}>{fmtInt(aq.now)}</span>
             <span className="big-unit">
-              µg/m³ PM2.5 · Delhi average of {aq.stations} stations, {timeLabel(aq.nowT)}
+              µg/m³ PM2.5 · {city.name} average of {aq.stations} station{aq.stations === 1 ? "" : "s"}, {timeLabel(aq.nowT)}
             </span>
           </div>
           <p className="plain">
@@ -116,8 +123,9 @@ function Today({ data, day, at, window: w, fires, windLevel, onPick, aq }: Props
         </>
       ) : (
         <p className="gap-note">
-          Delhi's air-quality readings aren't loaded yet. They come from CPCB stations via OpenAQ, which needs an API key in the pipeline. We show a gap rather than
-          guess.
+          {cityData == null
+            ? `Loading ${city.name}'s air quality…`
+            : `No recent PM2.5 for ${city.name}: not enough reference monitors reported. We show a gap rather than guess.`}
         </p>
       )}
 
@@ -130,18 +138,18 @@ function Today({ data, day, at, window: w, fires, windLevel, onPick, aq }: Props
           hint2={ly?.available ? "NOAA-20 only, so it's fair" : undefined}
         />
         <Tile
-          label="Wind at Delhi"
-          value={atDelhi ? `${atDelhi[0].toFixed(0)} m/s` : "–"}
+          label={`Wind at ${city.name}`}
+          value={atCity ? `${atCity[0].toFixed(0)} m/s` : "–"}
           tone="blue"
-          hint={atDelhi ? `from the ${compass(atDelhi[1])}` : "no wind data"}
+          hint={atCity ? `from the ${compass(atCity[1])}` : "no wind data"}
           hint2={windLevel === "850hPa" ? "~1.5 km up" : "near the ground"}
         />
       </div>
 
-      <WhoseSmoke data={data} day={day} at={at} onPick={onPick} />
+      <WhoseSmoke data={data} city={city} cityData={cityData} day={day} at={at} onPick={onPick} />
 
       <TopDistricts data={data} fires={india} window={w} onPick={onPick}>
-        <Freshness data={data} />
+        <Freshness data={data} city={city} />
       </TopDistricts>
     </>
   );
@@ -191,9 +199,10 @@ function TopDistricts({ data, fires, window: w, onPick, children }: { data: AppD
 }
 
 /** Side panel for a day in a burning season: Delhi's daily PM2.5, the day's fires and the season so far. */
-function SeasonDay({ data, day, at, window: w, fires, onPick, season }: Props & { season: Season }) {
+function SeasonDay({ data, city, cityData, day, at, window: w, fires, onPick, season }: Props & { season: Season }) {
   const i = Math.max(0, seasonDays(season).indexOf(day));
-  const pm = season.pm25[i];
+  // Season PM2.5 is Delhi's for now; other cities' history comes with the whole-year rebuild.
+  const pm = city.id === "delhi" ? season.pm25[i] : null;
   const band = pm25Band(pm);
   const india = season.fires.india;
   const toDate = india.slice(0, i + 1).reduce((a, b) => a + b, 0);
@@ -201,13 +210,13 @@ function SeasonDay({ data, day, at, window: w, fires, onPick, season }: Props & 
   const prev = data.seasons?.seasons.find((x) => x.year === season.year - 1);
   const prevToDate = prev ? prev.fires.india.slice(0, i + 1).reduce((a, b) => a + b, 0) : null;
   const change = prevToDate ? ((toDate - prevToDate) / prevToDate) * 100 : null;
-  const hasUpwind = !!upwindDay(data.upwind, day);
+  const hasUpwind = !!upwindDay(cityData?.upwind ?? null, day);
   return (
     <>
       <div className="side-head">
         <div>
           <h2 className="side-name">
-            Delhi on {dayLabel(day)} {season.year}
+            {city.name} on {dayLabel(day)} {season.year}
           </h2>
           <p className="muted">{season.year} burning season · NOAA-20 detections only</p>
         </div>
@@ -230,9 +239,11 @@ function SeasonDay({ data, day, at, window: w, fires, onPick, season }: Props & 
         </>
       ) : (
         <p className="gap-note">
-          {season.pm25_sensors
-            ? "No PM2.5 for this day: too few stations reported a full day. We show a gap rather than guess."
-            : "No Delhi air-quality data for this season."}
+          {city.id !== "delhi"
+            ? `Past PM2.5 is only available for Delhi so far; ${city.name}'s history is being added.`
+            : season.pm25_sensors
+              ? "No PM2.5 for this day: too few stations reported a full day. We show a gap rather than guess."
+              : "No Delhi air-quality data for this season."}
         </p>
       )}
       <div className="tiles">
@@ -245,7 +256,7 @@ function SeasonDay({ data, day, at, window: w, fires, onPick, season }: Props & 
         />
       </div>
       {hasUpwind ? (
-        <WhoseSmoke data={data} day={day} at={at} onPick={onPick} />
+        <WhoseSmoke data={data} city={city} cityData={cityData} day={day} at={at} onPick={onPick} />
       ) : (
         <p className="muted small">The air's path and upwind shares are worked out for the last 7 days only.</p>
       )}
@@ -259,7 +270,7 @@ function SeasonDay({ data, day, at, window: w, fires, onPick, season }: Props & 
   );
 }
 
-function DistrictCard({ data, selectedId, fires, all, allFires, days, window: w, at, onClear, onShare }: Props & { all: Fire[] }) {
+function DistrictCard({ data, city, selectedId, fires, all, allFires, days, window: w, at, onClear, onShare }: Props & { all: Fire[] }) {
   const d = selectedId ? data.byId.get(selectedId) : undefined;
   if (!d) return null;
   const frp = fires.reduce((s, f) => s + f.frp, 0);
@@ -297,7 +308,7 @@ function DistrictCard({ data, selectedId, fires, all, allFires, days, window: w,
       </div>
       {fires.length ? (
         <p className="plain">
-          <b>{fmtPct(share)}</b> of detections in north-west India · <b>{fmtInt(frp)}</b> MW total fire power
+          <b>{fmtPct(share)}</b> of detections in India · <b>{fmtInt(frp)}</b> MW total fire power
         </p>
       ) : (
         <p className="gap-note">No detections in this window. That can mean no burning, or fires the satellites missed (cloud, or burning between passes).</p>
@@ -316,7 +327,7 @@ function DistrictCard({ data, selectedId, fires, all, allFires, days, window: w,
           Share
         </button>
       </div>
-      <Freshness data={data} />
+      <Freshness data={data} city={city} />
     </>
   );
 }
@@ -353,10 +364,15 @@ function DayBars({ rows }: { rows: { day: string; n: number }[] }) {
   );
 }
 
-/** Indicative upwind fire share: where the air reaching Delhi passed, and what was burning there. */
-function WhoseSmoke({ data, day, at, onPick }: { data: AppData; day: string; at: number; onPick: (id: string) => void }) {
-  const u = data.upwind;
-  if (!u) return <p className="gap-note">The air's path into Delhi isn't available for this run, so upwind shares can't be shown.</p>;
+/** Indicative upwind fire share: where the air reaching the city passed, and what was burning there. */
+function WhoseSmoke({ data, city, cityData, day, at, onPick }: { data: AppData; city: CityInfo; cityData: CityData | null; day: string; at: number; onPick: (id: string) => void }) {
+  const u = cityData?.upwind ?? null;
+  if (!u)
+    return (
+      <p className="gap-note">
+        {cityData == null ? `Loading the air's path into ${city.name}…` : `The air's path into ${city.name} isn't available for this run, so upwind shares can't be shown.`}
+      </p>
+    );
   const d = upwindDay(u, day);
   const a = arrivalAt(u, at);
   const total = u.days.filter((x) => x.complete).map((x) => x.load);
@@ -374,7 +390,7 @@ function WhoseSmoke({ data, day, at, onPick }: { data: AppData; day: string; at:
     <section className="whose" aria-labelledby="whose-title">
       <div className="whose-head">
         <h3 id="whose-title" className="trend-title">
-          Whose smoke is reaching Delhi?
+          Whose smoke is reaching {city.name}?
         </h3>
         <p className="whose-note">Indicative, based on wind and fire detections. Not a source-apportionment study.</p>
       </div>
@@ -442,7 +458,7 @@ function WhoseSmoke({ data, day, at, onPick }: { data: AppData; day: string; at:
           )}
           <p className="trend-note muted">
             Fires along the air's 48-hour path, weighted by fire power, closeness to the path and how recently the air passed. It shows where upwind
-            burning was, not how much of Delhi's PM2.5 it caused.
+            burning was, not how much of {city.name}'s PM2.5 it caused.
           </p>
         </>
       )}
@@ -458,8 +474,9 @@ function bearingFrom(start: [number, number], end: [number, number]) {
   return compass((deg + 360) % 360);
 }
 
-function Freshness({ data }: { data: AppData }) {
+function Freshness({ data, city }: { data: AppData; city: CityInfo }) {
   const m = data.meta;
+  const aqm = m.aq?.[city.id];
   return (
     <p className="stories-foot muted small freshness">
       Fires updated <b className="mono">{ago(Date.parse(m.fires?.updated_utc ?? ""))}</b>
@@ -468,8 +485,8 @@ function Freshness({ data }: { data: AppData }) {
       <br />
       Wind {m.wind?.updated_utc ? <b className="mono">{ago(Date.parse(m.wind.updated_utc))}</b> : "unavailable"}
       {m.wind?.stale && " (last update failed)"} · Air quality{" "}
-      {m.aq?.updated_utc ? <b className="mono">{ago(Date.parse(m.aq.updated_utc))}</b> : "not loaded"}
-      {m.aq?.stale && " (last update failed)"}
+      {aqm?.updated_utc ? <b className="mono">{ago(Date.parse(aqm.updated_utc))}</b> : "not loaded"}
+      {aqm?.stale && " (last update failed)"}
     </p>
   );
 }

@@ -15,8 +15,17 @@ def _hours(n_stations, hours, value=100.0, start="2026-11-10T18:30Z"):
 
 
 def test_hour_with_too_few_stations_is_a_gap():
-    h = openaq.delhi_hourly(_hours(openaq.MIN_STATIONS - 1, 1))
-    assert math.isnan(h["value"].iloc[0])
+    # A city that usually has 10 stations: an hour with only 2 reporting is a gap.
+    df = pd.concat([_hours(10, 5), _hours(2, 1, start="2026-11-10T23:30Z")])
+    h = openaq.city_hourly(df).sort_values("hour_utc")
+    assert h["value"].iloc[:-1].notna().all() and math.isnan(h["value"].iloc[-1])
+
+
+def test_small_city_keeps_its_own_station_count():
+    # A city with only 2 monitors: hours with both are kept, an hour with 1 is a gap.
+    df = pd.concat([_hours(2, 5), _hours(1, 1, start="2026-11-10T23:30Z")])
+    h = openaq.city_hourly(df).sort_values("hour_utc")
+    assert h["value"].iloc[:-1].notna().all() and math.isnan(h["value"].iloc[-1])
 
 
 def test_half_reported_hour_is_a_gap():

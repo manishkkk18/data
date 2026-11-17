@@ -21,7 +21,8 @@ type SummaryFile = {
   same_day_last_year: { available: boolean; reason?: string; date?: string; count?: number; last_year_date?: string; last_year_count?: number; sensor?: string } | null;
 };
 export type WindFile = {
-  points: [number, number][]; // last point is Delhi
+  points: [number, number][]; // the grid, then one point per city (in `cities` order)
+  cities?: string[];
   times: string[];
   levels: Record<WindLevel, ([speed: number, dirFrom: number] | null)[][]>;
 };
@@ -49,8 +50,8 @@ export type Meta = {
   generated_utc: string;
   fires?: { updated_utc: string; method: string; latest_detection_utc: string | null };
   wind?: { updated_utc?: string; latest_utc?: string | null; error?: string; stale?: boolean };
-  aq?: { updated_utc?: string; error?: string; stale?: boolean };
-  upwind?: { updated_utc?: string; error?: string; stale?: boolean };
+  aq?: Record<string, { updated_utc?: string; error?: string; stale?: boolean }>; // per city
+  upwind?: Record<string, { updated_utc?: string; error?: string; stale?: boolean }>; // per city
 };
 
 // ---- What the app works with -----------------------------------------------------------------
@@ -71,8 +72,7 @@ export type AppData = {
   outline: FeatureCollection;
   byId: Map<string, District>;
   wind: WindFile | null;
-  aq: AqFile | null;
-  upwind: UpwindFile | null;
+  cities: CityInfo[]; // the city picker's list, with PM2.5 now when available
   seasons: SeasonIndex | null;
   lastYear: SummaryFile["same_day_last_year"];
   meta: Meta;
@@ -88,15 +88,14 @@ const getJson = async <T,>(f: string): Promise<T> => {
 export async function loadData(): Promise<AppData> {
   const manifest = await getJson<{ files: string[] }>("manifest.json").catch(() => ({ files: [] as string[] }));
   const opt = <T,>(f: string) => (manifest.files.includes(f) ? getJson<T>(f).catch(() => null) : Promise.resolve(null));
-  const [live, summary, districts, outline, meta, wind, aq, upwind, seasons] = await Promise.all([
+  const [live, summary, districts, outline, meta, wind, citiesFile, seasons] = await Promise.all([
     getJson<LiveIndex>("live/index.json"),
     getJson<SummaryFile>("fires_summary_recent.json"),
     getJson<DistrictFC>("districts_web.geojson"),
     getJson<FeatureCollection>("india_outline.geojson"),
     getJson<Meta>("meta.json"),
     opt<WindFile>("wind_recent.json"),
-    opt<AqFile>("aq_delhi_recent.json"),
-    opt<UpwindFile>("upwind_recent.json"),
+    opt<{ cities: CityInfo[] }>("cities.json"),
     opt<SeasonIndex>("seasons/index.json"),
   ]);
 
@@ -120,7 +119,7 @@ export async function loadData(): Promise<AppData> {
 
   return {
     fires, live, dayCounts, firesMethod: live.method, latestDetection, generated, days,
-    districts, outline, byId, wind, aq, upwind, seasons, lastYear: summary.same_day_last_year, meta,
+    districts, outline, byId, wind, cities: citiesFile?.cities ?? CITY_LIST, seasons, lastYear: summary.same_day_last_year, meta,
   };
 }
 
@@ -265,8 +264,8 @@ export function pm25Band(v: number | null | undefined) {
   return NAQI_PM25.find((b) => v <= b.max) ?? null;
 }
 
-/** Latest Delhi hourly PM2.5 at or before `ref`, and the mean of the 24 hours before it. */
-export function delhiPm25(aq: AqFile | null, ref: number) {
+/** Latest hourly PM2.5 for a city at or before `ref`, and the mean of the 24 hours before it. */
+export function cityPm25(aq: AqFile | null, ref: number) {
   if (!aq) return null;
   const rows = aq.hourly.filter((r) => r.parameter === "pm25" && Date.parse(r.hour_utc) <= ref).sort((a, b) => Date.parse(a.hour_utc) - Date.parse(b.hour_utc));
   const last = [...rows].reverse().find((r) => r.value != null);
@@ -358,3 +357,45 @@ export function overdue(generated: number, now = Date.now()) {
 
 /** Area the season history covers until it is rebuilt for the whole country. */
 export const SEASON_AREA = "north-west India (Punjab, Haryana, Delhi, west UP, edges of Rajasthan and MP)";
+
+// ---- Cities -------------------------------------------------------------------------------------
+export type CityInfo = {
+  id: string;
+  name: string;
+  lon: number;
+  lat: number;
+  pm25?: { value: number; hour_utc: string; stations: number; avg24: number | null } | null;
+  wind_850?: { speed: number; dir_from: number } | null;
+  upwind_today?: { date: string; load: number; state: [string, number] | null } | null;
+};
+/** Used if cities.json is missing; same order as pipeline/smokewatch/config.py CITIES. */
+export const CITY_LIST: CityInfo[] = [
+  { id: "delhi", name: "Delhi", lon: 77.2167, lat: 28.6315 },
+  { id: "mumbai", name: "Mumbai", lon: 72.8777, lat: 19.076 },
+  { id: "kolkata", name: "Kolkata", lon: 88.3639, lat: 22.5726 },
+  { id: "chennai", name: "Chennai", lon: 80.2707, lat: 13.0827 },
+  { id: "bengaluru", name: "Bengaluru", lon: 77.5946, lat: 12.9716 },
+  { id: "hyderabad", name: "Hyderabad", lon: 78.4867, lat: 17.385 },
+  { id: "ahmedabad", name: "Ahmedabad", lon: 72.5714, lat: 23.0225 },
+  { id: "lucknow", name: "Lucknow", lon: 80.9462, lat: 26.8467 },
+  { id: "patna", name: "Patna", lon: 85.1376, lat: 25.5941 },
+  { id: "jaipur", name: "Jaipur", lon: 75.7873, lat: 26.9124 },
+  { id: "guwahati", name: "Guwahati", lon: 91.7362, lat: 26.1445 },
+  { id: "bhopal", name: "Bhopal", lon: 77.4126, lat: 23.2599 },
+];
+/** One city's air quality and air's path, loaded when the city is picked. */
+export type CityData = { aq: AqFile | null; upwind: UpwindFile | null };
+export async function loadCityData(id: string): Promise<CityData> {
+  const [aq, upwind] = await Promise.all([
+    getJson<AqFile>(`aq/${id}.json`).catch(() => null),
+    getJson<UpwindFile>(`upwind/${id}.json`).catch(() => null),
+  ]);
+  return { aq, upwind };
+}
+/** Index of a city's own point in the wind file, or null. */
+export function windIndex(w: WindFile | null, cityId: string) {
+  if (!w?.cities) return w ? w.points.length - 1 : null; // older files: Delhi was the last point
+  const i = w.cities.indexOf(cityId);
+  return i < 0 ? null : w.points.length - w.cities.length + i;
+}
+export const delhiPm25 = cityPm25;

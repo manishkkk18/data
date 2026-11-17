@@ -9,7 +9,7 @@ const required = [
   "fires_summary_recent.json",
   "meta.json",
 ];
-const optional = ["wind_recent.json", "aq_delhi_recent.json", "upwind_recent.json"]; // missing when that source failed or has no key yet
+const optional = ["wind_recent.json", "cities.json"]; // missing when that source failed or has no key yet
 const out = new URL("../public/data/", import.meta.url);
 mkdirSync(out, { recursive: true });
 rmSync(new URL("live/", out), { recursive: true, force: true }); // days that left the window
@@ -28,6 +28,16 @@ const liveSrc = new URL("../../data/live/", import.meta.url);
 for (const f of existsSync(liveSrc) ? readdirSync(liveSrc).filter((x) => x.startsWith("fires_")) : []) {
   copyFileSync(new URL(f, liveSrc), new URL(`live/${f}`, out));
   n++;
+}
+// Per-city air quality and air's path: whole folders (aq/<city>.json, upwind/<city>.json).
+for (const dir of ["aq", "upwind"]) {
+  const src = new URL(`../../data/${dir}/`, import.meta.url);
+  if (!existsSync(src)) continue;
+  mkdirSync(new URL(`${dir}/`, out), { recursive: true });
+  for (const f of readdirSync(src).filter((x) => x.endsWith(".json"))) {
+    copyFileSync(new URL(f, src), new URL(`${dir}/${f}`, out));
+    n++;
+  }
 }
 // Burning seasons: the index and one fires file per season, copied as a folder.
 const seasonsSrc = new URL("../../data/seasons/", import.meta.url);

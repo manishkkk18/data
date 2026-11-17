@@ -36,9 +36,21 @@ def fire_weights(path: list[tuple[float, float, int]], arrival_hour: float, fire
         return np.zeros(len(fires))
     p = np.asarray(path, dtype=float)  # (P, 3): lon, lat, tau
     plon, plat, tau = p[:, 0], p[:, 1], p[:, 2]
-    flon = fires["longitude"].to_numpy()[:, None]
-    flat = fires["latitude"].to_numpy()[:, None]
-    fhour = fires["hour"].to_numpy()[:, None]
+    # Fires further than the widest corridor edge from every path point can't count:
+    # skip them before the (fires x path points) distance matrix.
+    reach_km = CUTOFF_SIGMA * (R0_KM + R_GROW_KMH * tau.max())
+    pad_lat = reach_km / 111.32
+    pad_lon = reach_km / (111.32 * np.cos(np.deg2rad(min(abs(plat).max() + pad_lat, 80))))
+    lon_all, lat_all = fires["longitude"].to_numpy(), fires["latitude"].to_numpy()
+    near = ((lon_all >= plon.min() - pad_lon) & (lon_all <= plon.max() + pad_lon)
+            & (lat_all >= plat.min() - pad_lat) & (lat_all <= plat.max() + pad_lat))
+    out = np.zeros(len(fires))
+    if not near.any():
+        return out
+    sub = fires[near]
+    flon = sub["longitude"].to_numpy()[:, None]
+    flat = sub["latitude"].to_numpy()[:, None]
+    fhour = sub["hour"].to_numpy()[:, None]
     # Equirectangular distance in km (fine at these scales).
     kx = 111.32 * np.cos(np.deg2rad((flat + plat[None, :]) / 2))
     d = np.hypot((flon - plon[None, :]) * kx, (flat - plat[None, :]) * 111.32)  # (N, P)
@@ -47,9 +59,10 @@ def fire_weights(path: list[tuple[float, float, int]], arrival_hour: float, fire
     time_ok = np.abs(fhour - passed_at) <= TIME_SLACK_H
     inside = d <= CUTOFF_SIGMA * r  # the corridor has an edge: no long Gaussian tail
     k = np.exp(-0.5 * (d / r) ** 2) * np.exp(-tau[None, :] / DECAY_H) * time_ok * inside
-    w = fires["frp"].to_numpy() * k.max(axis=1)
+    w = sub["frp"].to_numpy() * k.max(axis=1)
     w[w < MIN_WEIGHT] = 0.0
-    return w
+    out[near] = w
+    return out
 
 
 HOURS_BACK = 48

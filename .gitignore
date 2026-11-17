@@ -25,3 +25,5 @@ web/public/data/
 /data/*.json
 !/data/status.json
 /data/live/
+/data/aq/
+/data/upwind/

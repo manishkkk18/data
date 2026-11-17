@@ -15,7 +15,7 @@ import pandas as pd
 from . import firms, openaq, upwind, wind
 from .attribute import attribute_fires
 from .boundaries import load_districts
-from .config import CONSISTENT_SENSORS, DATA, DELHI, secret
+from .config import CITIES, CONSISTENT_SENSORS, DATA, secret
 
 log = logging.getLogger("smokewatch")
 IST = "Asia/Kolkata"
@@ -35,6 +35,7 @@ def _clean(v):
 
 def write_json(name: str, obj) -> None:
     path = DATA / name
+    path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(obj, separators=(",", ":"), default=str), encoding="utf-8")
     log.info("wrote %s (%.1f KB)", path.relative_to(DATA.parent), path.stat().st_size / 1024)
 
@@ -148,6 +149,40 @@ def aq_payload(res: dict) -> dict:
     }
 
 
+def _pm_now(aq: dict | None) -> dict | None:
+    """Latest complete hour of PM2.5, and the 24-hour mean if >= 18 of those hours have data."""
+    if not aq:
+        return None
+    rows = sorted((r for r in aq["hourly"] if r["parameter"] == "pm25"), key=lambda r: r["hour_utc"])
+    good = [r for r in rows if r["value"] is not None]
+    if not good:
+        return None
+    last = good[-1]
+    t_last = pd.Timestamp(last["hour_utc"])
+    day = [r["value"] for r in good if pd.Timestamp(r["hour_utc"]) > t_last - pd.Timedelta(hours=24)]
+    return {"value": round(last["value"], 1), "hour_utc": last["hour_utc"], "stations": last["n_stations"],
+            "avg24": round(sum(day) / len(day), 1) if len(day) >= openaq.MIN_HOURS else None}
+
+
+def cities_payload(aqs: dict, ups: dict, wind_payload: dict | None) -> dict:
+    """One small file for the city picker: each city's PM2.5 now, wind aloft, and top upwind state today."""
+    out = []
+    for i, (cid, city) in enumerate(CITIES.items()):
+        wnd = None
+        if wind_payload and wind_payload["times"]:
+            k = len(wind_payload["points"]) - len(CITIES) + i
+            v = wind_payload["levels"]["850hPa"][-1][k]
+            wnd = {"speed": v[0], "dir_from": v[1]} if v else None
+        up = ups.get(cid)
+        top = None
+        if up and up["days"]:
+            d = up["days"][-1]
+            top = {"date": d["date"], "load": d["load"], "state": d["states"][0] if d["states"] else None}
+        out.append({"id": cid, "name": city["name"], "lon": city["lon"], "lat": city["lat"],
+                    "pm25": _pm_now(aqs.get(cid)), "wind_850": wnd, "upwind_today": top})
+    return {"generated_utc": _now_iso(), "cities": out}
+
+
 def main(argv=None) -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--days", type=int, default=7)
@@ -161,10 +196,12 @@ def main(argv=None) -> None:
     prev_path = DATA / "meta.json"
     prev = json.loads(prev_path.read_text(encoding="utf-8")) if prev_path.exists() else {}
 
-    def failed(section: str, file: str, err: Exception) -> dict:
+    def failed(section: str, file: str, err: Exception, city: str | None = None) -> dict:
         old = prev.get(section) or {}
+        if city is not None:
+            old = (old.get(city) or {}) if isinstance(old, dict) else {}
         if old.get("updated_utc") and (DATA / file).exists():
-            log.warning("%s failed (%s): keeping the previous data from %s", section, err, old["updated_utc"])
+            log.warning("%s%s failed (%s): keeping the previous data from %s", section, f" {city}" if city else "", err, old["updated_utc"])
             return {**old, "stale": True, "error": str(err)[:200]}
         return {"error": str(err)[:200]}
 
@@ -193,39 +230,55 @@ def main(argv=None) -> None:
         meta["wind"] = failed("wind", "wind_recent.json", e)
         w = None
 
+    # The air's path and upwind share, per city.
+    meta["upwind"] = {}
+    ups: dict[str, dict] = {}
     if w is not None:
+        fields = {lvl: wind.wind_field(w, pts, lvl) for lvl in wind.LEVELS}
+        # District ids (as the map uses), not names: some names repeat across states.
+        ids = {(s, d): i for i, s, d in zip(districts["id"], districts["state"], districts["district"])}
+        f = all_fires.assign(
+            hour=all_fires["acq_utc"].map(lambda t: t.timestamp() / 3600),
+            district=[ids.get((s, d)) for s, d in zip(all_fires["state"], all_fires["district"])],
+        )
+        now_h = pd.Timestamp.now(tz="UTC").timestamp() / 3600
+        latest_wind = min(fld.hours[-1] for fld in fields.values())
+    for cid, city in CITIES.items():
+        file = f"upwind/{cid}.json"
+        if w is None:
+            meta["upwind"][cid] = failed("upwind", file, RuntimeError("no wind data this run"), cid)
+            continue
         try:
-            fields = {lvl: wind.wind_field(w, pts, lvl) for lvl in wind.LEVELS}
-            # District ids (as the map uses), not names: some names repeat across states.
-            ids = {(s, d): i for i, s, d in zip(districts["id"], districts["state"], districts["district"])}
-            f = all_fires.assign(
-                hour=all_fires["acq_utc"].map(lambda t: t.timestamp() / 3600),
-                district=[ids.get((s, d)) for s, d in zip(all_fires["state"], all_fires["district"])],
-            )
-            now_h = pd.Timestamp.now(tz="UTC").timestamp() / 3600
-            latest_wind = min(fld.hours[-1] for fld in fields.values())
             up = upwind.compute_payload(
-                f, fields, DELHI, start_hour=window_start.timestamp() / 3600, end_hour=min(now_h, latest_wind),
-                fires_from_hour=f["hour"].min() if len(f) else now_h,
+                f, fields, (city["lon"], city["lat"]), start_hour=window_start.timestamp() / 3600,
+                end_hour=min(now_h, latest_wind), fires_from_hour=f["hour"].min() if len(f) else now_h,
             )
             up["generated_utc"] = meta["generated_utc"]
-            write_json("upwind_recent.json", up)
-            meta["upwind"] = {"updated_utc": meta["generated_utc"], "arrivals": len(up["arrivals"])}
-        except Exception as e:  # noqa: BLE001 — keep the rest of the run
-            log.exception("upwind skipped: %s", e)
-            meta["upwind"] = failed("upwind", "upwind_recent.json", e)
-    else:
-        meta["upwind"] = failed("upwind", "upwind_recent.json", RuntimeError("no wind data this run"))
+            up["city"] = cid
+            write_json(file, up)
+            ups[cid] = up
+            meta["upwind"][cid] = {"updated_utc": meta["generated_utc"], "arrivals": len(up["arrivals"])}
+        except Exception as e:  # noqa: BLE001 - one city failing should not stop the others
+            log.exception("upwind %s skipped: %s", cid, e)
+            meta["upwind"][cid] = failed("upwind", file, e, cid)
 
+    # Air quality, per city (PM10 too for Delhi).
+    meta["aq"] = {}
+    aqs: dict[str, dict] = {}
     if not args.skip_aq:
-        try:
-            res = openaq.fetch_delhi(args.days)
-            write_json("aq_delhi_recent.json", aq_payload(res))
-            meta["aq"] = {"updated_utc": meta["generated_utc"], "sensors_recent": res["sensors_recent"]}
-        except Exception as e:  # noqa: BLE001 — keep the previous air-quality file
-            log.warning("air quality skipped: %s", e)
-            meta["aq"] = failed("aq", "aq_delhi_recent.json", e)
+        for cid, city in CITIES.items():
+            file = f"aq/{cid}.json"
+            try:
+                res = openaq.fetch_city(city, args.days, params=("pm25", "pm10") if cid == "delhi" else ("pm25",))
+                aqs[cid] = aq_payload(res)
+                write_json(file, aqs[cid])
+                meta["aq"][cid] = {"updated_utc": meta["generated_utc"], "sensors_recent": res["sensors_recent"]}
+            except Exception as e:  # noqa: BLE001 - keep the previous file for this city
+                log.warning("air quality %s skipped: %s", cid, e)
+                meta["aq"][cid] = failed("aq", file, e, cid)
 
+    fresh_wind = payload if (meta.get("wind") or {}).get("updated_utc") == meta["generated_utc"] else None
+    write_json("cities.json", cities_payload(aqs, ups, fresh_wind))
     write_json("meta.json", meta)
 
 

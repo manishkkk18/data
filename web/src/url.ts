@@ -3,7 +3,7 @@
 
 import type { SatLayer, Window, WindLevel } from "./data";
 
-export type UrlState = { day?: string; w?: Window; d?: string; wind?: WindLevel | "off"; path?: "off"; season?: number; sat?: SatLayer };
+export type UrlState = { day?: string; w?: Window; d?: string; wind?: WindLevel | "off"; path?: "off"; season?: number; sat?: SatLayer; city?: string };
 
 export function readUrl(): UrlState {
   const q = new URLSearchParams(window.location.search);
@@ -16,6 +16,7 @@ export function readUrl(): UrlState {
     wind: wind === "10m" || wind === "off" ? wind : undefined,
     path: q.get("path") === "off" ? "off" : undefined,
     season: /^20\d\d$/.test(q.get("season") ?? "") ? Number(q.get("season")) : undefined,
+    city: /^[a-z]+$/.test(q.get("city") ?? "") ? q.get("city")! : undefined,
     sat: q.get("sat") === "true" || q.get("sat") === "aod" ? (q.get("sat") as SatLayer) : undefined,
   };
 }
@@ -31,6 +32,7 @@ export function writeUrl(s: UrlState, defaults: { day: string }) {
   set("path", s.path);
   set("season", s.season ? String(s.season) : undefined);
   set("sat", s.sat && s.sat !== "none" ? s.sat : undefined);
+  set("city", s.city && s.city !== "delhi" ? s.city : undefined);
   const qs = q.toString();
   const url = `${window.location.pathname}${qs ? `?${qs}` : ""}${window.location.hash}`;
   if (url !== `${window.location.pathname}${window.location.search}${window.location.hash}`) window.history.replaceState(null, "", url);

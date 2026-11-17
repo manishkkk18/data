@@ -7,13 +7,12 @@ import workerUrl from "maplibre-gl/dist/maplibre-gl-worker.mjs?worker&url";
 maplibregl.setWorkerUrl(workerUrl);
 import type { ExpressionSpecification, GeoJSONSource } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
-import { SAT, type Arrival, type BBox, type DistrictFC, type Fire, type SatLayer, type WindFile, type WindLevel } from "../data";
+import { SAT, type Arrival, type BBox, type CityInfo, type DistrictFC, type Fire, type SatLayer, type WindFile, type WindLevel } from "../data";
 import { FIRE_NEW, FIRE_OLD, WIND_BLUE } from "./Legend";
 
 // OpenFreeMap: free, no API key, no view limits. Attribution comes from the style.
 export const STYLE_URL = "https://tiles.openfreemap.org/styles/dark";
 export const STUDY: BBox = [68.1, 6.7, 97.4, 37.1]; // all of India (same frame as India Night Lights)
-const DELHI: [number, number] = [77.2167, 28.6315];
 
 export type FireHover = { fire: Fire; x: number; y: number };
 export type FlyRequest = { bbox: BBox; n: number };
@@ -29,7 +28,10 @@ type Props = {
   windLevel: WindLevel;
   showWind: boolean;
   showDistricts: boolean;
-  arrival: Arrival | null; // back-trajectories of the air reaching Delhi at the map's moment
+  arrival: Arrival | null; // back-trajectories of the air reaching the chosen city at the map's moment
+  cities: CityInfo[];
+  cityId: string;
+  onCity: (id: string) => void;
   showTrajectory: boolean;
   sat: SatLayer; // NASA GIBS image under the data
   satDate: string; // its date (YYYY-MM-DD)
@@ -71,12 +73,22 @@ export default function MapView(props: Props) {
     mapRef.current = map;
     if (import.meta.env.DEV) (window as unknown as { __map?: maplibregl.Map }).__map = map;
 
-    // Delhi: an HTML marker, so it stays crisp and readable above every layer (added once loaded).
-    const pin = document.createElement("div");
-    pin.className = "delhi-pin";
-    pin.innerHTML = '<span class="delhi-dot"></span><span class="delhi-name">Delhi</span>';
-    pin.setAttribute("aria-hidden", "true");
-    const pinMarker = new maplibregl.Marker({ element: pin, anchor: "left", offset: [-7, 0] }).setLngLat(DELHI);
+    // Cities: HTML markers, so they stay crisp and readable above every layer (added once loaded).
+    // Each is a real button; the chosen city gets the blue ring.
+    const pins = cb.current.cities.map((c) => {
+      const el = document.createElement("button");
+      el.type = "button";
+      el.className = "city-pin";
+      el.dataset.city = c.id;
+      el.setAttribute("aria-label", `Show ${c.name}`);
+      el.innerHTML = `<span class="city-dot"></span><span class="city-name">${c.name}</span>`;
+      el.addEventListener("click", (e) => {
+        e.stopPropagation();
+        cb.current.onCity(c.id);
+      });
+      return new maplibregl.Marker({ element: el, anchor: "left", offset: [-6, 0] }).setLngLat([c.lon, c.lat]);
+    });
+    const pinMarker = { addTo: (m: maplibregl.Map) => pins.forEach((p) => p.addTo(m)) };
 
     let flown = false;
     const flyIn = () => {
@@ -157,14 +169,14 @@ export default function MapView(props: Props) {
     }
   }, [props.fires, props.at, props.windowHours, ready]);
 
-  // Wind arrows for the chosen frame and height (Delhi's own point is left out of the grid).
+  // Wind arrows for the chosen frame and height (the cities' own points are left out of the grid).
   useEffect(() => {
     const map = mapRef.current;
     if (!map || !ready) return;
     const w = props.wind;
     const frame = w && props.windFrame != null ? w.levels[props.windLevel]?.[props.windFrame] : null;
     const features = frame
-      ? frame.slice(0, -1).flatMap((v, i) =>
+      ? frame.slice(0, frame.length - (w!.cities?.length ?? 1)).flatMap((v, i) =>
           v ? [{ type: "Feature" as const, properties: { speed: v[0], to: (v[1] + 180) % 360 }, geometry: { type: "Point" as const, coordinates: w!.points[i] } }] : [],
         )
       : [];
@@ -177,6 +189,15 @@ export default function MapView(props: Props) {
     if (!map || !ready) return;
     map.setLayoutProperty("district-line", "visibility", props.showDistricts ? "visible" : "none");
   }, [props.showDistricts, ready]);
+
+  // Highlight the chosen city's marker.
+  useEffect(() => {
+    container.current?.querySelectorAll<HTMLElement>(".city-pin").forEach((el) => {
+      const on = el.dataset.city === props.cityId;
+      el.classList.toggle("on", on);
+      el.setAttribute("aria-pressed", String(on));
+    });
+  }, [props.cityId, ready]);
 
   // NASA GIBS imagery, added the first time it's chosen and re-pointed when the day changes.
   useEffect(() => {
