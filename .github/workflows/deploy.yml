@@ -25,7 +25,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      # Always the newest main, so data a refresh committed earlier in the same run is included.
       - uses: actions/checkout@v7
+        with:
+          ref: main
 
       - name: Smoke Watch's latest live data
         uses: actions/checkout@v7

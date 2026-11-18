@@ -1,23 +1,25 @@
-# Refresh the live data and redeploy the site.
+# India Smoke Watch: refresh the live data and redeploy the whole site.
 #
 # Schedule: every 3 hours. Inside the burning season (15 Sep - 15 Dec, IST) every run works;
-# outside it, only the 03:17 UTC run (08:47 IST) does, so the site still updates daily.
+# outside it, only the 03:47 UTC run (09:17 IST) does, so the site still updates daily.
 # The current season's files are rebuilt once a day (that same slot), until 17 Dec.
 #
-# The live files (fires, wind, air's path, air quality: ~700 KB) are NOT committed: they are
-# deployed straight to GitHub Pages, whose gh-pages branch keeps a single commit. Only the
-# daily season update and a small status file are committed, which also keeps the schedule
-# from being switched off after 60 days without activity.
+# Where the data lives:
+#   - Live files (fires, wind, air's path, air quality: ~2 MB) go to the smoke-watch-data
+#     branch as ONE commit that replaces the last, so the repo doesn't grow. The deploy reads
+#     them from there, so a Night Lights deploy never loses them.
+#   - The daily season update and a small status file are committed to main (this also keeps
+#     the schedule from being switched off after 60 days without activity).
 #
-# If a source fails, the last published file is kept (restored from the live site first) and
-# marked stale. If NASA FIRMS fails completely, the run stops and nothing is deployed.
+# If a source fails, its previous file (from the smoke-watch-data branch) is kept and marked
+# stale. If NASA FIRMS fails completely, the run stops and nothing is published.
 #
-# Needs FIRMS_MAP_KEY and OPENAQ_API_KEY repository secrets.
-name: Refresh
+# Needs FIRMS_MAP_KEY and OPENAQ_API_KEY repository secrets (never printed).
+name: Smoke Watch refresh
 
 on:
   schedule:
-    - cron: "17 */3 * * *"
+    - cron: "47 */3 * * *"
   workflow_dispatch:
     inputs:
       season:
@@ -27,19 +29,23 @@ on:
 
 permissions:
   contents: write
+  pages: write    # for the deploy job
+  id-token: write # for the deploy job
 
 concurrency:
-  group: data-write
+  group: smoke-watch-data # never two Smoke Watch data jobs at once (Night Lights has its own group)
   cancel-in-progress: false
 
 env:
   PYTHONUTF8: "1"
-  SITE: https://manishkkk18.github.io/delhi-smoke-watch
+  APP: apps/smoke-watch
 
 jobs:
   refresh:
     runs-on: ubuntu-latest
     timeout-minutes: 45
+    outputs:
+      published: ${{ steps.publish.outputs.published }}
     steps:
       - name: Decide what this run does
         id: gate
@@ -67,25 +73,34 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: pipeline/requirements.txt
+          cache-dependency-path: apps/smoke-watch/pipeline/requirements.txt
 
       - name: Install pipeline
         if: steps.gate.outputs.run == 'true'
-        run: pip install -r pipeline/requirements.txt
+        run: pip install -r $APP/pipeline/requirements.txt
 
       - name: Tests
         if: steps.gate.outputs.run == 'true'
-        working-directory: pipeline
+        working-directory: apps/smoke-watch/pipeline
         run: PYTHONPATH=. python -m pytest -q tests
 
-      - name: Restore the last published data (kept if a source fails this run)
+      - name: Last published live data (kept if a source fails this run)
         if: steps.gate.outputs.run == 'true'
-        working-directory: pipeline
-        run: PYTHONPATH=. python -m smokewatch.restore "$SITE"
+        uses: actions/checkout@v7
+        with:
+          ref: smoke-watch-data
+          path: _previous
+
+      - name: Put it where the pipeline expects it
+        if: steps.gate.outputs.run == 'true'
+        run: |
+          rm -rf _previous/.git _previous/README.md
+          cp -R _previous/. $APP/data/
+          rm -rf _previous
 
       - name: Live data
         if: steps.gate.outputs.run == 'true'
-        working-directory: pipeline
+        working-directory: apps/smoke-watch/pipeline
         env:
           FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
@@ -93,7 +108,7 @@ jobs:
 
       - name: Current season (daily)
         if: steps.gate.outputs.season == 'true'
-        working-directory: pipeline
+        working-directory: apps/smoke-watch/pipeline
         continue-on-error: true # a failed season update shouldn't block the live refresh
         env:
           FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
@@ -102,6 +117,7 @@ jobs:
 
       - name: Status file (daily)
         if: steps.gate.outputs.run == 'true' && (steps.gate.outputs.daily == 'true' || steps.gate.outputs.season == 'true')
+        working-directory: apps/smoke-watch
         run: |
           python - <<'EOF'
           import json, pathlib, datetime
@@ -113,37 +129,48 @@ jobs:
           print(status)
           EOF
 
-      - name: Commit season data and status
+      - name: Commit season data and status to main
         if: steps.gate.outputs.run == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add data/seasons data/status.json 2>/dev/null || true
+          git add $APP/data/seasons $APP/data/status.json 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "Nothing to commit."
           else
-            git commit -m "Data $(date -u +%Y-%m-%dT%H:%MZ)"
+            git commit -m "Smoke Watch data $(date -u +%Y-%m-%dT%H:%MZ)"
             git pull --rebase -q
             git push
           fi
 
-      - uses: actions/setup-node@v7
+      - name: Publish the live files to the smoke-watch-data branch (one commit, replaced)
+        id: publish
         if: steps.gate.outputs.run == 'true'
-        with:
-          node-version: 22
-          cache: npm
-          cache-dependency-path: web/package-lock.json
-
-      - name: Build and deploy the site
-        if: steps.gate.outputs.run == 'true'
-        working-directory: web
         env:
-          DEPLOY_REMOTE: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          npm ci
-          npm run deploy
+          mkdir _out
+          cd $APP/data
+          cp -R --parents meta.json fires_summary_recent.json live aq upwind ../../../_out/ 2>/dev/null || true
+          for f in wind_recent.json cities.json; do [ -f "$f" ] && cp "$f" ../../../_out/; done
+          cd ../../../_out
+          test -f live/index.json || { echo "::error::No live/index.json, so nothing is published"; exit 1; }
+          printf '# Smoke Watch live data\n\nThe latest published live files for apps/smoke-watch (fires, wind, air quality, air paths).\nReplaced on every refresh as a single commit, so this branch never grows. Not for editing.\n' > README.md
+          git init -q -b smoke-watch-data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -q -m "Smoke Watch live data $(date -u +%Y-%m-%dT%H:%MZ)"
+          git push -q --force "https://x-access-token:${TOKEN}@github.com/${{ github.repository }}.git" smoke-watch-data
+          echo "published=true" >> "$GITHUB_OUTPUT"
+          echo "Published $(find . -name '*.json' | wc -l) files"
 
       - name: Summary
         if: always() && steps.gate.outputs.run == 'true'
-        working-directory: pipeline
+        working-directory: apps/smoke-watch/pipeline
         run: PYTHONPATH=. python -m smokewatch.report >> "$GITHUB_STEP_SUMMARY" || true
+
+  deploy:
+    needs: refresh
+    if: needs.refresh.outputs.published == 'true'
+    uses: ./.github/workflows/deploy.yml

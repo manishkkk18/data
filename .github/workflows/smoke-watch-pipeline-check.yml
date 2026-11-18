@@ -4,10 +4,10 @@
 #   FIRMS_MAP_KEY   https://firms.modaps.eosdis.nasa.gov/api/map_key/
 #   OPENAQ_API_KEY  https://explore.openaq.org/register
 #
-# For now this only checks the data: it runs the tests and the pipeline, writes a summary
-# on the run page and keeps the JSON as a downloadable artifact. It does not commit or
-# deploy anything; the schedule and GitHub Pages deploy come in Phase 6.
-name: Run pipeline (manual)
+# This only checks the data: it runs the tests and the pipeline, writes a summary on the
+# run page and keeps the JSON as a downloadable artifact. It does not commit or deploy
+# anything (smoke-watch-refresh.yml does that).
+name: Smoke Watch pipeline check (manual)
 
 on:
   workflow_dispatch:
@@ -34,10 +34,10 @@ jobs:
         with:
           python-version: "3.13"
           cache: pip
-          cache-dependency-path: pipeline/requirements.txt
+          cache-dependency-path: apps/smoke-watch/pipeline/requirements.txt
 
       - name: Install pipeline
-        run: pip install -r pipeline/requirements.txt
+        run: pip install -r apps/smoke-watch/pipeline/requirements.txt
 
       - name: Check the secrets are set (values are never printed)
         env:
@@ -48,23 +48,23 @@ jobs:
           [ -n "$OPENAQ_API_KEY" ] && echo "OPENAQ_API_KEY: set" || echo "::warning::OPENAQ_API_KEY is not set"
 
       - name: Tests
-        working-directory: pipeline
+        working-directory: apps/smoke-watch/pipeline
         run: PYTHONPATH=. python -X utf8 -m pytest -q tests
 
       - name: Diagnose Delhi air-quality locations
         if: github.event.inputs.diagnose_aq == 'true'
-        working-directory: pipeline
+        working-directory: apps/smoke-watch/pipeline
         env:
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
         run: PYTHONPATH=. python -X utf8 -m smokewatch.diagnose_aq | tee -a "$GITHUB_STEP_SUMMARY"
 
       - name: Clear old outputs (so a failed step shows as missing, not stale)
         if: github.event.inputs.diagnose_aq != 'true'
-        run: rm -f data/*.json
+        run: rm -f apps/smoke-watch/data/*.json
 
       - name: Run pipeline
         if: github.event.inputs.diagnose_aq != 'true'
-        working-directory: pipeline
+        working-directory: apps/smoke-watch/pipeline
         env:
           FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
@@ -72,7 +72,7 @@ jobs:
 
       - name: Summary
         if: always()
-        working-directory: pipeline
+        working-directory: apps/smoke-watch/pipeline
         run: PYTHONPATH=. python -X utf8 -m smokewatch.report >> "$GITHUB_STEP_SUMMARY"
 
       - uses: actions/upload-artifact@v6
@@ -80,6 +80,6 @@ jobs:
         with:
           name: data
           path: |
-            data/*.json
-            data/live/*.json
+            apps/smoke-watch/data/*.json
+            apps/smoke-watch/data/live/*.json
           retention-days: 7
