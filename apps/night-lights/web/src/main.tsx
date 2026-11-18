@@ -6,6 +6,8 @@ import "@fontsource/geist/500.css";
 import "@fontsource/geist/600.css";
 import "@fontsource/geist-mono/400.css";
 import "@fontsource/geist-mono/500.css";
+import "@theme/base.css";
+import "@theme/night-lights.css";
 import "./styles.css";
 import "./stage.css";
 import "./phone.css";

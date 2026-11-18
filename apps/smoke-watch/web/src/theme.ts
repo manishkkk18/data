@@ -1,6 +1,6 @@
 // The map (MapLibre) and charts (Recharts, canvas) can't use CSS variables, so they read the
-// Haze tokens from theme.css here. Read on first use, after the stylesheet has loaded, so
-// theme.css stays the one place every colour is defined.
+// Haze tokens from packages/theme/smoke-watch.css here. Read on first use, after the stylesheet has loaded, so
+// that file stays the one place every colour is defined.
 type Theme = ReturnType<typeof read>;
 let cache: Theme | null = null;
 

@@ -1,0 +1,12 @@
+/* India Night Lights palette: navy night, amber light, blue for selection. */
+:root {
+  --bg: #0b0f1a;          --bg-rgb: 11 15 26;
+  --panel: #121829;       --panel-rgb: 18 24 41;
+  --panel-2: #171e33;
+  --border: #232b40;
+  --text: #e8ecf5;
+  --muted: #9aa3b8;
+  --amber: #ffb547;       /* primary accent */
+  --blue: #6ea8ff;        /* selection, links */
+  --red: #ff7a7a;
+}

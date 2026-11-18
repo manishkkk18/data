@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Build every app and assemble the one GitHub Pages site in _site/:
 #   _site/                      -> https://manishkkk18.github.io/data/        (redirects to india/)
-#   _site/india/                -> the home page                    (apps/home)
+#   _site/india/                -> the home page                    (apps/home; reads both apps' data for its facts)
 #   _site/india/night-lights/   -> India Night Lights               (apps/night-lights/web)
 #   _site/india/smoke-watch/    -> India Smoke Watch                (apps/smoke-watch/web)
 # Each app builds from its own folder with its own lockfile; data comes from the repo
@@ -24,12 +24,7 @@ build_app() { # <folder with package.json> <destination under _site>
 build_app apps/night-lights/web india/night-lights
 build_app apps/smoke-watch/web india/smoke-watch
 
-# Home page: a static placeholder until it becomes its own app.
-if [ -f "$ROOT/apps/home/package.json" ]; then
-  build_app apps/home india
-else
-  cp "$ROOT/apps/home/index.html" "$OUT/india/index.html"
-fi
+build_app apps/home india
 
 cp "$ROOT/site/index.html" "$ROOT/site/404.html" "$OUT/"
 touch "$OUT/.nojekyll"

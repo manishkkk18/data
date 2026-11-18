@@ -1,7 +1,8 @@
 /* ============================================================================
-   Haze: India Smoke Watch's colour theme, in the same family as India Night Lights.
-   EVERY colour in the app comes from here. CSS uses these variables directly; the map
-   and charts (which can't read CSS variables) read the same tokens through theme.ts.
+   Haze: India Smoke Watch's palette, in the same family as India Night Lights.
+   Every colour in Smoke Watch comes from here (shared sizes and type are in base.css).
+   CSS uses these variables directly; the map and charts (which can't read CSS
+   variables) read the same tokens through apps/smoke-watch/web/src/theme.ts.
    The *-rgb versions are for translucent surfaces: rgb(var(--panel-rgb) / 0.9).
    Contrast on panels (#1E1A17): text 14:1, muted 7.4:1, accent 6.7:1, teal 9.3:1.
    ========================================================================== */

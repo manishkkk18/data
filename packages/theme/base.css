@@ -1,0 +1,16 @@
+/* ============================================================================
+   Shared by every app in this repo (home, Night Lights, Smoke Watch): type, sizes,
+   radius and touch targets. Each app adds ONE palette file next to this one
+   (night-lights.css, smoke-watch.css, home.css) that sets its colours and accent.
+   Load order in each app: base.css, then its palette, then the app's own styles.
+   ========================================================================== */
+:root {
+  --radius: 16px;
+  --touch: 44px;          /* minimum tap target */
+  --header-h: 64px;
+  --peek: 72px;           /* phone bottom-sheet peek height */
+  --font-head: "Instrument Serif", Georgia, serif;
+  --font-body: "Geist", system-ui, sans-serif;
+  --font-mono: "Geist Mono", ui-monospace, monospace;
+  color-scheme: dark;
+}

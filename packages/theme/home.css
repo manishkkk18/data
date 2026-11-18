@@ -1,0 +1,19 @@
+/* Home page palette: Night Lights' navy as the neutral ground, with each project card
+   previewing its own app's palette (see .card[data-app] in apps/home/src/home.css). */
+:root {
+  --bg: #0b0f1a;          --bg-rgb: 11 15 26;
+  --panel: #121829;
+  --panel-2: #171e33;
+  --border: #232b40;
+  --text: #e8ecf5;
+  --muted: #9aa3b8;       /* 7.0:1 on --panel */
+  --accent: #ffb547;      /* home's own accent (buttons, focus): Night Lights amber */
+  --on-accent: #1a1205;
+  --error: #ff8a8a;       /* 6.6:1 on --panel */
+  --success: #6fd3a5;
+
+  /* Each app's look, for its card */
+  --nl-bg: #121829;  --nl-border: #232b40;  --nl-accent: #ffb547;  --nl-on-accent: #1a1205;
+  --sw-bg: #1e1a17;  --sw-border: #302a25;  --sw-accent: #ff7a3d;  --sw-on-accent: #1a0d06;
+  --sw-text: #ede6df; --sw-muted: #b3a89e;
+}

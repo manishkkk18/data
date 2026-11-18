@@ -1,13 +1,4 @@
-:root {
-  --radius: 16px;
-  --touch: 44px;
-  --header-h: 64px;
-  --peek: 72px;
-  --font-head: "Instrument Serif", Georgia, serif;
-  --font-body: "Geist", system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
-  color-scheme: dark;
-}
+/* Tokens (type, sizes, colours) come from packages/theme: base.css + smoke-watch.css. */
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }

@@ -1,22 +1,4 @@
-:root {
-  --bg: #0b0f1a;
-  --panel: #121829;
-  --panel-2: #171e33;
-  --border: #232b40;
-  --text: #e8ecf5;
-  --muted: #9aa3b8;
-  --amber: #ffb547;
-  --blue: #6ea8ff;
-  --red: #ff7a7a;
-  --radius: 16px;
-  --touch: 44px;
-  --header-h: 64px;
-  --peek: 72px;
-  --font-head: "Instrument Serif", Georgia, serif;
-  --font-body: "Geist", system-ui, sans-serif;
-  --font-mono: "Geist Mono", ui-monospace, monospace;
-  color-scheme: dark;
-}
+/* Tokens (type, sizes, colours) come from packages/theme: base.css + night-lights.css. */
 
 * { box-sizing: border-box; }
 html, body { margin: 0; }

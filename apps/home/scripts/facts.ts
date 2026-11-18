@@ -1,0 +1,69 @@
+// Headline facts for the project cards, read at build time from the data files each app
+// publishes (never typed in by hand). If a file is missing, that fact is left out rather
+// than guessed, and the build logs a warning.
+import { existsSync, readFileSync } from "node:fs";
+
+export type Fact = { value: string; label: string };
+export type Facts = { nl: Fact[]; nlAsOf: string | null; sw: Fact[]; swAsOf: string | null };
+
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+const int = (n: number) => Math.round(n).toLocaleString("en-IN");
+const monthLabel = (ym: string) => `${MONTHS[Number(ym.slice(5, 7)) - 1]} ${ym.slice(0, 4)}`;
+const istDay = (iso: string) => {
+  const d = new Date(Date.parse(iso) + 5.5 * 3600 * 1000);
+  return `${d.getUTCDate()} ${MONTHS[d.getUTCMonth()]} ${d.getUTCFullYear()}`;
+};
+
+function read<T>(root: string, rel: string, warn: (m: string) => void): T | null {
+  const p = `${root}/${rel}`;
+  if (!existsSync(p)) {
+    warn(`facts: ${rel} not found, leaving its facts out`);
+    return null;
+  }
+  return JSON.parse(readFileSync(p, "utf8")) as T;
+}
+
+type Monthly = { ids: string[]; months: string[]; national_avg?: (number | null)[] };
+type Summary = { by_state: { state: string; detections: number }[]; by_day: { date: string; detections_india: number }[] };
+type Cities = { generated_utc: string; cities: { name: string; pm25?: { aqi?: { value: number; band: string } | null } | null }[] };
+
+/** `appsDir` is the repo's apps/ folder. */
+export function readFacts(appsDir: string, warn: (m: string) => void = console.warn): Facts {
+  const nl: Fact[] = [];
+  let nlAsOf: string | null = null;
+  const m = read<Monthly>(appsDir, "night-lights/data/monthly.json", warn);
+  if (m) {
+    nl.push({ value: int(m.ids.length), label: "districts, every month" });
+    const first = m.months[0];
+    const last = m.months[m.months.length - 1];
+    nlAsOf = monthLabel(last);
+    nl.push({ value: int(m.months.length), label: `monthly snapshots since ${monthLabel(first)}` });
+    // Same definition as the app's "Growth since 2015": same calendar month, so seasons cancel out.
+    const then = m.months.indexOf(`${first.slice(0, 4)}-${last.slice(5, 7)}`);
+    const a = then >= 0 ? m.national_avg?.[then] : null;
+    const b = m.national_avg?.[m.months.length - 1];
+    if (a && b) {
+      const pct = ((b - a) / a) * 100;
+      nl.push({ value: `${pct >= 0 ? "+" : "−"}${Math.abs(Math.round(pct))}%`, label: `India's night brightness, ${monthLabel(last)} vs ${monthLabel(m.months[then])}` });
+    }
+  }
+
+  const sw: Fact[] = [];
+  let swAsOf: string | null = null;
+  const s = read<Summary>(appsDir, "smoke-watch/data/fires_summary_recent.json", warn);
+  if (s) {
+    const week = s.by_day.slice(-7).reduce((t, d) => t + (d.detections_india ?? 0), 0);
+    sw.push({ value: int(week), label: "fire detections in India, last 7 days" });
+    const top = s.by_state.filter((x) => x.state !== "Outside India").sort((p, q) => q.detections - p.detections)[0];
+    if (top) sw.push({ value: top.state, label: `most fires this week (${int(top.detections)})` });
+  }
+  const c = read<Cities>(appsDir, "smoke-watch/data/cities.json", warn);
+  if (c) {
+    swAsOf = istDay(c.generated_utc);
+    const worst = c.cities
+      .filter((x) => x.pm25?.aqi)
+      .sort((p, q) => q.pm25!.aqi!.value - p.pm25!.aqi!.value)[0];
+    if (worst) sw.push({ value: `AQI ${worst.pm25!.aqi!.value}`, label: `${worst.name}, worst air of ${c.cities.length} cities (${worst.pm25!.aqi!.band})` });
+  }
+  return { nl, nlAsOf, sw, swAsOf };
+}
