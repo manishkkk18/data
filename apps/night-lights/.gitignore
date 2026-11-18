@@ -1,0 +1,14 @@
+.env
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+node_modules/
+web/dist/
+# big downloads and caches
+data/raw/
+data/qa/
+*.tmp
+*.log
+web/public/data/
+.claude/

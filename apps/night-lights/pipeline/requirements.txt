@@ -1,0 +1,14 @@
+blackmarblepy==2026.6.1
+exactextract==0.3.0
+geopandas==1.2.0
+h5py==3.16.0
+httpx==0.28.1
+matplotlib==3.11.2
+numpy==2.5.4
+pandas==2.3.3
+pytest==9.2.0
+python-dotenv==1.2.4
+rasterio==1.5.2
+rioxarray==0.17.0
+shapely==2.2.0
+xarray==2026.9.0

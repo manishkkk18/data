@@ -1,0 +1,183 @@
+# One-off (re-runnable) backfill on GitHub's machines, so it doesn't need a laptop.
+# Each year runs as its own job in parallel; a final job combines the results, rebuilds
+# the site's data files, commits them and redeploys. Months, years and Diwali nights
+# already in the repo are skipped, so re-running only does what's missing.
+#
+# Needs the EARTHDATA_TOKEN repository secret.
+name: Backfill (parallel)
+
+on:
+  workflow_dispatch:
+    inputs:
+      last_month:
+        description: "Last month to process (YYYY-MM)"
+        default: "2026-10"
+      last_full_year:
+        description: "Last year with NASA's annual product"
+        default: "2025"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: data-refresh # never at the same time as the monthly refresh
+  cancel-in-progress: false
+
+env:
+  PYTHONUTF8: "1"
+
+jobs:
+  monthly:
+    name: Months ${{ matrix.year }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    strategy:
+      fail-fast: false
+      max-parallel: 8 # be fair to NASA's server
+      matrix:
+        year: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.13", cache: pip, cache-dependency-path: pipeline/requirements.txt }
+      - run: pip install -r pipeline/requirements.txt
+      - uses: actions/cache@v6
+        with: { path: data/raw/boundaries, key: boundaries-9469f09 }
+      - name: Boundaries (pinned release)
+        working-directory: pipeline
+        run: python -m nightlights.boundaries
+      - name: Process ${{ matrix.year }}
+        working-directory: pipeline
+        env:
+          EARTHDATA_TOKEN: ${{ secrets.EARTHDATA_TOKEN }}
+        run: |
+          LAST="${{ github.event.inputs.last_month }}"
+          END="${{ matrix.year }}-12"
+          if [[ "$END" > "$LAST" ]]; then END="$LAST"; fi
+          python -m nightlights.run --start "${{ matrix.year }}-01" --end "$END" --fill-estimates
+      - uses: actions/upload-artifact@v7
+        with:
+          name: monthly-${{ matrix.year }}
+          path: data/stats/VNP46A3/${{ matrix.year }}-*.csv
+          if-no-files-found: ignore
+          retention-days: 7
+
+  annual:
+    name: Annual ${{ matrix.year }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 120
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        year: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.13", cache: pip, cache-dependency-path: pipeline/requirements.txt }
+      - run: pip install -r pipeline/requirements.txt
+      - uses: actions/cache@v6
+        with: { path: data/raw/boundaries, key: boundaries-9469f09 }
+      - working-directory: pipeline
+        run: python -m nightlights.boundaries
+      - name: Annual product ${{ matrix.year }}
+        if: matrix.year <= fromJSON(github.event.inputs.last_full_year)
+        working-directory: pipeline
+        env:
+          EARTHDATA_TOKEN: ${{ secrets.EARTHDATA_TOKEN }}
+        run: python -m nightlights.annual --start ${{ matrix.year }} --end ${{ matrix.year }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: annual-${{ matrix.year }}
+          path: data/stats/VNP46A4/${{ matrix.year }}.csv
+          if-no-files-found: ignore
+          retention-days: 7
+
+  diwali:
+    name: Diwali ${{ matrix.year }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 240
+    strategy:
+      fail-fast: false
+      max-parallel: 4
+      matrix:
+        year: [2015, 2016, 2017, 2018, 2019, 2020, 2021, 2022, 2023, 2024, 2025, 2026]
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.13", cache: pip, cache-dependency-path: pipeline/requirements.txt }
+      - run: pip install -r pipeline/requirements.txt
+      - uses: actions/cache@v6
+        with: { path: data/raw/boundaries, key: boundaries-9469f09 }
+      - working-directory: pipeline
+        run: python -m nightlights.boundaries
+      - name: Diwali ${{ matrix.year }}, every district
+        working-directory: pipeline
+        env:
+          EARTHDATA_TOKEN: ${{ secrets.EARTHDATA_TOKEN }}
+        run: python -m nightlights.diwali --years ${{ matrix.year }}
+      - uses: actions/upload-artifact@v7
+        with:
+          name: diwali-${{ matrix.year }}
+          path: data/stats/VNP46A2_india/${{ matrix.year }}-*.csv
+          if-no-files-found: ignore
+          retention-days: 7
+
+  combine:
+    name: Combine, commit and deploy
+    needs: [monthly, annual, diwali]
+    if: always() # publish whatever finished, even if some years failed
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-python@v7
+        with: { python-version: "3.13", cache: pip, cache-dependency-path: pipeline/requirements.txt }
+      - run: pip install -r pipeline/requirements.txt
+      - uses: actions/cache@v6
+        with: { path: data/raw/boundaries, key: boundaries-9469f09 }
+      - working-directory: pipeline
+        run: python -m nightlights.boundaries
+      - uses: actions/download-artifact@v8
+        with: { pattern: monthly-*, path: data/stats/VNP46A3, merge-multiple: true }
+      - uses: actions/download-artifact@v8
+        with: { pattern: annual-*, path: data/stats/VNP46A4, merge-multiple: true }
+      - uses: actions/download-artifact@v8
+        with: { pattern: diwali-*, path: data/stats/VNP46A2_india, merge-multiple: true }
+      - name: Rebuild the site's data files
+        working-directory: pipeline
+        run: |
+          python - <<'PY'
+          import geopandas as gpd
+          from nightlights import annual, diwali, run
+          from nightlights.config import DISTRICTS_FULL
+          d = gpd.read_file(DISTRICTS_FULL)
+          print("monthly:", run.build_monthly_json(d))
+          if any(annual.STATS_DIR.glob("????.csv")):
+              print("yearly:", annual.build_yearly_json(d))
+          diwali.write_outputs(d["id"].tolist())
+          print("diwali written")
+          PY
+          python -m nightlights.crosscheck --refresh || echo "Bhuvan unavailable; keeping the previous cross-check"
+      - name: Commit
+        id: commit
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add data/stats data/*.json
+          if git diff --cached --quiet; then echo "changed=false" >> "$GITHUB_OUTPUT"; echo "Nothing new."; else
+            git commit -m "Backfill: $(ls data/stats/VNP46A3/*.csv | wc -l) months, $(ls data/stats/VNP46A4/*.csv 2>/dev/null | wc -l) years, $(ls data/stats/VNP46A2_india/*.csv 2>/dev/null | wc -l) Diwali nights"
+            git pull --rebase --autostash && git push
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v7
+        if: steps.commit.outputs.changed == 'true'
+        with: { node-version: 22, cache: npm, cache-dependency-path: web/package-lock.json }
+      - name: Deploy site
+        if: steps.commit.outputs.changed == 'true'
+        working-directory: web
+        env:
+          DEPLOY_REMOTE: https://x-access-token:${{ secrets.GITHUB_TOKEN }}@github.com/${{ github.repository }}.git
+        run: |
+          npm ci
+          npm run deploy
