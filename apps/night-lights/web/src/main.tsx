@@ -10,9 +10,13 @@ import "./styles.css";
 import "./stage.css";
 import "./phone.css";
 import App from "./App";
+import { scrollToHashWhenReady } from "./scrollToHash";
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <App />
   </StrictMode>,
 );
+
+// Shared links to a section (#highways, #leaders, …) land on it once it has rendered.
+scrollToHashWhenReady();

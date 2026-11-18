@@ -69,7 +69,7 @@ export default function About({ data }: { data: AppData }) {
           </p>
           <p className="also-by">
             Also by me:{" "}
-            <a href="https://manishkkk18.github.io/india-night-lights/" target="_blank" rel="noopener">
+            <a href="https://manishkkk18.github.io/data/india/night-lights/" target="_blank" rel="noopener">
               India Night Lights
             </a>
             , how bright every Indian district is at night.

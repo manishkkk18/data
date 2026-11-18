@@ -1,0 +1,65 @@
+# Builds the whole site (home + both apps) and publishes it to GitHub Pages as one artifact.
+# Runs on every push to main, by hand, and from the data-refresh workflows (workflow_call),
+# so whichever app refreshes, the other app's data is rebuilt from where it lives and never lost:
+#   - Night Lights' data is committed in this repo (apps/night-lights/data).
+#   - Smoke Watch's live data lives on the smoke-watch-data branch (one commit, replaced each run).
+name: Build and deploy site
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  workflow_call:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages # one deploy at a time; a newer one waits rather than cancelling
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Smoke Watch's latest live data
+        uses: actions/checkout@v7
+        with:
+          ref: smoke-watch-data
+          path: _swdata
+
+      - name: Put the live data where Smoke Watch's build expects it
+        run: |
+          rm -rf _swdata/.git
+          cp -R _swdata/. apps/smoke-watch/data/
+          echo "Smoke Watch data generated $(grep -o '"generated_utc":"[^"]*' apps/smoke-watch/data/live/index.json)"
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: apps/*/web/package-lock.json
+
+      - name: Build the site
+        run: bash scripts/build-site.sh
+
+      - uses: actions/configure-pages@v6
+
+      - uses: actions/upload-pages-artifact@v5
+        with:
+          path: _site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: https://manishkkk18.github.io/data/india/
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v5
