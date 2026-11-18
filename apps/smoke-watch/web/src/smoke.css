@@ -1,0 +1,183 @@
+/* ============================================================================
+   India Smoke Watch additions. Everything else is India Night Lights' styles.css,
+   stage.css and phone.css, copied unchanged. Loaded last.
+   Colours all come from theme.css (Haze): ember = primary accent, teal = selection,
+   wind and the air's path, fire scale only for fire data, AQI band colours only next
+   to their text label, teal/red for better/worse changes.
+   ========================================================================== */
+
+.fire { color: var(--fire-2); }
+.big-value.fire, .story-value.fire { color: var(--fire-2); text-shadow: 0 0 28px rgb(var(--accent-rgb) / 0.35); }
+.tile-value.fire { color: var(--fire-2); }
+.tile-value.blue { color: var(--select); }
+.fire-fill { fill: var(--fire-2); }
+.kpi-value.fire { color: var(--fire-2); }
+
+/* AQI: colour + label, never colour alone. Numbers use the readable ink; badges below use
+   the official NAQI colour as a fill. */
+.aqi-good { color: var(--aqi-good-ink); }
+.aqi-sat { color: var(--aqi-sat-ink); }
+.aqi-mod { color: var(--aqi-mod-ink); }
+.aqi-poor { color: var(--aqi-poor-ink); }
+.aqi-vpoor { color: var(--aqi-vpoor-ink); }
+.aqi-severe { color: var(--aqi-severe-ink); }
+.big-value.aqi-value { text-shadow: 0 0 28px currentColor; text-shadow: 0 0 28px color-mix(in srgb, currentColor 35%, transparent); }
+.aqi-badge {
+  display: inline-block; padding: 1px 8px; margin-right: 4px; border-radius: 999px; font-family: var(--font-body);
+  font-size: 12px; font-weight: 500; border: 1px solid transparent; color: var(--bg);
+}
+.aqi-badge.aqi-good { background: var(--aqi-good); }
+.aqi-badge.aqi-sat { background: var(--aqi-sat); }
+.aqi-badge.aqi-mod { background: var(--aqi-mod); }
+.aqi-badge.aqi-poor { background: var(--aqi-poor); }
+.aqi-badge.aqi-vpoor { background: var(--aqi-vpoor); }
+.aqi-badge.aqi-severe { background: var(--aqi-severe); color: #fff; }
+
+/* Change figures: teal when things got better, red when worse */
+.better, .tile-value.better { color: var(--better); }
+.worse, .tile-value.worse { color: var(--worse-ink); }
+
+/* Legend: fire age bar + FRP dots + wind arrow, in Night Lights' legend layout */
+.legend-bar.fire-bar { box-shadow: 0 0 16px rgb(var(--accent-rgb) / 0.2); }
+.legend-size { gap: 3px; }
+.legend-size .dot { width: auto; height: auto; border-radius: 50%; background: var(--fire-2); }
+.legend-size .dot.s { width: 4px; height: 4px; }
+.legend-size .dot.m { width: 7px; height: 7px; }
+.legend-size .dot.l { width: 10px; height: 10px; margin-right: 3px; }
+.legend-arrow { width: 16px; height: 16px; }
+.legend-swatch.fire { background: linear-gradient(90deg, var(--fire-1), var(--fire-2) 33%, var(--fire-3) 66%, var(--fire-4)); }
+
+/* Layers sheet: the first switch has no divider above it */
+.layers-panel > .switch:first-child { border-top: 0; border-radius: 10px; padding-top: 6px; }
+
+/* Delhi marker */
+.delhi-pin { display: flex; align-items: center; gap: 6px; pointer-events: none; }
+.delhi-dot {
+  width: 14px; height: 14px; border-radius: 50%; background: var(--bg); border: 3px solid var(--select);
+  box-shadow: 0 0 0 4px rgb(var(--select-rgb) / 0.18), 0 0 18px rgb(var(--select-rgb) / 0.7);
+}
+.delhi-name {
+  font-family: var(--font-head); font-size: 17px; color: var(--text);
+  text-shadow: 0 1px 2px #000, 0 0 10px rgb(var(--bg-rgb) / 0.9);
+}
+
+/* Fire tooltip */
+.tooltip .tip-fire { color: var(--fire-2); }
+
+/* District day bars */
+.day-bars { margin: 0; }
+.day-bars figcaption { margin-bottom: 2px; }
+.freshness b { color: var(--text); font-weight: 500; }
+.also-by a { color: var(--accent); }
+
+/* Whose smoke: indicative upwind share (Night Lights' bar list, fire fill) */
+.whose { display: grid; gap: 8px; padding-top: 4px; }
+.whose-head { display: grid; gap: 4px; }
+.whose-head .trend-title { font-size: 18px; }
+.whose-note {
+  margin: 0; padding: 6px 10px; border-radius: 8px; font-size: 12px; color: var(--muted);
+  border: 1px dashed var(--border); background: rgb(var(--bg-rgb) / 0.5);
+}
+.whose .insights-sub { margin: 4px 0 0; }
+.whose .bars { margin: 0; }
+.bar-row.static { cursor: default; }
+.bar-row.static:hover { background: transparent; }
+.fire-bg { background: linear-gradient(90deg, var(--fire-2), var(--fire-3)); }
+.plain b.blue-b, .blue-b { color: var(--select); font-family: var(--font-body); font-weight: 500; }
+.legend-path { width: 18px; height: 10px; }
+@media (max-width: 639px) {
+  .whose-note { border: 0; border-left: 2px dashed var(--border); border-radius: 0; background: none; padding: 0 0 0 12px; }
+}
+
+/* Layers sheet: timeline (last 7 days or a season) */
+.timeline-set { padding-bottom: 10px !important; border-bottom: 1px solid var(--border) !important; }
+.season-opts { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; }
+.season-opt { padding: 6px 8px; gap: 8px; font-variant-numeric: tabular-nums; }
+.season-opt .layer-label { font-family: var(--font-mono); font-size: 13px; }
+.season-note { padding: 2px 8px 0; }
+.layers.compact .layers-panel .season-opts { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+/* Seasons section (Night Lights' Diwali/Compare section layout) */
+.seasons { margin: 0 16px 16px; padding: 24px; display: grid; gap: 16px; }
+.seasons h2 { font-size: 26px; }
+.seasons .diwali-head p { margin: 6px 0 0; max-width: 70ch; }
+.season-controls { display: flex; flex-wrap: wrap; gap: 12px 24px; align-items: flex-end; }
+.lag-pick { display: grid; gap: 4px; }
+.lag-pick .toggle { margin-left: 0; }
+.lag-pick .toggle button { min-height: 40px; font-size: 13px; }
+.lag-result { display: grid; gap: 4px; }
+.lag-result p { margin: 0; }
+.seasons-compare { grid-template-columns: minmax(260px, 360px) minmax(0, 1fr); }
+.seasons-mini { display: grid; gap: 16px; }
+.compare-note { grid-column: 1 / -1; }
+#season { scroll-margin-top: calc(var(--header-h) + 12px); }
+@media (max-width: 899px) {
+  .seasons { padding: 16px; }
+  .seasons-compare { grid-template-columns: 1fr; }
+}
+@media (max-width: 639px) {
+  .seasons { margin: 0 0 24px; padding: 20px var(--gutter); border-radius: 0; border-left: 0; border-right: 0; }
+  .seasons h2 { font-size: 24px; }
+  .season-controls { display: grid; }
+  .lag-pick .toggle { width: 100%; }
+  .lag-pick .toggle button { flex: 1; min-height: 44px; padding: 0 4px; }
+  .season-controls .select select { width: 100%; }
+}
+
+/* Legend ticks like "24 h" never wrap */
+.legend-ticks span { white-space: nowrap; }
+
+/* Leaderboards (Night Lights' Insights cards) */
+.leader-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 12px; flex-wrap: wrap; }
+.leader-year select { min-height: 36px; padding: 0 8px; font-size: 13px; }
+.bar-value small { font-family: var(--font-mono); font-size: 11px; margin-left: 4px; }
+.bar-track.pair { position: relative; overflow: visible; }
+.bar-ghost { position: absolute; top: -3px; bottom: -3px; width: 2px; margin-left: -1px; background: var(--text); opacity: 0.7; border-radius: 1px; }
+#leaders, #why, #limits { scroll-margin-top: calc(var(--header-h) + 12px); }
+.limits { display: grid; gap: 8px; padding-top: 4px; border-top: 1px solid var(--border); }
+.limits .trend-title { font-size: 18px; margin-top: 8px; }
+.limits .about-points li { line-height: 1.5; }
+
+/* NASA satellite layers: their own legend; fires get a dark edge on top of the imagery */
+.legend-sat { display: grid; gap: 2px; margin-top: 6px; }
+.legend-sat .legend-bar { height: 8px; }
+.legend-sat-note { font-size: 11px; }
+
+/* Last-updated stamp (About) */
+.about .last-updated { margin: -8px 0 16px; font-size: 13px; color: var(--muted); }
+.about .last-updated b { color: var(--text); font-weight: 500; }
+
+/* City markers: every city clickable; the chosen one gets the blue ring (as Delhi had) */
+.city-pin {
+  display: flex; align-items: center; gap: 5px; padding: 4px 6px 4px 0; margin: 0; border: 0; background: none; cursor: pointer;
+  min-height: 28px; color: var(--muted);
+}
+.city-pin .city-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bg); border: 2px solid var(--muted); flex: none; }
+.city-pin .city-name { font-family: var(--font-head); font-size: 14px; color: var(--muted); text-shadow: 0 1px 2px #000, 0 0 8px rgb(var(--bg-rgb) / 0.9); }
+.city-pin:hover .city-name, .city-pin:focus-visible .city-name { color: var(--text); }
+.city-pin.on { z-index: 2; }
+.city-pin.on .city-dot {
+  width: 14px; height: 14px; border: 3px solid var(--select);
+  box-shadow: 0 0 0 4px rgb(var(--select-rgb) / 0.18), 0 0 18px rgb(var(--select-rgb) / 0.7);
+}
+.city-pin.on .city-name { font-size: 17px; color: var(--text); }
+
+/* City picker: Night Lights' chip, opening a search-results style list */
+.city-picker { position: relative; }
+.city-chip .chev { width: 14px; height: 14px; color: var(--muted); }
+.city-chip-name { font-weight: 500; }
+.city-list { min-width: 260px; left: 0; right: auto; max-height: min(420px, 60svh); overflow: auto; }
+.city-list li { gap: 16px; }
+.city-list .city-pm { white-space: nowrap; }
+.chip.wide { width: 100%; justify-content: flex-start; }
+.chip.wide .chev { margin-left: auto; }
+.kpi-more .city-list { left: 0; right: 0; min-width: 0; }
+@media (min-width: 900px) and (max-width: 1279px) {
+  .city-chip .city-chip-name { display: inline; }
+}
+@media (max-width: 899px) {
+  .kpi-actions .city-picker .chip { width: auto; padding: 0 10px; }
+}
+
+/* Far zoom: only the chosen city is named */
+.map.far .city-pin:not(.on) .city-name { display: none; }

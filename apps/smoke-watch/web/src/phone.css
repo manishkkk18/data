@@ -1,0 +1,212 @@
+/* ============================================================================
+   "Why it matters", first-load tagline, and the decluttered phone layout (<640px).
+   Loaded last. Everything above the phone block applies at all widths.
+   ========================================================================== */
+
+.corridor-chip { white-space: nowrap; }
+
+/* Nav: the tab for the section on screen */
+.nav a[aria-current] { color: var(--text); }
+.header-search { display: contents; }
+
+/* Why night lights matter */
+.why { margin: 0 16px 16px; padding: 24px; display: grid; gap: 16px; }
+.why h2 { font-size: 26px; }
+.why-head p { margin: 6px 0 0; max-width: 70ch; color: var(--muted); font-size: 15px; }
+.why-head b, .why-anchor b { color: var(--text); font-weight: 500; }
+.why-rows { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px 32px; }
+.why-rows li { display: grid; grid-template-columns: 36px minmax(0, 1fr); gap: 12px; align-items: start; font-size: 15px; color: var(--muted); }
+.why-rows li b { color: var(--text); font-weight: 500; }
+.why-rows svg {
+  width: 36px; height: 36px; padding: 8px; border-radius: 10px; background: rgb(var(--accent-rgb) / 0.08);
+  fill: none; stroke: var(--accent); stroke-width: 1.5; stroke-linecap: round; stroke-linejoin: round;
+}
+.why-anchor, .why-limits { margin: 0; font-size: 14px; max-width: 80ch; }
+.why-anchor { color: var(--muted); }
+.why-anchor b { font-family: var(--font-mono); color: var(--accent); }
+.why-limits b { color: var(--text); font-weight: 500; }
+#why, #highways { scroll-margin-top: calc(var(--header-h) + 12px); }
+@media (max-width: 899px) { .why { padding: 16px; } .why-rows { grid-template-columns: 1fr; } }
+
+/* First-load tagline (desktop/tablet: under the KPI strip) */
+.intro-line {
+  position: absolute; z-index: 6; top: 76px; left: 12px; max-width: min(560px, calc(100% - 420px));
+  display: flex; gap: 10px; align-items: center; padding: 8px 8px 8px 14px; border-radius: 12px;
+  background: rgb(var(--glass-rgb) / 0.8); border: 1px solid rgb(var(--border-rgb) / 0.9); backdrop-filter: blur(14px);
+  font-family: var(--font-head); font-size: 18px; line-height: 1.25;
+  animation: intro-in 0.4s ease-out;
+}
+.intro-line .link-btn { font-size: 20px; color: var(--muted); min-width: 32px; min-height: 32px; }
+@keyframes intro-in { from { opacity: 0; transform: translateY(-4px); } }
+@media (max-width: 899px) { .intro-line { top: 128px; left: 8px; right: 60px; max-width: none; font-size: 16px; } }
+
+/* ============================================================================
+   Phones
+   ========================================================================== */
+@media (max-width: 639px) {
+  :root { --header-h: 100px; --gutter: 16px; }
+  body { padding-bottom: 0; font-size: 15px; }
+  .small, .muted.small, .stories-foot { font-size: 14px; }
+
+  /* 1. Header: one row (logo + title, search icon), tabs below it */
+  .header { display: grid; grid-template-columns: minmax(0, 1fr) auto; grid-template-rows: 54px 46px; align-items: center; gap: 0 8px; padding: 0 var(--gutter); }
+  .brand-name { font-size: 20px; }
+  .header .search-toggle { border: 0; }
+  .header .search-toggle svg { width: 20px; height: 20px; }
+  .header.searching .brand { display: none; }
+  .header-search { display: flex; grid-column: 1 / -1; grid-row: 1; gap: 8px; align-items: center; }
+  .header-search .search { flex: 1; width: auto; min-width: 0; margin: 0; }
+  .header-search .icon-btn { border: 0; }
+  .nav {
+    grid-column: 1 / -1; grid-row: 2; align-self: stretch; order: 0;
+    margin: 0 calc(-1 * var(--gutter)); padding: 0 calc(var(--gutter) - 10px); width: auto;
+    display: flex; gap: 0; overflow-x: auto; scrollbar-width: none; scroll-snap-type: x proximity;
+    border-top: 1px solid rgb(var(--border-rgb) / 0.6);
+  }
+  .nav::-webkit-scrollbar { display: none; }
+  .nav a { flex: none; min-height: 44px; padding: 0 10px; font-size: 14px; border-radius: 0; scroll-snap-align: start; border-bottom: 2px solid transparent; }
+  .nav a[aria-current] { color: var(--text); border-bottom-color: var(--accent); background: none; }
+
+  /* Stage: map takes the screen between header and sheet peek */
+  .stage { height: calc(100svh - var(--header-h) - var(--peek)); min-height: 500px; }
+
+  /* 2. Stats card: one line, tap to expand */
+  .kpi-strip.phone {
+    display: block; left: 8px; right: 8px; top: 8px; padding: 0; min-height: 0; border-radius: 12px; gap: 0;
+  }
+  .kpi-line {
+    width: 100%; min-height: 44px; display: flex; align-items: center; gap: 8px; padding: 6px 8px 6px 14px;
+    background: none; border: 0; text-align: left; cursor: pointer; font-size: 14px; color: var(--text);
+  }
+  .kpi-summary { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .kpi-summary b { font-family: var(--font-head); font-weight: 400; font-size: 17px; }
+  .kpi-summary .sep { color: var(--muted); }
+  .kpi-tagline { flex: 1; font-family: var(--font-head); font-size: 15px; line-height: 1.2; }
+  .kpi-line .chev { flex: none; width: 18px; height: 18px; color: var(--muted); transition: transform 0.2s; }
+  .kpi-strip.open .chev { transform: rotate(180deg); }
+  .kpi-more { display: grid; gap: 10px; padding: 4px 14px 14px; border-top: 1px solid var(--border); padding-top: 12px; }
+  .kpi-more .kpi { white-space: normal; }
+  .kpi-more .kpi-month { font-size: 22px; }
+  .kpi-more .kpi-value { font-size: 17px; }
+  .kpi-more small { font-family: var(--font-body); font-size: 12px; font-weight: 400; }
+  .kpi-more p { margin: 0; }
+  .kpi-label { font-size: 12px; }
+  .kpi-strip.open { z-index: 12; background: rgb(var(--glass-rgb) / 0.97); }
+
+  /* 3. Map controls: Radiance/Growth pill top-left, one stack on the right */
+  .toggle.mode-pill {
+    position: absolute; z-index: 5; top: 64px; left: 8px; width: auto; margin: 0; padding: 3px; border-radius: 999px;
+    background: rgb(var(--glass-rgb) / 0.85); border: 1px solid rgb(var(--border-rgb) / 0.9); backdrop-filter: blur(10px);
+  }
+  .toggle.mode-pill button { flex: none; min-height: 44px; padding: 0 12px; border-radius: 999px; font-size: 13px; white-space: nowrap; }
+  .toggle.mode-pill button.on { background: var(--panel-2); }
+  .stage .maplibregl-ctrl-top-right { top: 56px; right: 0; }
+  .stage .maplibregl-ctrl-top-right .maplibregl-ctrl { margin: 8px 8px 0 0; }
+  .stage .maplibregl-ctrl-group { border-radius: 12px; overflow: hidden; background: rgb(var(--panel-rgb) / 0.92) !important; }
+  .stage .maplibregl-ctrl-group button { width: 44px; height: 44px; }
+  .map-fabs {
+    position: absolute; z-index: 5; right: 8px; top: 214px; display: grid; border-radius: 12px; overflow: hidden;
+    background: rgb(var(--panel-rgb) / 0.92); border: 1px solid var(--border);
+  }
+  .fab { width: 44px; height: 44px; display: grid; place-items: center; border: 0; background: transparent; color: var(--accent); cursor: pointer; }
+  .fab + .fab { border-top: 1px solid var(--border); }
+  .fab svg { width: 18px; height: 18px; }
+  .fab .chip-text { display: none; }
+  /* attribution: just the (i) button, bottom-right, clear of the Layers row */
+  .stage .maplibregl-ctrl-bottom-right { bottom: 96px; right: 0; }
+  .stage .maplibregl-ctrl-attrib.maplibregl-compact { margin: 0 8px 8px 0; }
+
+  /* Layers (holds Before/after too) + Legend chip, bottom-left above the timeline */
+  .stage .layers.compact { left: 8px; bottom: 97px; right: 60px; justify-items: stretch; }
+  .layers.compact .layers-row { flex-wrap: nowrap; }
+  .stage .layers.compact.open, .stage .layers.compact:has(.legend-pop) { z-index: 13; }
+  .layers.compact .layers-btn { min-height: 44px; padding: 0 14px; background: rgb(var(--panel-rgb) / 0.92); }
+  .layers.compact .layers-panel { width: 100%; max-height: calc(100svh - var(--header-h) - 260px); overflow: auto; }
+  .layers-extra { display: grid; gap: 8px; padding-bottom: 10px; border-bottom: 1px solid var(--border); }
+  .layers-extra .layers-btn { width: 100%; justify-content: center; box-shadow: none; }
+  .layers-legend { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: 0.04em; }
+  .layers-panel fieldset:disabled { opacity: 0.5; }
+  .layers-credit { font-size: 12px; }
+  .legend-chip { position: static; }
+  .legend-swatch { width: 18px; height: 10px; border-radius: 3px; background: linear-gradient(90deg, var(--fire-4), var(--fire-2), var(--fire-1)); }
+  .legend-pop {
+    position: absolute; left: 0; bottom: calc(100% + 8px); z-index: 2; width: min(300px, calc(100vw - 32px)); padding: 12px 14px;
+    background: rgb(var(--panel-rgb) / 0.97); border: 1px solid var(--border); border-radius: 14px; box-shadow: 0 12px 32px rgba(0, 0, 0, 0.45);
+  }
+  .legend-pop .legend { width: 100%; }
+  .legend-ticks, .legend-foot, .legend-note { font-size: 12px; }
+
+  /* 4. Loading: title sits on the outline, in the clear middle of the map */
+  .map-loading-outline { inset: 56px 60px 70px 8px; background: none; }
+  .map-loading-outline svg { width: min(220px, 56vw); }
+  .map-loading-outline { grid-template-areas: "stack"; }
+  .map-loading-outline > * { grid-area: stack; align-self: center; }
+  .loading-label { font-size: 20px; text-shadow: 0 2px 12px rgba(0, 0, 0, 0.9); }
+
+  /* 6. Timeline: one row (play · slider · speed) */
+  .timebar { left: 8px; right: 8px; bottom: 8px; padding: 6px 10px 2px 6px; gap: 0; border-radius: 14px; flex-wrap: nowrap; }
+  .timebar-controls { gap: 8px; }
+  .timebar .play { width: 44px; height: 44px; order: 0; box-shadow: 0 0 16px rgb(var(--accent-rgb) / 0.3); }
+  .timebar .slider { order: 1; padding-top: 18px; padding-bottom: 14px; }
+  .timebar .speed { order: 2; min-width: 44px; height: 44px; font-size: 13px; }
+  .slider-spark { top: 12px; }
+  .thumb-label { font-size: 12px; }
+  .ticks { font-size: 12px; height: 14px; }
+  .swipe-bar { display: grid; grid-template-columns: 1fr 1fr auto; gap: 8px; align-items: end; padding: 4px 0 6px 4px; }
+  .swipe-bar .kpi-label { font-size: 12px; }
+
+  /* 7. Stories sheet: opaque, slides away when the map is scrolled past, never over the stats line */
+  .stage .side, .side { background: var(--panel); backdrop-filter: none; -webkit-backdrop-filter: none; }
+  .side { max-height: calc(100svh - var(--header-h) - 64px); transition: transform 0.25s ease, visibility 0s linear 0s; }
+  .side[data-away="true"] { transform: translateY(110%); visibility: hidden; transition: transform 0.25s ease, visibility 0s linear 0.25s; }
+  .side-body { padding: 0 var(--gutter) calc(20px + env(safe-area-inset-bottom)); }
+  .sheet-handle { padding: 8px var(--gutter) 10px; }
+  .stage .map-notice, .toast, .stage .swipe-label { top: 124px; }
+  .corridor-chip { bottom: 152px; }
+  .chip-long { display: none; }
+
+  /* 8. Insights: tabs */
+  .insights { margin: 0 0 24px; gap: 24px; }
+  .tabs { display: flex; gap: 4px; padding: 3px; border-radius: 12px; background: var(--bg); border: 1px solid var(--border); }
+  .tabs button {
+    flex: 1; min-height: 44px; padding: 0 6px; border: 0; border-radius: 9px; background: transparent; color: var(--muted);
+    font-size: 13px; font-weight: 500; cursor: pointer; line-height: 1.15;
+  }
+  .tabs button.on { background: var(--panel-2); color: var(--text); box-shadow: inset 0 0 0 1px var(--border); }
+  .tab-panel { display: grid; gap: 8px; }
+  .show-more { width: 100%; margin-top: 4px; background: transparent; }
+
+  /* 9. Visual calm: full-width sections, 16px gutters, 24px apart, no nested bordered cards */
+  .panel.card, .why, .highways, .diwali, .compare, .crosscheck, .about {
+    margin: 0 0 24px; padding: 20px var(--gutter); border-radius: 0; border-left: 0; border-right: 0;
+  }
+  main + .why { margin-top: 0; }
+  .card h2, .why h2, .highways h2, .diwali h2, .compare-head h2, .crosscheck h2, .about h2 { font-size: 24px; }
+  .card { gap: 10px; }
+  .story, .tile, .diwali-card, .gap-note, .chart-placeholder {
+    background: none; border: 0; border-radius: 0; box-shadow: none;
+  }
+  .stories { gap: 0; }
+  .story { padding: 14px 0; border-bottom: 1px solid var(--border); }
+  .story:last-of-type { border-bottom: 0; }
+  .story:hover, .story:focus-visible { transform: none; }
+  .story-go { right: 0; top: 15px; }
+  .story-kicker, .story-unit, .tile-hint, .trend-note, .few-nights, .est-badge, .story-line { font-size: 12px; }
+  .tiles { gap: 0; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+  .tile { padding: 10px 8px; }
+  .tile + .tile { border-left: 1px solid var(--border); }
+  .tile-label { font-size: 12px; }
+  .diwali-card { padding: 10px 0; border-bottom: 1px solid var(--border); }
+  .gap-note { padding: 0 0 0 12px; border-left: 2px dashed var(--border); }
+  .about-points, .about p, .crosscheck-head p, .diwali-head p { font-size: 14px; }
+  .bar-name .muted, .card-sub { font-size: 12px; }
+  .bar-name { font-size: 15px; }
+
+  /* tap targets */
+  .link-btn { min-height: 44px; min-width: 44px; }
+  .city-table .city-btn { min-height: 44px; }
+  .year-pills button { min-height: 44px; }
+  .chip { min-height: 44px; }
+  .btn, .select select { min-height: 44px; }
+  .toggle button { min-height: 44px; }
+}

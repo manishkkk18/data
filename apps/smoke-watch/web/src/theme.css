@@ -1,0 +1,64 @@
+/* ============================================================================
+   Haze: India Smoke Watch's colour theme, in the same family as India Night Lights.
+   EVERY colour in the app comes from here. CSS uses these variables directly; the map
+   and charts (which can't read CSS variables) read the same tokens through theme.ts.
+   The *-rgb versions are for translucent surfaces: rgb(var(--panel-rgb) / 0.9).
+   Contrast on panels (#1E1A17): text 14:1, muted 7.4:1, accent 6.7:1, teal 9.3:1.
+   ========================================================================== */
+:root {
+  /* Surfaces: warm smoky charcoal, flat */
+  --bg: #14110f;          --bg-rgb: 20 17 15;
+  --panel: #1e1a17;       --panel-rgb: 30 26 23;
+  --panel-2: #26211d;     --raised-rgb: 38 33 29; /* raised / hover */
+  --glass-rgb: 25 21 19;  /* floating cards over the map */
+  --border: #302a25;      --border-rgb: 48 42 37;
+
+  /* Text */
+  --text: #ede6df;        --text-rgb: 237 230 223;
+  --muted: #b3a89e;       --muted-rgb: 179 168 158;
+
+  /* Primary accent: ember orange (play, active tabs, chips, headline numbers, focus, links) */
+  --accent: #ff7a3d;      --accent-rgb: 255 122 61;
+  --on-accent: #1a0d06;   /* text on an ember fill, 7.3:1 */
+  --accent-dim: #4a2a1c;  /* disabled play button */
+  --accent-dim-ink: #9a6a52;
+  --accent-deep: #a8451c; /* hatching for estimates */
+
+  /* Selection, wind and the air's path: teal */
+  --select: #4fd1c5;      --select-rgb: 79 209 197;
+  --select-soft: #c4f1ec; /* the air's path aloft (paler, next to the dashed near-ground line) */
+
+  /* Change figures: teal = better, red = worse (red text is lifted a little to reach 4.5:1) */
+  --better: #4fd1c5;
+  --worse: #e5484d;
+  --worse-ink: #eb5a5e;
+
+  /* Fire scale, fire data only (map and charts): newest / most intense → oldest */
+  --fire-1: #ffb08a;
+  --fire-2: #ff7a3d;
+  --fire-3: #e5484d;
+  --fire-4: #9e1c2a;
+
+  /* India NAQI band colours (CPCB), always shown with the band's name. Badges use the
+     official colour as a fill; numbers use the -ink version, lifted where the official
+     red/maroon would be too dark to read on a dark panel. */
+  --aqi-good: #00b050;    --aqi-good-ink: #00b050;
+  --aqi-sat: #92d050;     --aqi-sat-ink: #92d050;
+  --aqi-mod: #ffff00;     --aqi-mod-ink: #ffff00;
+  --aqi-poor: #ff9900;    --aqi-poor-ink: #ff9900;
+  --aqi-vpoor: #ff0000;   --aqi-vpoor-ink: #ff5a4f;
+  --aqi-severe: #c00000;  --aqi-severe-ink: #ec7088;
+
+  /* Basemap: warm sepia-grey, so it reads as haze rather than navy night */
+  --map-land: #1b1714;
+  --map-water: #0f0d0c;
+  --map-label: #6f655c;
+  --map-line-rgb: 150 132 116; /* district boundaries */
+  --map-sky: #3a2a20;     /* the globe's glow when zoomed out */
+  --map-horizon: #8a6a52;
+  --map-fog: #2a201a;
+
+  /* Charts (validated with the dataviz palette checker on the panel colour) */
+  --chart-a: #c98424; /* ochre: PM2.5, first year */
+  --chart-b: #8a78e0; /* violet: second year (teal is kept for selection) */
+}
