@@ -8,7 +8,7 @@ maplibregl.setWorkerUrl(workerUrl);
 import type { ExpressionSpecification, GeoJSONSource } from "maplibre-gl";
 import type { FeatureCollection } from "geojson";
 import { SAT, arrivalAt, firesBetween, windFrame, type Arrival, type BBox, type CityInfo, type DistrictFC, type Fire, type SatLayer, type UpwindFile, type WindFile, type WindLevel } from "../data";
-import { FIRE_NEW, FIRE_OLD, WIND_BLUE } from "./Legend";
+import { theme } from "../theme";
 
 // OpenFreeMap: free, no API key, no view limits. Attribution comes from the style.
 export const STYLE_URL = "https://tiles.openfreemap.org/styles/dark";
@@ -51,7 +51,11 @@ type Props = {
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // Fire dots: colour = age in the window (0 newest → 1 oldest), size = fire radiative power (MW).
-const AGE_COLOR: ExpressionSpecification = ["interpolate", ["linear"], ["get", "age"], 0, FIRE_NEW, 1, FIRE_OLD];
+// The fire scale from theme.css: newest pale ember → ember → red → oldest deep red.
+const ageColor = (): ExpressionSpecification => {
+  const [a, b, c, d] = theme().fire;
+  return ["interpolate", ["linear"], ["get", "age"], 0, a, 0.33, b, 0.66, c, 1, d];
+};
 const FRP_RADIUS: ExpressionSpecification = ["interpolate", ["linear"], ["get", "frp"], 0, 1.6, 10, 2.4, 50, 4, 200, 7];
 const zoomed = (base: ExpressionSpecification, k: number): ExpressionSpecification =>
   ["interpolate", ["linear"], ["zoom"], 4, ["*", base, 0.8], 7, base, 10, ["*", base, k]] as ExpressionSpecification;
@@ -285,7 +289,7 @@ export default function MapView(props: Props) {
       if (map.getLayer(id)) map.setLayoutProperty(id, "visibility", on ? "visible" : "none");
     }
     // Fires get a dark edge so they stay readable on top of the imagery.
-    map.setPaintProperty("fire-dots", "circle-stroke-color", ["case", ["boolean", ["feature-state", "hover"], false], "#FFD2B8", "#0B0F1A"]);
+    map.setPaintProperty("fire-dots", "circle-stroke-color", ["case", ["boolean", ["feature-state", "hover"], false], theme().fireHover, theme().bg]);
     map.setPaintProperty("fire-dots", "circle-stroke-width", ["case", ["boolean", ["feature-state", "hover"], false], 1.5, props.sat === "none" ? 0 : 0.8]);
   }, [props.sat, props.satDate, ready]);
 
@@ -330,21 +334,29 @@ export function tuneBasemap(map: maplibregl.Map) {
       map.setLayoutProperty(layer.id, "text-field", ["coalesce", ["get", "name:en"], ["get", "name_en"], ["get", "name:latin"], ["get", "name"]]);
     }
   }
-  if (map.getLayer("background")) map.setPaintProperty("background", "background-color", "#0B0F1A");
-  if (map.getLayer("water")) map.setPaintProperty("water", "fill-color", "#0D1424");
+  // Haze: warm sepia-grey land, water and labels instead of navy.
+  const t = theme();
+  if (map.getLayer("background")) map.setPaintProperty("background", "background-color", t.mapLand);
+  if (map.getLayer("water")) map.setPaintProperty("water", "fill-color", t.mapWater);
+  for (const layer of style.layers ?? []) {
+    if (layer.type === "symbol" && map.getPaintProperty(layer.id, "text-color") !== undefined) {
+      map.setPaintProperty(layer.id, "text-color", t.mapLabel);
+      map.setPaintProperty(layer.id, "text-halo-color", t.mapWater);
+    }
+  }
   try {
-    map.setSky({ "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 1, 5, 1, 7, 0] });
+    map.setSky({ "atmosphere-blend": ["interpolate", ["linear"], ["zoom"], 0, 1, 5, 1, 7, 0], "sky-color": t.mapSky, "horizon-color": t.mapHorizon, "fog-color": t.mapFog });
   } catch {
     /* atmosphere is decorative */
   }
 }
 
 const DETAIL_ZOOM = 6.5;
-const OUTLINE_PAINT = {
-  "line-color": "#9AA3B8",
+const outlinePaint = () => ({
+  "line-color": theme().muted,
   "line-opacity": 0.75,
   "line-width": ["interpolate", ["linear"], ["zoom"], 2, 0.6, 8, 1.4, 12, 2],
-} as maplibregl.LineLayerSpecification["paint"];
+}) as maplibregl.LineLayerSpecification["paint"];
 
 /** India's outline at ~170 m detail, fetched the first time the map is zoomed past regional level. */
 export function enableDetailOutline(map: maplibregl.Map) {
@@ -358,7 +370,7 @@ export function enableDetailOutline(map: maplibregl.Map) {
       .then((data) => {
         if (!map.getStyle() || map.getSource("india-outline-detail")) return;
         map.addSource("india-outline-detail", { type: "geojson", data });
-        map.addLayer({ id: "india-outline-detail", type: "line", source: "india-outline-detail", minzoom: DETAIL_ZOOM, paint: OUTLINE_PAINT }, "district-hover");
+        map.addLayer({ id: "india-outline-detail", type: "line", source: "india-outline-detail", minzoom: DETAIL_ZOOM, paint: outlinePaint() }, "district-hover");
       })
       .catch(() => {
         started = false; // try again on the next zoom
@@ -387,25 +399,25 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
       type: "line",
       source: "districts",
       paint: {
-        "line-color": ["interpolate", ["linear"], ["zoom"], 5, "rgba(110,130,170,0.28)", 11, "rgba(110,130,170,0.5)"],
+        "line-color": ["interpolate", ["linear"], ["zoom"], 5, theme().mapLine(0.3), 11, theme().mapLine(0.55)],
         "line-width": ["interpolate", ["linear"], ["zoom"], 4, 0.4, 8, 0.8, 12, 1.2],
       },
     },
     before,
   );
-  map.addLayer({ id: "india-outline", type: "line", source: "india-outline", maxzoom: DETAIL_ZOOM, paint: OUTLINE_PAINT });
+  map.addLayer({ id: "india-outline", type: "line", source: "india-outline", maxzoom: DETAIL_ZOOM, paint: outlinePaint() });
   map.addLayer({
     id: "district-hover",
     type: "line",
     source: "districts",
-    paint: { "line-color": "#E8ECF5", "line-width": 1.5, "line-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.9, 0] },
+    paint: { "line-color": theme().text, "line-width": 1.5, "line-opacity": ["case", ["boolean", ["feature-state", "hover"], false], 0.9, 0] },
   });
   map.addLayer({
     id: "district-selected",
     type: "line",
     source: "districts",
     filter: ["==", ["get", "id"], ""],
-    paint: { "line-color": WIND_BLUE, "line-width": ["interpolate", ["linear"], ["zoom"], 3, 2, 10, 3.5] },
+    paint: { "line-color": theme().select, "line-width": ["interpolate", ["linear"], ["zoom"], 3, 2, 10, 3.5] },
   });
   // Fires: a soft glow under each dot, newest drawn on top.
   map.addLayer({
@@ -414,7 +426,7 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
     source: "fires",
     layout: { "circle-sort-key": ["-", 1, ["get", "age"]] },
     paint: {
-      "circle-color": AGE_COLOR,
+      "circle-color": ageColor(),
       // A halo about 2.4× the dot, not a second dot.
       "circle-radius": zoomed(["*", FRP_RADIUS, 2.4] as ExpressionSpecification, 1.8) as unknown as number,
       "circle-blur": 1,
@@ -427,10 +439,10 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
     source: "fires",
     layout: { "circle-sort-key": ["-", 1, ["get", "age"]] },
     paint: {
-      "circle-color": AGE_COLOR,
+      "circle-color": ageColor(),
       "circle-radius": zoomed(FRP_RADIUS, 1.8) as unknown as number,
       "circle-opacity": ["*", ["get", "fade"], ["interpolate", ["linear"], ["get", "age"], 0, 0.95, 1, 0.45]],
-      "circle-stroke-color": "#FFD2B8",
+      "circle-stroke-color": theme().fireHover,
       "circle-stroke-width": ["case", ["boolean", ["feature-state", "hover"], false], 1.5, 0],
     },
   });
@@ -458,7 +470,7 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
     source: "traj",
     filter: isLine,
     layout: { "line-join": "round", "line-cap": "round" },
-    paint: { "line-color": WIND_BLUE, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 9, 8, 16], "line-blur": 8, "line-opacity": ["case", aloft, 0.45, 0.3] },
+    paint: { "line-color": theme().select, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 9, 8, 16], "line-blur": 8, "line-opacity": ["case", aloft, 0.45, 0.3] },
   });
   map.addLayer({
     id: "traj-line-aloft",
@@ -466,7 +478,7 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
     source: "traj",
     filter: ["all", isLine, aloft],
     layout: { "line-join": "round", "line-cap": "round" },
-    paint: { "line-color": "#CFE0FF", "line-width": ["interpolate", ["linear"], ["zoom"], 4, 2.2, 8, 3.5] },
+    paint: { "line-color": theme().selectSoft, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 2.2, 8, 3.5] },
   });
   map.addLayer({
     id: "traj-line-ground",
@@ -474,7 +486,7 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
     source: "traj",
     filter: ["all", isLine, ["!", aloft]],
     layout: { "line-join": "round" },
-    paint: { "line-color": WIND_BLUE, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 2, 8, 3], "line-dasharray": [2, 1.5] },
+    paint: { "line-color": theme().select, "line-width": ["interpolate", ["linear"], ["zoom"], 4, 2, 8, 3], "line-dasharray": [2, 1.5] },
   });
   map.addLayer({
     id: "traj-ticks",
@@ -483,8 +495,8 @@ function addDataLayers(map: maplibregl.Map, districts: DistrictFC, outline: Feat
     filter: ["==", ["geometry-type"], "Point"],
     paint: {
       "circle-radius": ["interpolate", ["linear"], ["zoom"], 4, 3, 8, 4.5],
-      "circle-color": "#0B0F1A",
-      "circle-stroke-color": ["case", aloft, "#CFE0FF", WIND_BLUE],
+      "circle-color": theme().bg,
+      "circle-stroke-color": ["case", aloft, theme().selectSoft, theme().select],
       "circle-stroke-width": 2,
     },
   });
@@ -498,11 +510,11 @@ function arrowImage(): ImageData {
   c.width = w;
   c.height = h;
   const ctx = c.getContext("2d")!;
-  ctx.strokeStyle = WIND_BLUE;
+  ctx.strokeStyle = theme().select;
   ctx.lineWidth = 3;
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
-  ctx.shadowColor = "rgba(110,168,255,0.6)";
+  ctx.shadowColor = theme().selectGlow;
   ctx.shadowBlur = 4;
   ctx.beginPath();
   ctx.moveTo(w / 2, h - 6);

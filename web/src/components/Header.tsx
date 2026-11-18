@@ -182,14 +182,14 @@ function matchedAlias(d: District, q: string) {
   return d.aliases.find((a) => fold(a).includes(term)) ?? null;
 }
 
+// Smoke Watch's mark: an ember flame with two rising wisps of smoke (colours from theme.css).
 function Logo() {
   return (
     <svg className="logo" viewBox="0 0 32 32" aria-hidden="true">
-      <circle cx="16" cy="16" r="13" fill="none" stroke="#232B40" strokeWidth="2" />
-      <circle cx="11" cy="12" r="3.2" fill="#FF7A3D" />
-      <circle cx="18" cy="16" r="2" fill="#E5484D" opacity=".85" />
-      <circle cx="21.5" cy="10" r="1.1" fill="#FF7A3D" opacity=".6" />
-      <path d="M7 22c5-3.5 11-3.5 18-1" fill="none" stroke="#6EA8FF" strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M15 11.5c-1.7-1.5-1.3-3.2.2-4.4 1.4-1.2 1.5-2.6.4-3.9" fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="1.8" strokeLinecap="round" opacity=".55" />
+      <path d="M19.6 11c-1.1-1.1-.9-2.3.2-3.2" fill="none" style={{ stroke: "var(--accent)" }} strokeWidth="1.6" strokeLinecap="round" opacity=".35" />
+      <path d="M16 29c-4.3 0-7-2.8-7-6.4 0-3.1 2-4.9 3.6-7.4.4 1.7 1.3 2.8 2.5 3.3-.2-2.5.9-4.8 2.7-6.6.3 2.8 1.5 4.3 2.8 5.9 1.4 1.7 2.4 3.1 2.4 4.8 0 3.6-2.7 6.4-7 6.4z" style={{ fill: "var(--accent)" }} />
+      <path d="M16 29c-2 0-3.3-1.3-3.3-3.1 0-1.7 1.2-2.8 2.3-4 .2 1.1.8 1.7 1.5 2 .2-1.1.8-1.8 1.5-2.4.4 1.3 1.3 2.2 1.3 3.6 0 2.2-1.3 3.9-3.3 3.9z" style={{ fill: "var(--fire-1)" }} />
     </svg>
   );
 }

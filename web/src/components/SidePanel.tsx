@@ -146,6 +146,7 @@ function Today({ data, city, cityData, day, at, window: w, fires, windLevel, onP
         <Tile
           label="vs a year ago"
           value={lyChange != null ? fmtPct(lyChange, true) : "–"}
+          tone={lyChange == null || lyChange === 0 ? undefined : lyChange > 0 ? "worse" : "better"}
           hint={ly?.available ? `${dayLabel(ly.date!)}: ${fmtInt(ly.count)} vs ${fmtInt(ly.last_year_count)}` : "needs the FIRMS key"}
           hint2={ly?.available ? "NOAA-20 only, so it's fair" : undefined}
         />
@@ -503,7 +504,7 @@ function Freshness({ data, city }: { data: AppData; city: CityInfo }) {
   );
 }
 
-function Tile({ label, value, hint, hint2, tone }: { label: string; value: string; hint?: string; hint2?: string; tone?: "fire" | "blue" }) {
+function Tile({ label, value, hint, hint2, tone }: { label: string; value: string; hint?: string; hint2?: string; tone?: "fire" | "blue" | "better" | "worse" }) {
   return (
     <div className="tile">
       <span className="tile-label">{label}</span>

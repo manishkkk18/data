@@ -68,8 +68,8 @@ export default function Leaderboards({ data, onPick, phone }: Props) {
   const range = `15 Sep – ${dayLabel(addDays(A.start, n - 1))}`;
   const sub = `${range}, ${A.year} vs ${B.year} · NOAA-20 detections in ${SEASON_AREA.split(" (")[0]}`;
   const pct = (now: number, then: number) => (then ? ((now - then) / then) * 100 : null);
-  // More fire is fire-coloured; fewer is plain text (blue is kept for selection and wind).
-  const tone = (now: number, then: number) => (now > then ? "fire" : "");
+  // Change figures: more fire is worse (red), fewer is better (teal).
+  const tone = (now: number, then: number) => (now > then ? "worse" : now < then ? "better" : "");
 
   const picker = (
     <label className="select leader-year">
@@ -162,7 +162,7 @@ export default function Leaderboards({ data, onPick, phone }: Props) {
           districtRow(
             d,
             k,
-            <span>{signed(d.now - d.then)}</span>,
+            <span className={tone(d.now, d.then)}>{signed(d.now - d.then)}</span>,
             null,
             `${fmtInt(d.then)} → ${fmtInt(d.now)}`,
           ),
@@ -175,7 +175,7 @@ export default function Leaderboards({ data, onPick, phone }: Props) {
             districtRow(
               d,
               k,
-              <span className="fire">{signed(d.now - d.then)}</span>,
+              <span className="worse">{signed(d.now - d.then)}</span>,
               null,
               `${fmtInt(d.then)} → ${fmtInt(d.now)}`,
             ),

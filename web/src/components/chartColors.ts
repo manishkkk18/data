@@ -1,5 +1,8 @@
-// Chart colours, validated with the dataviz palette checker on the #121829 panel
-// (dark-mode lightness band, colour-blind separation, contrast).
-export const COLOR_A = "#C98424"; // amber: monthly / first district / our data
-export const COLOR_B = "#2FA39A"; // teal: yearly / second district / Bhuvan
-export const MARKER = "#6EA8FF"; // blue: the selected month
+// Chart colours come from theme.css (--chart-a ochre, --chart-b violet, validated with the
+// dataviz palette checker on the Haze panel); the selected-day marker is the teal selection colour.
+import { theme } from "../theme";
+
+export const chartColors = () => {
+  const t = theme();
+  return { A: t.chartA, B: t.chartB, MARKER: t.select, FIRE: t.fire[1], AXIS: t.muted, GRID: t.border };
+};

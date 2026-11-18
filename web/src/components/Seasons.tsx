@@ -2,8 +2,10 @@ import { useMemo, useState } from "react";
 import { Bar, CartesianGrid, ComposedChart, Line, LineChart, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { addDays, dayLabel, fmtInt, fmtPct, pm25Band, SEASON_AREA, type AppData, type Season } from "../data";
 import { track } from "../analytics";
-import { COLOR_A, COLOR_B, MARKER } from "./chartColors";
-import { FIRE_NEW } from "./Legend";
+import { chartColors } from "./chartColors";
+
+// Seasons loads lazily, after the stylesheet, so the theme can be read once here.
+const C = chartColors();
 
 // Burning seasons below the map: fires vs Delhi PM2.5 (with a lag), and two seasons compared.
 // Layout and chart style follow India Night Lights' Diwali and Compare sections.
@@ -16,7 +18,7 @@ type Props = {
 };
 
 const LAGS = [0, 1, 2, 3];
-const AXIS = { fill: "#9AA3B8", fontSize: 11 };
+
 
 /** Pearson correlation of PM2.5 on day i with fires on day i - lag (days with both values only). */
 export function lagCorrelation(fires: number[], pm: (number | null)[], lag: number) {
@@ -193,10 +195,10 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
           <span className="trend-title">{A.year}: fires and Delhi's air</span>
           <span className="trend-legend">
             <span>
-              <i style={{ background: FIRE_NEW }} aria-hidden="true" /> Fire detections{lag ? `, ${lag} d earlier` : ""}
+              <i style={{ background: C.FIRE }} aria-hidden="true" /> Fire detections{lag ? `, ${lag} d earlier` : ""}
             </span>
             <span>
-              <i style={{ background: COLOR_A }} aria-hidden="true" /> PM2.5 (µg/m³)
+              <i style={{ background: C.A }} aria-hidden="true" /> PM2.5 (µg/m³)
             </span>
           </span>
         </figcaption>
@@ -211,12 +213,12 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
               }}
               style={{ cursor: "pointer" }}
             >
-              <CartesianGrid vertical={false} stroke="#232B40" />
-              <XAxis dataKey="i" type="number" domain={[0, rows.length - 1]} ticks={ticks} tickFormatter={(i: number) => dayLabel(rows[i]?.day ?? "")} tick={AXIS} tickLine={false} axisLine={{ stroke: "#232B40" }} />
-              <YAxis yAxisId="f" tick={AXIS} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => fmtInt(v)} />
-              <YAxis yAxisId="p" orientation="right" tick={AXIS} tickLine={false} axisLine={false} width={40} />
+              <CartesianGrid vertical={false} stroke={C.GRID} />
+              <XAxis dataKey="i" type="number" domain={[0, rows.length - 1]} ticks={ticks} tickFormatter={(i: number) => dayLabel(rows[i]?.day ?? "")} tick={{ fill: C.AXIS, fontSize: 11 }} tickLine={false} axisLine={{ stroke: C.GRID }} />
+              <YAxis yAxisId="f" tick={{ fill: C.AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => fmtInt(v)} />
+              <YAxis yAxisId="p" orientation="right" tick={{ fill: C.AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
               <Tooltip
-                cursor={{ stroke: "#9AA3B8", strokeWidth: 1 }}
+                cursor={{ stroke: C.AXIS, strokeWidth: 1 }}
                 isAnimationActive={false}
                 content={({ active, payload }) => {
                   const r = active ? (payload?.[0]?.payload as (typeof rows)[number] | undefined) : undefined;
@@ -242,9 +244,9 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
                   );
                 }}
               />
-              <Bar yAxisId="f" dataKey="firesLag" fill={FIRE_NEW} fillOpacity={0.75} isAnimationActive={false} />
-              <Line yAxisId="p" type="linear" dataKey="pmA" stroke={COLOR_A} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
-              {mapIdx >= 0 && <ReferenceLine yAxisId="f" x={mapIdx} stroke={MARKER} strokeDasharray="4 3" strokeWidth={1.5} />}
+              <Bar yAxisId="f" dataKey="firesLag" fill={C.FIRE} fillOpacity={0.75} isAnimationActive={false} />
+              <Line yAxisId="p" type="linear" dataKey="pmA" stroke={C.A} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
+              {mapIdx >= 0 && <ReferenceLine yAxisId="f" x={mapIdx} stroke={C.MARKER} strokeDasharray="4 3" strokeWidth={1.5} />}
             </ComposedChart>
           </ResponsiveContainer>
         </div>
@@ -287,10 +289,10 @@ export default function Seasons({ data, mapSeason, mapDay, onShow }: Props) {
                 <th scope="col">
                   <span className="sr-only">Measure</span>
                 </th>
-                <th scope="col" style={{ color: COLOR_A }}>
+                <th scope="col" style={{ color: C.A }}>
                   {A.year}
                 </th>
-                <th scope="col" style={{ color: COLOR_B }}>
+                <th scope="col" style={{ color: C.B }}>
                   {B.year}
                 </th>
                 <th scope="col">
@@ -369,21 +371,21 @@ function MiniChart({ title, rows, a, b, yearA, yearB }: { title: string; rows: R
         <span className="trend-title">{title}</span>
         <span className="trend-legend">
           <span>
-            <i style={{ background: COLOR_A }} aria-hidden="true" /> {yearA}
+            <i style={{ background: C.A }} aria-hidden="true" /> {yearA}
           </span>
           <span>
-            <i style={{ background: COLOR_B }} aria-hidden="true" /> {yearB}
+            <i style={{ background: C.B }} aria-hidden="true" /> {yearB}
           </span>
         </span>
       </figcaption>
       <div className="trend-plot">
         <ResponsiveContainer width="100%" height="100%">
           <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-            <CartesianGrid vertical={false} stroke="#232B40" />
-            <XAxis dataKey="i" type="number" domain={[0, rows.length - 1]} ticks={ticks} tickFormatter={(i: number) => dayLabel(rows[i]?.day ?? "")} tick={AXIS} tickLine={false} axisLine={{ stroke: "#232B40" }} />
-            <YAxis tick={AXIS} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => fmtInt(v)} />
+            <CartesianGrid vertical={false} stroke={C.GRID} />
+            <XAxis dataKey="i" type="number" domain={[0, rows.length - 1]} ticks={ticks} tickFormatter={(i: number) => dayLabel(rows[i]?.day ?? "")} tick={{ fill: C.AXIS, fontSize: 11 }} tickLine={false} axisLine={{ stroke: C.GRID }} />
+            <YAxis tick={{ fill: C.AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={52} tickFormatter={(v: number) => fmtInt(v)} />
             <Tooltip
-              cursor={{ stroke: "#9AA3B8", strokeWidth: 1 }}
+              cursor={{ stroke: C.AXIS, strokeWidth: 1 }}
               isAnimationActive={false}
               content={({ active, payload }) => {
                 const r = active ? (payload?.[0]?.payload as Rows[number] | undefined) : undefined;
@@ -401,8 +403,8 @@ function MiniChart({ title, rows, a, b, yearA, yearB }: { title: string; rows: R
                 );
               }}
             />
-            <Line type="linear" dataKey={a} stroke={COLOR_A} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
-            <Line type="linear" dataKey={b} stroke={COLOR_B} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
+            <Line type="linear" dataKey={a} stroke={C.A} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
+            <Line type="linear" dataKey={b} stroke={C.B} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       </div>

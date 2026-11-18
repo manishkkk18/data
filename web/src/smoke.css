@@ -1,50 +1,51 @@
 /* ============================================================================
    India Smoke Watch additions. Everything else is India Night Lights' styles.css,
    stage.css and phone.css, copied unchanged. Loaded last.
-   Colour rules: amber = primary accent, blue = selection + wind, fire scale only
-   for fire data, AQI band colours only next to their text label.
+   Colours all come from theme.css (Haze): ember = primary accent, teal = selection,
+   wind and the air's path, fire scale only for fire data, AQI band colours only next
+   to their text label, teal/red for better/worse changes.
    ========================================================================== */
-:root {
-  --fire-new: #ff7a3d;
-  --fire-old: #e5484d;
-  /* India NAQI bands, tuned for the dark panel; always shown with their name */
-  --aqi-good: #3fb37f;
-  --aqi-sat: #9ccb5b;
-  --aqi-mod: #e8d44d;
-  --aqi-poor: #f0a040;
-  --aqi-vpoor: #e0524f;
-  --aqi-severe: #c2417a;
-}
 
-.fire { color: var(--fire-new); }
-.big-value.fire, .story-value.fire { color: var(--fire-new); text-shadow: 0 0 28px rgba(255, 122, 61, 0.35); }
-.tile-value.fire { color: var(--fire-new); }
-.tile-value.blue { color: var(--blue); }
-.fire-fill { fill: var(--fire-new); }
-.kpi-value.fire { color: var(--fire-new); }
+.fire { color: var(--fire-2); }
+.big-value.fire, .story-value.fire { color: var(--fire-2); text-shadow: 0 0 28px rgb(var(--accent-rgb) / 0.35); }
+.tile-value.fire { color: var(--fire-2); }
+.tile-value.blue { color: var(--select); }
+.fire-fill { fill: var(--fire-2); }
+.kpi-value.fire { color: var(--fire-2); }
 
-/* AQI: colour + label, never colour alone */
-.aqi-good { color: var(--aqi-good); }
-.aqi-sat { color: var(--aqi-sat); }
-.aqi-mod { color: var(--aqi-mod); }
-.aqi-poor { color: var(--aqi-poor); }
-.aqi-vpoor { color: var(--aqi-vpoor); }
-.aqi-severe { color: var(--aqi-severe); }
+/* AQI: colour + label, never colour alone. Numbers use the readable ink; badges below use
+   the official NAQI colour as a fill. */
+.aqi-good { color: var(--aqi-good-ink); }
+.aqi-sat { color: var(--aqi-sat-ink); }
+.aqi-mod { color: var(--aqi-mod-ink); }
+.aqi-poor { color: var(--aqi-poor-ink); }
+.aqi-vpoor { color: var(--aqi-vpoor-ink); }
+.aqi-severe { color: var(--aqi-severe-ink); }
 .big-value.aqi-value { text-shadow: 0 0 28px currentColor; text-shadow: 0 0 28px color-mix(in srgb, currentColor 35%, transparent); }
 .aqi-badge {
   display: inline-block; padding: 1px 8px; margin-right: 4px; border-radius: 999px; font-family: var(--font-body);
-  font-size: 12px; font-weight: 500; border: 1px solid currentColor; background: color-mix(in srgb, currentColor 12%, transparent);
+  font-size: 12px; font-weight: 500; border: 1px solid transparent; color: var(--bg);
 }
+.aqi-badge.aqi-good { background: var(--aqi-good); }
+.aqi-badge.aqi-sat { background: var(--aqi-sat); }
+.aqi-badge.aqi-mod { background: var(--aqi-mod); }
+.aqi-badge.aqi-poor { background: var(--aqi-poor); }
+.aqi-badge.aqi-vpoor { background: var(--aqi-vpoor); }
+.aqi-badge.aqi-severe { background: var(--aqi-severe); color: #fff; }
+
+/* Change figures: teal when things got better, red when worse */
+.better, .tile-value.better { color: var(--better); }
+.worse, .tile-value.worse { color: var(--worse-ink); }
 
 /* Legend: fire age bar + FRP dots + wind arrow, in Night Lights' legend layout */
-.legend-bar.fire-bar { box-shadow: 0 0 16px rgba(255, 122, 61, 0.2); }
+.legend-bar.fire-bar { box-shadow: 0 0 16px rgb(var(--accent-rgb) / 0.2); }
 .legend-size { gap: 3px; }
-.legend-size .dot { width: auto; height: auto; border-radius: 50%; background: var(--fire-new); }
+.legend-size .dot { width: auto; height: auto; border-radius: 50%; background: var(--fire-2); }
 .legend-size .dot.s { width: 4px; height: 4px; }
 .legend-size .dot.m { width: 7px; height: 7px; }
 .legend-size .dot.l { width: 10px; height: 10px; margin-right: 3px; }
 .legend-arrow { width: 16px; height: 16px; }
-.legend-swatch.fire { background: linear-gradient(90deg, var(--fire-new), var(--fire-old)); }
+.legend-swatch.fire { background: linear-gradient(90deg, var(--fire-1), var(--fire-2) 33%, var(--fire-3) 66%, var(--fire-4)); }
 
 /* Layers sheet: the first switch has no divider above it */
 .layers-panel > .switch:first-child { border-top: 0; border-radius: 10px; padding-top: 6px; }
@@ -52,22 +53,22 @@
 /* Delhi marker */
 .delhi-pin { display: flex; align-items: center; gap: 6px; pointer-events: none; }
 .delhi-dot {
-  width: 14px; height: 14px; border-radius: 50%; background: var(--bg); border: 3px solid var(--blue);
-  box-shadow: 0 0 0 4px rgba(110, 168, 255, 0.18), 0 0 18px rgba(110, 168, 255, 0.7);
+  width: 14px; height: 14px; border-radius: 50%; background: var(--bg); border: 3px solid var(--select);
+  box-shadow: 0 0 0 4px rgb(var(--select-rgb) / 0.18), 0 0 18px rgb(var(--select-rgb) / 0.7);
 }
 .delhi-name {
   font-family: var(--font-head); font-size: 17px; color: var(--text);
-  text-shadow: 0 1px 2px #000, 0 0 10px rgba(11, 15, 26, 0.9);
+  text-shadow: 0 1px 2px #000, 0 0 10px rgb(var(--bg-rgb) / 0.9);
 }
 
 /* Fire tooltip */
-.tooltip .tip-fire { color: var(--fire-new); }
+.tooltip .tip-fire { color: var(--fire-2); }
 
 /* District day bars */
 .day-bars { margin: 0; }
 .day-bars figcaption { margin-bottom: 2px; }
 .freshness b { color: var(--text); font-weight: 500; }
-.also-by a { color: var(--amber); }
+.also-by a { color: var(--accent); }
 
 /* Whose smoke: indicative upwind share (Night Lights' bar list, fire fill) */
 .whose { display: grid; gap: 8px; padding-top: 4px; }
@@ -75,14 +76,14 @@
 .whose-head .trend-title { font-size: 18px; }
 .whose-note {
   margin: 0; padding: 6px 10px; border-radius: 8px; font-size: 12px; color: var(--muted);
-  border: 1px dashed var(--border); background: rgba(11, 15, 26, 0.5);
+  border: 1px dashed var(--border); background: rgb(var(--bg-rgb) / 0.5);
 }
 .whose .insights-sub { margin: 4px 0 0; }
 .whose .bars { margin: 0; }
 .bar-row.static { cursor: default; }
 .bar-row.static:hover { background: transparent; }
-.fire-bg { background: linear-gradient(90deg, var(--fire-new), var(--fire-old)); }
-.plain b.blue-b, .blue-b { color: var(--blue); font-family: var(--font-body); font-weight: 500; }
+.fire-bg { background: linear-gradient(90deg, var(--fire-2), var(--fire-3)); }
+.plain b.blue-b, .blue-b { color: var(--select); font-family: var(--font-body); font-weight: 500; }
 .legend-path { width: 18px; height: 10px; }
 @media (max-width: 639px) {
   .whose-note { border: 0; border-left: 2px dashed var(--border); border-radius: 0; background: none; padding: 0 0 0 12px; }
@@ -152,12 +153,12 @@
   min-height: 28px; color: var(--muted);
 }
 .city-pin .city-dot { width: 9px; height: 9px; border-radius: 50%; background: var(--bg); border: 2px solid var(--muted); flex: none; }
-.city-pin .city-name { font-family: var(--font-head); font-size: 14px; color: var(--muted); text-shadow: 0 1px 2px #000, 0 0 8px rgba(11, 15, 26, 0.9); }
+.city-pin .city-name { font-family: var(--font-head); font-size: 14px; color: var(--muted); text-shadow: 0 1px 2px #000, 0 0 8px rgb(var(--bg-rgb) / 0.9); }
 .city-pin:hover .city-name, .city-pin:focus-visible .city-name { color: var(--text); }
 .city-pin.on { z-index: 2; }
 .city-pin.on .city-dot {
-  width: 14px; height: 14px; border: 3px solid var(--blue);
-  box-shadow: 0 0 0 4px rgba(110, 168, 255, 0.18), 0 0 18px rgba(110, 168, 255, 0.7);
+  width: 14px; height: 14px; border: 3px solid var(--select);
+  box-shadow: 0 0 0 4px rgb(var(--select-rgb) / 0.18), 0 0 18px rgb(var(--select-rgb) / 0.7);
 }
 .city-pin.on .city-name { font-size: 17px; color: var(--text); }
 
