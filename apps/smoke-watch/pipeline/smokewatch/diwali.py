@@ -257,9 +257,9 @@ def city_year(key: str, city_id: str, year: int, sensors: pd.DataFrame, today: d
             src.loc[e.index] = "e"
             n25.loc[e.index] = 1
 
-    if pm25.notna().sum() == 0:
-        return {"date": d.isoformat(), "available": False}
     show = pd.date_range(f"{d - timedelta(days=SHOW_BEFORE)}T00:00", periods=24 * (SHOW_BEFORE + SHOW_AFTER + 1), freq="h")
+    if pm25.reindex(show).notna().sum() == 0:  # nothing in the week shown: no chart, no stats
+        return {"date": d.isoformat(), "available": False}
     as_list = lambda s: [None if pd.isna(v) else int(round(v)) for v in s.reindex(show)]  # noqa: E731
     shown_src = src.reindex(show).fillna("")
     return {
@@ -404,7 +404,8 @@ def build(years: list[int], cities: list[str], today: date) -> None:
         d = date.fromisoformat(DIWALI[y]["date"])
         if d - timedelta(days=FETCH_BEFORE) > today:
             continue
-        entry = {**DIWALI[y], **RULES[y]}
+        r = RULES[y]
+        entry = {**DIWALI[y], "rule": r["rule"], "rule_text": r["text"], "rule_source": r["source"]}
         try:
             entry["weather"] = delhi_weather(d)
         except Exception as e:  # noqa: BLE001
