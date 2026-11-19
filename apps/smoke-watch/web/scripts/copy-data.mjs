@@ -47,8 +47,17 @@ if (seasons.length) {
   for (const f of seasons) copyFileSync(new URL(f, seasonsSrc), new URL(`seasons/${f}`, out));
   n += seasons.length;
 }
+// The Diwali effect: the index and one file per city, copied as a folder.
+const diwaliSrc = new URL("../../data/diwali/", import.meta.url);
+const diwali = existsSync(diwaliSrc) ? readdirSync(diwaliSrc).filter((f) => f.endsWith(".json")) : [];
+if (diwali.length) {
+  mkdirSync(new URL("diwali/", out), { recursive: true });
+  for (const f of diwali) copyFileSync(new URL(f, diwaliSrc), new URL(`diwali/${f}`, out));
+  n += diwali.length;
+}
 // The app reads this to know which optional files exist, instead of fetching and failing.
 const present = optional.filter((f) => existsSync(new URL(`../../data/${f}`, import.meta.url)));
 if (seasons.includes("index.json")) present.push("seasons/index.json");
+if (diwali.includes("index.json")) present.push("diwali/index.json");
 writeFileSync(new URL("manifest.json", out), JSON.stringify({ files: present }));
 console.log(`copied ${n} data files to public/data (optional: ${present.join(", ") || "none"})`);

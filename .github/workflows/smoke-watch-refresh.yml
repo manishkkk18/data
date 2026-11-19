@@ -128,6 +128,14 @@ jobs:
           OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
         run: PYTHONPATH=. python -m smokewatch.season --years "${{ steps.gate.outputs.year }}"
 
+      - name: Diwali effect, current year (daily, from 3 days before to 14 days after Diwali)
+        if: steps.gate.outputs.daily == 'true'
+        working-directory: apps/smoke-watch/pipeline
+        continue-on-error: true # never block the live refresh
+        env:
+          OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+        run: PYTHONPATH=. python -m smokewatch.diwali --years "${{ steps.gate.outputs.year }}" --if-recent
+
       - name: Status file (daily)
         if: steps.gate.outputs.run == 'true' && (steps.gate.outputs.daily == 'true' || steps.gate.outputs.season == 'true')
         working-directory: apps/smoke-watch
@@ -147,7 +155,7 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add $APP/data/seasons $APP/data/status.json 2>/dev/null || true
+          git add $APP/data/seasons $APP/data/status.json $APP/data/diwali 2>/dev/null || true
           if git diff --cached --quiet; then
             echo "Nothing to commit."
           else
