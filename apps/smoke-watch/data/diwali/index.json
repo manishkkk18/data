@@ -1,0 +1,492 @@
+{
+ "years": {
+  "2020": {
+   "date": "2020-11-14",
+   "source": "https://www.tribuneindia.com/news/delhi/complete-ban-on-bursting-sale-of-firecrackers-up-to-january-1-in-delhi-317457",
+   "rule": "ban",
+   "text": "Total ban on selling or bursting any firecrackers in Delhi-NCR (National Green Tribunal, 9\u201330 Nov).",
+   "weather": [
+    {
+     "date": "2020-11-11",
+     "wind_ms": 2.1,
+     "wind_from": "east",
+     "vi_max": 3500,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2020-11-12",
+     "wind_ms": 1.5,
+     "wind_from": "north-east",
+     "vi_max": 2900,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2020-11-13",
+     "wind_ms": 1.2,
+     "wind_from": "west",
+     "vi_max": 1900,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2020-11-14",
+     "wind_ms": 1.6,
+     "wind_from": "north",
+     "vi_max": 900,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2020-11-15",
+     "wind_ms": 3.8,
+     "wind_from": "south-east",
+     "vi_max": 6200,
+     "ventilation": "dispersing"
+    },
+    {
+     "date": "2020-11-16",
+     "wind_ms": 2.6,
+     "wind_from": "east",
+     "vi_max": 3300,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2020-11-17",
+     "wind_ms": 2.4,
+     "wind_from": "north-west",
+     "vi_max": 4100,
+     "ventilation": "trapped"
+    }
+   ],
+   "upwind": [
+    773.8,
+    919.5,
+    1405.1,
+    1558.1,
+    572.6,
+    186.3,
+    298.6
+   ]
+  },
+  "2021": {
+   "date": "2021-11-04",
+   "source": "https://www.tribuneindia.com/news/delhi/complete-ban-on-bursting-sale-of-firecrackers-up-to-january-1-in-delhi-317457",
+   "rule": "ban",
+   "text": "Complete ban on selling and bursting firecrackers in Delhi until 1 Jan 2022 (DPCC).",
+   "weather": [
+    {
+     "date": "2021-11-01",
+     "wind_ms": 2.3,
+     "wind_from": "south-east",
+     "vi_max": 3000,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2021-11-02",
+     "wind_ms": 3.1,
+     "wind_from": "south-east",
+     "vi_max": 3000,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2021-11-03",
+     "wind_ms": 2.1,
+     "wind_from": "south",
+     "vi_max": 2100,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2021-11-04",
+     "wind_ms": 1.6,
+     "wind_from": "west",
+     "vi_max": 2700,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2021-11-05",
+     "wind_ms": 2.0,
+     "wind_from": "north-west",
+     "vi_max": 3500,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2021-11-06",
+     "wind_ms": 3.5,
+     "wind_from": "west",
+     "vi_max": 7000,
+     "ventilation": "dispersing"
+    },
+    {
+     "date": "2021-11-07",
+     "wind_ms": 3.0,
+     "wind_from": "west",
+     "vi_max": 3700,
+     "ventilation": "trapped"
+    }
+   ],
+   "upwind": [
+    3055.0,
+    697.2,
+    449.4,
+    3279.3,
+    6905.5,
+    16804.3,
+    20986.8
+   ]
+  },
+  "2022": {
+   "date": "2022-10-24",
+   "source": "https://www.outlookindia.com/national/delhi-pollution-control-body-issues-order-banning-firecrackers-till-january-1-news-223883",
+   "rule": "ban",
+   "text": "Complete ban on making, selling and bursting firecrackers in Delhi until 1 Jan 2023 (DPCC).",
+   "weather": [
+    {
+     "date": "2022-10-21",
+     "wind_ms": 1.3,
+     "wind_from": "south-west",
+     "vi_max": 1700,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2022-10-22",
+     "wind_ms": 2.5,
+     "wind_from": "north-west",
+     "vi_max": 3800,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2022-10-23",
+     "wind_ms": 1.8,
+     "wind_from": "north-west",
+     "vi_max": 2900,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2022-10-24",
+     "wind_ms": 2.8,
+     "wind_from": "north-west",
+     "vi_max": 3100,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2022-10-25",
+     "wind_ms": 3.3,
+     "wind_from": "north-west",
+     "vi_max": 6100,
+     "ventilation": "dispersing"
+    },
+    {
+     "date": "2022-10-26",
+     "wind_ms": 1.8,
+     "wind_from": "west",
+     "vi_max": 2200,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2022-10-27",
+     "wind_ms": 1.4,
+     "wind_from": "west",
+     "vi_max": 3100,
+     "ventilation": "trapped"
+    }
+   ],
+   "upwind": [
+    79.9,
+    1048.4,
+    1527.9,
+    2956.5,
+    3409.1,
+    2662.7,
+    1909.6
+   ]
+  },
+  "2023": {
+   "date": "2023-11-12",
+   "source": "https://lexplosion.in/delhi-pcc-bans-manufacturing-storing-selling-and-bursting-of-all-kinds-of-firecrackers-till-1-01-2024/",
+   "rule": "ban",
+   "text": "Complete ban on all firecrackers in Delhi, green crackers included, until 1 Jan 2024 (DPCC).",
+   "weather": [
+    {
+     "date": "2023-11-09",
+     "wind_ms": 1.9,
+     "wind_from": "west",
+     "vi_max": 5300,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2023-11-10",
+     "wind_ms": 2.7,
+     "wind_from": "north-east",
+     "vi_max": 7000,
+     "ventilation": "dispersing"
+    },
+    {
+     "date": "2023-11-11",
+     "wind_ms": 2.4,
+     "wind_from": "north-west",
+     "vi_max": 5200,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2023-11-12",
+     "wind_ms": 2.4,
+     "wind_from": "north-west",
+     "vi_max": 3300,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2023-11-13",
+     "wind_ms": 1.7,
+     "wind_from": "north-west",
+     "vi_max": 1800,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2023-11-14",
+     "wind_ms": 1.9,
+     "wind_from": "north-west",
+     "vi_max": 2600,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2023-11-15",
+     "wind_ms": 2.1,
+     "wind_from": "west",
+     "vi_max": 2800,
+     "ventilation": "trapped"
+    }
+   ],
+   "upwind": [
+    4805.8,
+    1907.6,
+    634.7,
+    1542.9,
+    2947.1,
+    3395.4,
+    4467.5
+   ]
+  },
+  "2024": {
+   "date": "2024-10-31",
+   "note": "Drik Panchang lists 1 Nov for New Delhi, but Delhi celebrated (and burst crackers) on the night of 31 Oct.",
+   "source": "https://www.businesstoday.in/india/story/delhi-government-bans-firecrackers-until-january-2025-to-curb-winter-air-pollution-445092-2024-09-09",
+   "rule": "ban",
+   "text": "Complete ban on firecrackers in Delhi until 1 Jan 2025 (Delhi government), widely flouted on Diwali night.",
+   "weather": [
+    {
+     "date": "2024-10-28",
+     "wind_ms": 2.1,
+     "wind_from": "south-east",
+     "vi_max": 3400,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2024-10-29",
+     "wind_ms": 1.9,
+     "wind_from": "south-east",
+     "vi_max": 3300,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2024-10-30",
+     "wind_ms": 2.0,
+     "wind_from": "north",
+     "vi_max": 5700,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2024-10-31",
+     "wind_ms": 3.1,
+     "wind_from": "north-west",
+     "vi_max": 8200,
+     "ventilation": "dispersing"
+    },
+    {
+     "date": "2024-11-01",
+     "wind_ms": 3.2,
+     "wind_from": "north-west",
+     "vi_max": 8100,
+     "ventilation": "dispersing"
+    },
+    {
+     "date": "2024-11-02",
+     "wind_ms": 2.1,
+     "wind_from": "north-west",
+     "vi_max": 4700,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2024-11-03",
+     "wind_ms": 1.7,
+     "wind_from": "north-east",
+     "vi_max": 4200,
+     "ventilation": "trapped"
+    }
+   ],
+   "upwind": [
+    70.7,
+    91.1,
+    178.3,
+    995.6,
+    1440.1,
+    1318.5,
+    721.2
+   ]
+  },
+  "2025": {
+   "date": "2025-10-20",
+   "source": "https://www.businesstoday.in/india/story/sc-allows-bursting-of-green-crackers-in-delhi-ncr-from-october-18-to-21-under-strict-rules-498250-2025-10-15",
+   "rule": "green",
+   "text": "Supreme Court allowed certified green crackers in Delhi-NCR, 18\u201321 Oct, bursting only 6\u20137 am and 8\u201310 pm.",
+   "weather": [
+    {
+     "date": "2025-10-17",
+     "wind_ms": 1.1,
+     "wind_from": "north-west",
+     "vi_max": 4100,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2025-10-18",
+     "wind_ms": 0.8,
+     "wind_from": "north-west",
+     "vi_max": 3600,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2025-10-19",
+     "wind_ms": 0.6,
+     "wind_from": "north",
+     "vi_max": 4600,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2025-10-20",
+     "wind_ms": 1.0,
+     "wind_from": "east",
+     "vi_max": 5700,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2025-10-21",
+     "wind_ms": 1.1,
+     "wind_from": "south-east",
+     "vi_max": 3300,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2025-10-22",
+     "wind_ms": 1.2,
+     "wind_from": "north-west",
+     "vi_max": 5100,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2025-10-23",
+     "wind_ms": 1.5,
+     "wind_from": "north-west",
+     "vi_max": 5900,
+     "ventilation": "trapped"
+    }
+   ],
+   "upwind": [
+    196.1,
+    186.2,
+    91.0,
+    73.5,
+    78.6,
+    166.1,
+    383.3
+   ]
+  },
+  "2026": {
+   "date": "2026-11-08",
+   "source": "https://www.legalbites.in/constitutional-law/supreme-court-permits-limited-use-of-green-crackers-in-delhi-ncr-for-diwali-2026-1386780",
+   "rule": "green",
+   "text": "Supreme Court allowed certified green crackers in Delhi-NCR on 7\u20138 Nov, 6\u20137 am and 8\u201310 pm; full ban again from 9 Nov.",
+   "weather": [
+    {
+     "date": "2026-11-05",
+     "wind_ms": 1.3,
+     "wind_from": "north-west",
+     "vi_max": 1700,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2026-11-06",
+     "wind_ms": 1.6,
+     "wind_from": "north-west",
+     "vi_max": 3100,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2026-11-07",
+     "wind_ms": 1.4,
+     "wind_from": "north-west",
+     "vi_max": 2400,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2026-11-08",
+     "wind_ms": 0.9,
+     "wind_from": "east",
+     "vi_max": 900,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2026-11-09",
+     "wind_ms": 1.2,
+     "wind_from": "east",
+     "vi_max": 2100,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2026-11-10",
+     "wind_ms": 0.9,
+     "wind_from": "north-west",
+     "vi_max": 2100,
+     "ventilation": "trapped"
+    },
+    {
+     "date": "2026-11-11",
+     "wind_ms": 1.1,
+     "wind_from": "west",
+     "vi_max": 1000,
+     "ventilation": "trapped"
+    }
+   ],
+   "upwind": [
+    791.8,
+    797.8,
+    795.9,
+    370.5,
+    103.1,
+    319.1,
+    646.9
+   ]
+  }
+ },
+ "cities": [
+  "delhi",
+  "mumbai",
+  "kolkata",
+  "chennai",
+  "bengaluru",
+  "hyderabad",
+  "ahmedabad",
+  "lucknow",
+  "patna",
+  "jaipur",
+  "guwahati",
+  "bhopal"
+ ],
+ "upwind_terciles": [
+  449.4,
+  1527.9
+ ],
+ "generated_utc": "2026-11-19T15:54:22+00:00",
+ "method": {
+  "hourly": "Median across government (CPCB/DPCC) reference stations, hour by hour (IST, hour start); needs 3+ stations and half the usual count. Delhi gaps use the US Embassy monitor alone (labelled).",
+  "night": "18:00 to 06:00. Normal night: median of the night means 3-7 days either side of Diwali.",
+  "ventilation": "ERA5 boundary-layer height x 10 m wind, daily maximum; below 6,000 m\u00b2/s smoke is trapped.",
+  "upwind": "Back-trajectories on ERA5 10 m and 100 m winds through NOAA-20 fire detections. Indicative, not source apportionment."
+ }
+}
