@@ -65,6 +65,14 @@ export default function About({ monthly }: { monthly: Monthly }) {
             <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap contributors</a>. Processed with
             the World Bank's blackmarblepy and exactextract. Visits are counted anonymously with GoatCounter (no cookies).
           </p>
+          <p className="also-by">
+            Also by me: <a href="/data/india/smoke-watch/">India Smoke Watch</a>, whose smoke your city is breathing today.
+          </p>
+          <p className="connect">
+            Liked the data and visuals? <a href="/data/india/#contact">Connect with me →</a>
+            <span className="sep"> · </span>
+            <a href="/data/india/">All projects</a>
+          </p>
         </div>
       </div>
     </section>

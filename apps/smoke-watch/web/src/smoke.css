@@ -181,3 +181,10 @@
 
 /* Far zoom: only the chosen city is named */
 .map.far .city-pin:not(.on) .city-name { display: none; }
+
+/* Cross-links to the India-from-data home page */
+.nav .home-link { color: var(--muted); margin-right: 6px; box-shadow: inset -1px 0 0 var(--border); border-radius: 10px 0 0 10px; }
+.nav .home-link:hover { color: var(--text); }
+.connect { font-weight: 500; }
+.connect a { color: var(--accent); }
+.connect .sep { color: var(--muted); }

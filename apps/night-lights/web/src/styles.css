@@ -508,3 +508,10 @@ h1, h2, h3 { font-family: var(--font-head); font-weight: 500; margin: 0; }
 .diwali-card-name { font-family: var(--font-head); font-size: 16px; }
 .diwali-card-value { font-family: var(--font-head); font-size: 22px; }
 .red { color: var(--red); }
+
+/* Cross-links to the India-from-data home page */
+.nav .home-link { color: var(--muted); margin-right: 6px; box-shadow: inset -1px 0 0 var(--border); border-radius: 10px 0 0 10px; }
+.nav .home-link:hover { color: var(--text); }
+.connect { font-weight: 500; }
+.connect a, .also-by a { color: var(--amber); }
+.connect .sep { color: var(--muted); }

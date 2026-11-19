@@ -40,7 +40,8 @@ export default function Header({ districts, onPick, compact, phone }: Props & { 
   useEffect(() => {
     const a = nav.current?.querySelector<HTMLElement>(`a[href="#${active}"]`);
     if (a && nav.current && nav.current.scrollWidth > nav.current.clientWidth) {
-      nav.current.scrollTo({ left: a.offsetLeft - 16, behavior: "smooth" });
+      // On the first section, show the row from its start so "All projects" is visible too.
+      nav.current.scrollTo({ left: active === SECTIONS[0][0] ? 0 : a.offsetLeft - 16, behavior: "smooth" });
     }
   }, [active]);
 
@@ -51,6 +52,10 @@ export default function Header({ districts, onPick, compact, phone }: Props & { 
         <span className="brand-name">India Smoke Watch</span>
       </a>
       <nav className="nav" aria-label="Sections" ref={nav}>
+        {/* Back to the India-from-data home page, where all the projects are. */}
+        <a className="home-link" href="/data/india/" title="India from data: all projects">
+          <span aria-hidden="true">←</span> All projects
+        </a>
         {SECTIONS.map(([id, label]) => (
           <a key={id} href={`#${id}`} aria-current={active === id ? "location" : undefined}>
             {label}

@@ -69,10 +69,12 @@ export default function About({ data }: { data: AppData }) {
           </p>
           <p className="also-by">
             Also by me:{" "}
-            <a href="https://manishkkk18.github.io/data/india/night-lights/" target="_blank" rel="noopener">
-              India Night Lights
-            </a>
-            , how bright every Indian district is at night.
+            <a href="/data/india/night-lights/">India Night Lights</a>, how bright every Indian district is at night.
+          </p>
+          <p className="connect">
+            Liked the data and visuals? <a href="/data/india/#contact">Connect with me →</a>
+            <span className="sep"> · </span>
+            <a href="/data/india/">All projects</a>
           </p>
         </div>
       </div>
