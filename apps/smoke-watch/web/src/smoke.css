@@ -188,3 +188,60 @@
 .connect { font-weight: 500; }
 .connect a { color: var(--accent); }
 .connect .sep { color: var(--muted); }
+
+/* ---- The Diwali effect ------------------------------------------------------------------ */
+/* Content loads in above the notes; without this the browser scrolls to keep the notes in view,
+   so a #diwali link would land at the bottom of the section instead of its top. */
+.dw { overflow-anchor: none; }
+.dw-controls { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: flex-end; }
+.dw-controls .select select { min-height: 36px; }
+.dw-date, .dw-rule { margin: 0; font-size: 14px; }
+.dw-rule a, .dw-date a, .dw-notes a { color: var(--accent); }
+.dw-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 500; border: 1px solid var(--border); white-space: nowrap; }
+.dw-chip.ban { color: var(--text); background: var(--panel-2); }
+.dw-chip.green { color: var(--better); border-color: rgb(var(--select-rgb) / 0.5); }
+.dw-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.tile-value.accent { color: var(--accent); }
+.dw-plot { height: 300px; }
+.trend-legend i.dashed-a { background: repeating-linear-gradient(90deg, var(--chart-a) 0 5px, transparent 5px 8px); }
+.trend-legend i.dw-night-key { background: rgb(var(--accent-rgb) / 0.25); height: 10px; }
+.dw-context-wrap { display: grid; gap: 6px; overflow-x: auto; }
+.dw-context { width: 100%; min-width: 560px; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
+.dw-context caption { text-align: left; margin-bottom: 6px; }
+.dw-context th, .dw-context td { padding: 6px 4px; text-align: center; vertical-align: bottom; border-bottom: 1px solid var(--border); }
+.dw-context thead th { font-weight: 500; color: var(--muted); vertical-align: bottom; }
+.dw-context tbody th { text-align: left; font-weight: 500; width: 150px; }
+.dw-context tbody th .muted { display: block; font-weight: 400; font-size: 11px; }
+.dw-context .on { background: rgb(var(--accent-rgb) / 0.08); }
+.dw-diwali-tag { display: block; color: var(--accent); font-size: 11px; }
+.dw-bar { display: block; height: 36px; width: 14px; margin: 0 auto 2px; background: var(--bg); border-radius: 3px; position: relative; overflow: hidden; }
+.dw-bar > span { position: absolute; left: 0; right: 0; bottom: 0; border-radius: 3px; }
+.dw-level, .dw-sub { display: block; font-size: 11px; color: var(--muted); }
+.dw-vent { display: inline-block; padding: 0 6px; border-radius: 6px; font-size: 11px; font-weight: 500; }
+.dw-vent.trapped { color: var(--worse-ink); background: color-mix(in srgb, var(--worse) 14%, transparent); }
+.dw-vent.dispersing { color: var(--better); background: rgb(var(--select-rgb) / 0.12); }
+.dw-grid { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 250px), 1fr)); }
+.dw-mini {
+  display: grid; gap: 6px; align-content: start; text-align: left; padding: 12px; border-radius: 12px; cursor: pointer;
+  background: var(--bg); border: 1px solid var(--border); color: var(--text); font: inherit;
+}
+.dw-mini:hover { border-color: var(--accent); }
+.dw-mini-head { display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: baseline; }
+.dw-mini-head b { font-family: var(--font-head); font-weight: 400; font-size: 22px; }
+.dw-mini-plot { display: block; height: 110px; }
+.dw-mini-plot.empty { display: grid; place-items: center; color: var(--muted); font-size: 13px; border: 1px dashed var(--border); border-radius: 8px; }
+.dw-mini-stats { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: 13px; color: var(--muted); align-items: center; }
+.dw-mini-stats b { color: var(--text); }
+.dw-mini-stats b.worse { color: var(--worse-ink); }
+.dw-mini-note { font-size: 12px; }
+.dw-notes { display: grid; gap: 6px; padding-top: 4px; border-top: 1px solid var(--border); }
+.dw-notes ul { margin: 0; padding-left: 18px; display: grid; gap: 6px; color: var(--muted); font-size: 14px; }
+.dw-notes b { color: var(--text); font-weight: 500; }
+.dw-link { display: grid; gap: 2px; padding: 14px 16px; border-radius: 12px; border: 1px solid var(--border); background: var(--bg); text-decoration: none; color: var(--text); }
+.dw-link:hover { border-color: var(--accent); }
+.dw-link-title { font-family: var(--font-head); font-size: 20px; color: var(--accent); }
+@media (max-width: 639px) {
+  .dw-tiles { grid-template-columns: 1fr; }
+  .dw-plot { height: 240px; }
+  .dw-controls { width: 100%; }
+}

@@ -32,9 +32,29 @@ export default function Header({ districts, onPick, compact, phone }: Props & { 
       },
       { threshold: [0, 0.25, 0.5, 0.75, 1] },
     );
-    const t = setTimeout(() => SECTIONS.forEach(([id]) => document.getElementById(id) && io.observe(document.getElementById(id)!)), 500);
+    // Sections that load later (or swap a placeholder for the real thing) are picked up as
+    // they appear, so the highlight never watches an element that's no longer on the page.
+    const watched = new Map<string, Element>();
+    const attach = () => {
+      SECTIONS.forEach(([id]) => {
+        const el = document.getElementById(id);
+        if (!el || watched.get(id) === el) return;
+        const old = watched.get(id);
+        if (old) io.unobserve(old);
+        watched.set(id, el);
+        io.observe(el);
+      });
+    };
+    let raf = 0;
+    const mo = new MutationObserver(() => {
+      cancelAnimationFrame(raf);
+      raf = requestAnimationFrame(attach);
+    });
+    mo.observe(document.body, { childList: true, subtree: true });
+    attach();
     return () => {
-      clearTimeout(t);
+      cancelAnimationFrame(raf);
+      mo.disconnect();
       io.disconnect();
     };
   }, []);

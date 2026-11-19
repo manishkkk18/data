@@ -12,6 +12,7 @@ import CityPicker from "./components/CityPicker";
 import Leaderboards from "./components/Leaderboards";
 // The chart library is ~110 KB gzipped: load it with the Seasons section, not with the map.
 const Seasons = lazy(() => import("./components/Seasons"));
+const Diwali = lazy(() => import("./components/Diwali"));
 import { readUrl, writeUrl } from "./url";
 import { track } from "./analytics";
 import {
@@ -588,6 +589,9 @@ function Main({ data }: { data: AppData }) {
       />
       <Suspense fallback={<section id="season" className="panel seasons"><p className="muted">Loading seasons…</p></section>}>
         <Seasons data={data} mapSeason={seasonYear} mapDay={day} onShow={(y, d) => showTimeline(y, d)} />
+      </Suspense>
+      <Suspense fallback={<section id="diwali" className="panel diwali"><p className="muted">Loading the Diwali effect…</p></section>}>
+        <Diwali cities={data.cities} cityId={cityId} />
       </Suspense>
       <About data={data} />
     </>

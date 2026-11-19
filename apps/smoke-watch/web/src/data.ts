@@ -449,3 +449,43 @@ export function windIndex(w: WindFile | null, cityId: string) {
   return i < 0 ? null : w.points.length - w.cities.length + i;
 }
 export const delhiPm25 = cityPm25;
+
+// ---- The Diwali effect (data/diwali, built by pipeline/smokewatch/diwali.py) ----------------
+export type DiwaliWeatherDay = { date: string; wind_ms: number | null; wind_from: string | null; vi_max: number | null; ventilation: "trapped" | "dispersing" | null };
+export type DiwaliYearInfo = {
+  date: string; source: string; note?: string; // Lakshmi Puja date used, with its source
+  rule: "ban" | "green"; rule_text: string; rule_source: string; // firecracker rules in Delhi that year
+  weather?: DiwaliWeatherDay[] | null; // Delhi, the 7 days shown
+  upwind?: (number | null)[] | null; // Delhi, mean upwind fire load per shown day
+};
+export type DiwaliIndex = {
+  generated_utc: string;
+  years: Record<string, DiwaliYearInfo>;
+  cities: string[]; // cities with any data
+  upwind_terciles: [number, number] | null;
+  method: Record<string, string>;
+};
+export type DiwaliStats = {
+  baseline: number | null; baseline_nights: number;
+  night_mean: number | null; night_hours: number; pct_above: number | null;
+  peak: { value: number; hour: string } | null;
+  back_to_normal_h: number | null; back_note: string | null;
+};
+export type DiwaliCityYear =
+  | { date: string; available: false }
+  | {
+      date: string; available: true;
+      start: string; // IST, hour start of the first value
+      pm25: (number | null)[]; pm10: (number | null)[]; n: number[];
+      src: string; // per hour: c = government-station median, e = US Embassy alone, - = gap
+      embassy_hours: number; stations_usual: number;
+      stats: DiwaliStats;
+    };
+export type DiwaliCity = { city: string; name: string; years: Record<string, DiwaliCityYear> };
+
+export async function loadDiwaliIndex(): Promise<DiwaliIndex | null> {
+  return getJson<DiwaliIndex>("diwali/index.json").catch(() => null);
+}
+export async function loadDiwaliCity(id: string): Promise<DiwaliCity | null> {
+  return getJson<DiwaliCity>(`diwali/${id}.json`).catch(() => null);
+}

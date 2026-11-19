@@ -1,5 +1,6 @@
 // Shareable URLs: the view lives in the query string (same approach as India Night Lights).
 //   ?day=2026-11-15&w=3d&d=punjab--sangrur&wind=10m&path=off&season=2024&sat=aod
+// The Diwali section keeps its own ?diwali=2026 (or =all), which writeUrl leaves alone.
 
 import type { SatLayer, Window, WindLevel } from "./data";
 
