@@ -9,11 +9,16 @@ import { fileURLToPath } from "node:url";
 import puppeteer from "puppeteer-core";
 import sharp from "sharp";
 
-const SITE = "https://manishkkk18.github.io/data/india";
+// SITE can point at a local preview of the built site (e.g. before a new app is deployed).
+const SITE = (process.env.SITE || "https://manishkkk18.github.io/data/india").replace(/\/$/, "");
 const APPS = [
   { id: "night-lights", path: "night-lights/" },
   { id: "smoke-watch", path: "smoke-watch/" },
+  // The Monsoon opens on a text hero: its card shows the district map section instead.
+  { id: "monsoon", path: "monsoon/", anchor: "#map", settle: 3000 },
 ];
+// Only some apps: ONLY=monsoon npm run capture
+const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
 const CHROME = [
   process.env.CHROME_PATH,
   "C:/Program Files/Google/Chrome/Application/chrome.exe",
@@ -37,18 +42,19 @@ const browser = await puppeteer.launch({
   headless: true,
   args: ["--use-angle=swiftshader", "--enable-unsafe-swiftshader", "--hide-scrollbars"],
 });
-const shoot = async (url, viewport, settleMs) => {
+const shoot = async (url, viewport, settleMs, anchor) => {
   const page = await browser.newPage();
   await page.setViewport(viewport);
   await page.goto(url, { waitUntil: "networkidle0", timeout: 90000 });
+  if (anchor) await page.evaluate((sel) => { document.documentElement.style.scrollBehavior = "auto"; document.querySelector(sel)?.scrollIntoView(); }, anchor);
   await new Promise((r) => setTimeout(r, settleMs)); // let the opening fly-in finish and the map settle
   const png = await page.screenshot({ type: "png" });
   await page.close();
   return png;
 };
 try {
-  for (const app of APPS) {
-    const png = await shoot(`${SITE}/${app.path}`, { width: 1440, height: 900, deviceScaleFactor: 1 }, 12000);
+  for (const app of APPS.filter((a) => !ONLY || ONLY.includes(a.id))) {
+    const png = await shoot(`${SITE}/${app.path}`, { width: 1440, height: 900, deviceScaleFactor: 1 }, app.settle ?? 12000, app.anchor);
     for (const w of [720, 1200]) {
       await sharp(png).resize({ width: w }).webp({ quality: 80, effort: 6 }).toFile(`${img}/${app.id}-${w}.webp`);
     }

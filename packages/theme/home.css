@@ -16,4 +16,7 @@
   --nl-bg: #121829;  --nl-border: #232b40;  --nl-accent: #ffb547;  --nl-on-accent: #1a1205;
   --sw-bg: #1e1a17;  --sw-border: #302a25;  --sw-accent: #ff7a3d;  --sw-on-accent: #1a0d06;
   --sw-text: #ede6df; --sw-muted: #b3a89e;
+  /* The Monsoon's "monsoon paper" (apps/monsoon/css/monsoon.css): light card, ink text, ochre accent */
+  --mn-bg: #f6f1e7;  --mn-border: #d6ccb8;  --mn-accent: #8a4f15;  --mn-on-accent: #f6f1e7;
+  --mn-text: #1b2832; --mn-muted: #44525d;  --mn-rain: #14507a;
 }

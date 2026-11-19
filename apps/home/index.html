@@ -11,18 +11,18 @@
     <meta property="og:site_name" content="India from data" />
     <meta property="og:url" content="https://manishkkk18.github.io/data/india/" />
     <meta property="og:title" content="India from data · Manish" />
-    <meta property="og:description" content="Maps that turn free satellite data into stories about India: night lights in every district since 2015, and whose smoke each city is breathing today." />
+    <meta property="og:description" content="Maps that turn free satellite data into stories about India: night lights in every district since 2015, whose smoke each city is breathing today, and whether the monsoon showed up for each district." />
     <meta property="og:image" content="https://manishkkk18.github.io/data/india/og/home.jpg" />
     <meta property="og:image:type" content="image/jpeg" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="India from data: Manish's maps of India's night lights and smoke, built from free satellite data" />
+    <meta property="og:image:alt" content="India from data: Manish's maps of India's night lights, smoke and monsoon rain, built from free satellite and public data" />
     <meta name="twitter:card" content="summary_large_image" />
     <meta name="twitter:title" content="India from data · Manish" />
-    <meta name="twitter:description" content="Maps that turn free satellite data into stories about India: night lights in every district since 2015, and whose smoke each city is breathing today." />
+    <meta name="twitter:description" content="Maps that turn free satellite data into stories about India: night lights in every district since 2015, whose smoke each city is breathing today, and whether the monsoon showed up for each district." />
     <meta name="twitter:image" content="https://manishkkk18.github.io/data/india/og/home.jpg" />
     <meta name="author" content="Manish" />
-    <meta name="description" content="Maps that turn free satellite data into stories about India: night lights in every district since 2015, and whose smoke each city is breathing today." />
+    <meta name="description" content="Maps that turn free satellite data into stories about India: night lights in every district since 2015, whose smoke each city is breathing today, and whether the monsoon showed up for each district." />
     <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
     <!-- Visitor counts: GoatCounter, same account as the apps and the portfolio (no cookies). -->
     <script data-goatcounter="https://manishkukreja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
@@ -88,6 +88,21 @@
               <a class="btn btn-card" href="smoke-watch/">Explore <span aria-hidden="true">→</span><span class="sr-only"> India Smoke Watch</span></a>
             </div>
           </article>
+
+          <article class="card" data-app="mn" aria-labelledby="mn-title">
+            <a class="card-shot" href="monsoon/" tabindex="-1" aria-hidden="true">
+              <img src="/img/monsoon-1200.webp" srcset="/img/monsoon-720.webp 720w, /img/monsoon-1200.webp 1200w" sizes="(min-width: 1120px) 540px, (min-width: 720px) 48vw, 92vw" width="1200" height="750" alt="" loading="lazy" decoding="async" />
+            </a>
+            <div class="card-body">
+              <h3 id="mn-title">The Monsoon, District by District</h3>
+              <p class="card-hook">Did the 2026 monsoon show up for your district? Rain against normal, week by week, when it arrived, and what farmers sowed.</p>
+              <ul class="facts">
+          <!--facts:mn-->
+              </ul>
+              <p class="card-asof"><!--asof:mn--></p>
+              <a class="btn btn-card" href="monsoon/">Explore <span aria-hidden="true">→</span><span class="sr-only"> The Monsoon, District by District</span></a>
+            </div>
+          </article>
         </div>
       </section>
 
@@ -99,6 +114,8 @@
           <li><a href="https://firms.modaps.eosdis.nasa.gov/" target="_blank" rel="noopener"><b>NASA FIRMS</b><span>fire detections</span></a></li>
           <li><a href="https://openaq.org/" target="_blank" rel="noopener"><b>OpenAQ</b><span>air quality</span></a></li>
           <li><a href="https://open-meteo.com/" target="_blank" rel="noopener"><b>Open-Meteo</b><span>wind</span></a></li>
+          <li><a href="https://imdpune.gov.in/cmpg/Griddata/Rainfall_25_NetCDF.html" target="_blank" rel="noopener"><b>IMD</b><span>rainfall and monsoon</span></a></li>
+          <li><a href="https://www.pib.gov.in/" target="_blank" rel="noopener"><b>PIB</b><span>crop sowing</span></a></li>
           <li><a href="https://www.geoboundaries.org/" target="_blank" rel="noopener"><b>geoBoundaries</b><span>district borders</span></a></li>
           <li><a href="https://www.openstreetmap.org/" target="_blank" rel="noopener"><b>OpenStreetMap</b><span>roads and map</span></a></li>
         </ul>
@@ -130,7 +147,8 @@
                 <option value="">Choose one</option>
                 <option>Night Lights</option>
                 <option>Smoke Watch</option>
-                <option>Both</option>
+                <option>The Monsoon</option>
+                <option>More than one</option>
                 <option>Other</option>
               </select>
             </div>

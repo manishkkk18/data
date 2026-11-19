@@ -4,7 +4,7 @@
 import { existsSync, readFileSync } from "node:fs";
 
 export type Fact = { value: string; label: string };
-export type Facts = { nl: Fact[]; nlAsOf: string | null; sw: Fact[]; swAsOf: string | null };
+export type Facts = { nl: Fact[]; nlAsOf: string | null; sw: Fact[]; swAsOf: string | null; mn: Fact[]; mnAsOf: string | null };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const int = (n: number) => Math.round(n).toLocaleString("en-IN");
@@ -65,5 +65,32 @@ export function readFacts(appsDir: string, warn: (m: string) => void = console.w
       .sort((p, q) => q.pm25!.aqi!.value - p.pm25!.aqi!.value)[0];
     if (worst) sw.push({ value: `AQI ${worst.pm25!.aqi!.value}`, label: `${worst.name}, worst air of ${c.cities.length} cities (${worst.pm25!.aqi!.band})` });
   }
-  return { nl, nlAsOf, sw, swAsOf };
+
+  // The Monsoon: same numbers the app shows (IMD's official figure; its own district map; city arrivals).
+  const mn: Fact[] = [];
+  let mnAsOf: string | null = null;
+  const meta = read<MonsoonMeta>(appsDir, "monsoon/data/meta.json", warn);
+  const all = meta?.official.regions["All India"];
+  if (all) {
+    mn.push({ value: `${all.pct_of_lpa}%`, label: "of its normal monsoon rain fell on India (IMD)" });
+    mnAsOf = "Season: 1 Jun – 30 Sep 2026";
+  }
+  const wk = read<MonsoonWeekly>(appsDir, "monsoon/data/weekly_2026.json", warn);
+  if (wk) {
+    const ds = Object.values(wk.districts);
+    // IMD's buckets, as in the app: deficient or worse = −19.5% and below (rounded to −20%)
+    const dry = ds.filter((d) => d.d.length && d.d[d.d.length - 1] != null && d.d[d.d.length - 1]! <= -19.5).length;
+    mn.push({ value: `${int(dry)} of ${int(ds.length)}`, label: "districts had deficient or worse rain" });
+  }
+  const on = read<MonsoonOnset>(appsDir, "monsoon/data/onset_2026.json", warn);
+  if (on) {
+    const cities = on.cities.filter((x) => x.lonlat && x.arrived && x.days_late != null);
+    const late = cities.filter((x) => x.days_late! > 2).length;
+    mn.push({ value: `${int(late)} of ${int(cities.length)}`, label: "cities got the rains more than 2 days late" });
+  }
+  return { nl, nlAsOf, sw, swAsOf, mn, mnAsOf };
 }
+
+type MonsoonMeta = { official: { regions: Record<string, { pct_of_lpa: number }> } };
+type MonsoonWeekly = { districts: Record<string, { d: (number | null)[] }> };
+type MonsoonOnset = { cities: { lonlat: number[] | null; arrived: string | null; days_late?: number }[] };
