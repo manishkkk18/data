@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from "react";
-import { CartesianGrid, ComposedChart, Line, LineChart, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { Area, CartesianGrid, ComposedChart, Line, ReferenceArea, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
 import { fmtInt, loadDiwaliCity, loadDiwaliIndex, type CityInfo, type DiwaliCity, type DiwaliCityYear, type DiwaliIndex } from "../data";
 import { chartColors } from "./chartColors";
 import { theme } from "../theme";
@@ -44,15 +44,25 @@ function writeView(v: View) {
   window.history.replaceState(null, "", `${window.location.pathname}?${q.toString()}#diwali`);
 }
 
-/** Chart rows: the line is split into government-station hours and US-Embassy-only hours
- * (dashed); neighbours are shared so the two parts join, and gaps stay gaps. */
+/** Chart rows: the line is split into full government-monitor hours, partial hours (fewer than
+ * 3/4 of the usual monitors: faded) and US-Embassy-only hours (dashed); neighbours are shared
+ * so the parts join, and gaps stay gaps. `band` runs from the median up to the worst-hit tenth
+ * of monitors. */
 function rowsFor(y: Ready) {
   return y.pm25.map((v, i) => {
     const s = y.src[i];
     const near = (k: string) => s === k || y.src[i - 1] === k || y.src[i + 1] === k;
-    return { i, v, gov: v != null && near("c") ? v : null, emb: v != null && near("e") ? v : null, pm10: y.pm10[i], n: y.n[i], src: s };
+    const p90 = y.p90?.[i] ?? null;
+    return {
+      i, v, src: s, n: y.n[i], pm10: y.pm10[i], p90, max: y.max?.[i] ?? null,
+      gov: v != null && near("c") ? v : null,
+      part: v != null && near("p") ? v : null,
+      emb: v != null && near("e") ? v : null,
+      band: v != null && p90 != null ? ([v, Math.max(v, p90)] as [number, number]) : null,
+    };
   });
 }
+const tops = (y: Ready) => y.pm25.map((v, i) => Math.max(v ?? 0, y.p90?.[i] ?? 0));
 
 export default function Diwali({ cities, cityId }: { cities: CityInfo[]; cityId: string }) {
   const [index, setIndex] = useState<DiwaliIndex | null | undefined>(undefined);
@@ -185,7 +195,8 @@ function YearView({ index, data, year, name, isDelhi }: { index: DiwaliIndex; da
   }
   const s = y.stats;
   const gaps = y.pm25.filter((v) => v == null).length;
-  const yMax = Math.max(INDIA_24H, ...y.pm25.filter((v): v is number => v != null)) * 1.08;
+  const yMax = Math.max(INDIA_24H, ...tops(y)) * 1.08;
+  const hasBand = !!y.p90?.some((v) => v != null);
   // Phones: every other day, so the date labels don't run together.
   const narrow = typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
   const ticks = Array.from({ length: 7 }, (_, k) => k * 24).filter((_, k) => !narrow || k % 2 === 0);
@@ -201,9 +212,19 @@ function YearView({ index, data, year, name, isDelhi }: { index: DiwaliIndex; da
           <span className="tile-label">Diwali night peak</span>
           <span className="tile-value accent">{s.peak ? fmtInt(s.peak.value) : "–"}</span>
           <span className="tile-hint">
-            {s.peak && peakT ? `µg/m³ PM2.5 at ${hourName(peakT)} (${dayName(peakT)})` : "no readings that night"}
+            {s.peak && peakT ? `µg/m³ PM2.5 at ${hourName(peakT)} (${dayName(peakT)}), median of the monitors reporting` : "no readings that night"}
             {s.peak && s.night_hours < 12 ? `. Highest recorded hour: ${12 - s.night_hours} of the 12 night hours have no reading, so the real peak may be higher.` : ""}
           </span>
+          {s.peak_partial && s.peak_monitors != null && (
+            <span className="tile-warn">
+              Only {s.peak_monitors} of {y.stations_usual} monitors reported at that hour, so the real peak was likely higher.
+            </span>
+          )}
+          {s.worst_monitor && (
+            <span className="tile-hint">
+              Worst single monitor: <b className="mono">{fmtInt(s.worst_monitor.value)}</b> at {hourName(new Date(`${s.worst_monitor.hour}:00Z`))}
+            </span>
+          )}
         </div>
         <div className="tile">
           <span className="tile-label">Night vs normal nights</span>
@@ -215,6 +236,11 @@ function YearView({ index, data, year, name, isDelhi }: { index: DiwaliIndex; da
                 ? `too few normal nights with data (${s.baseline_nights} of 10)`
                 : `only ${s.night_hours} of 12 hours that night`}
           </span>
+          {!!s.partial_night_hours && (
+            <span className="tile-warn">
+              {s.partial_night_hours} of the 12 night hours had fewer than ¾ of the usual monitors reporting, so the night likely ran higher.
+            </span>
+          )}
         </div>
         <div className="tile">
           <span className="tile-label">Back to normal</span>
@@ -236,6 +262,16 @@ function YearView({ index, data, year, name, isDelhi }: { index: DiwaliIndex; da
             <span>
               <i style={{ background: C.A }} aria-hidden="true" /> PM2.5, median of {y.stations_usual} government monitors
             </span>
+            {hasBand && (
+              <span>
+                <i className="dw-band-key" aria-hidden="true" /> Worst-hit 10% of monitors
+              </span>
+            )}
+            {!!y.partial_hours && (
+              <span>
+                <i className="dotted-a" aria-hidden="true" /> Fewer than ¾ of monitors reporting
+              </span>
+            )}
             {y.embassy_hours > 0 && (
               <span>
                 <i className="dashed-a" aria-hidden="true" /> US Embassy monitor only
@@ -274,19 +310,33 @@ function YearView({ index, data, year, name, isDelhi }: { index: DiwaliIndex; da
                         {WEEKDAYS[t.getUTCDay()]} {dayName(t)}, {hourName(t)}
                       </strong>
                       <span>PM2.5: {r.v != null ? <b>{fmtInt(r.v)}</b> : "no reading (gap)"}{r.v != null ? " µg/m³" : ""}</span>
+                      {r.p90 != null && <span>Worst-hit 10% of monitors: {fmtInt(r.p90)}+</span>}
+                      {r.max != null && r.src !== "e" && <span>Highest monitor: {fmtInt(r.max)}</span>}
                       {r.pm10 != null && <span>PM10: {fmtInt(r.pm10)} µg/m³</span>}
-                      {r.v != null && <span className="muted">{r.src === "e" ? "US Embassy monitor only" : `median of ${r.n} monitors`}</span>}
+                      {r.v != null && (
+                        <span className={r.src === "p" ? "tip-warn" : "muted"}>
+                          {r.src === "e"
+                            ? "US Embassy monitor only"
+                            : r.src === "p"
+                              ? `only ${r.n} of ${y.stations_usual} monitors reporting: likely understated`
+                              : `median of ${r.n} of ${y.stations_usual} monitors`}
+                        </span>
+                      )}
                     </div>
                   );
                 }}
               />
+              <Area type="linear" dataKey="band" stroke="none" fill={C.A} fillOpacity={0.18} connectNulls={false} isAnimationActive={false} activeDot={false} />
               <Line type="linear" dataKey="gov" stroke={C.A} strokeWidth={2} dot={false} connectNulls={false} isAnimationActive={false} />
+              <Line type="linear" dataKey="part" stroke={C.A} strokeWidth={2} strokeOpacity={0.55} strokeDasharray="2 3" dot={false} connectNulls={false} isAnimationActive={false} />
               <Line type="linear" dataKey="emb" stroke={C.A} strokeWidth={2} strokeDasharray="5 3" dot={false} connectNulls={false} isAnimationActive={false} />
             </ComposedChart>
           </ResponsiveContainer>
         </div>
         <p className="trend-note muted">
-          Hourly PM2.5 in IST; the horizontal lines are daily (24-hour) limits, shown for scale.
+          Hourly PM2.5 in IST: the line is the middle monitor, the band reaches the worst-hit tenth; the horizontal lines are daily (24-hour) limits, shown for
+          scale.
+          {y.partial_hours ? ` ${y.partial_hours} hours (faded, dotted) had fewer than ¾ of the usual ${y.stations_usual} monitors reporting.` : ""}
           {gaps > 0 ? ` ${gaps} of ${HOURS} hours have too few readings and are left as breaks, not filled in.` : ""}
           {y.embassy_hours > 0
             ? ` ${y.embassy_hours} hours come from the US Embassy monitor alone (dashed), because OpenAQ has no government-monitor readings for them.`
@@ -404,13 +454,16 @@ function AllYears({ index, data, years, isDelhi, onPick }: { index: DiwaliIndex;
     INDIA_24H,
     ...years.flatMap((yr) => {
       const y = data.years[String(yr)];
-      return ready(y) ? y.pm25.filter((v): v is number => v != null) : [];
+      return ready(y) ? tops(y) : [];
     }),
   );
   const yTop = Math.ceil((top * 1.05) / 100) * 100;
   return (
     <>
-      <p className="muted small">Every Diwali on the same scale (0–{fmtInt(yTop)} µg/m³). Shaded: Diwali night. Dashed: that year's normal night. Pick a year for detail.</p>
+      <p className="muted small">
+        Every Diwali on the same scale (0–{fmtInt(yTop)} µg/m³). Shaded: Diwali night. Line: the middle monitor; band: the worst-hit tenth. Dashed: that year's normal
+        night. Pick a year for detail.
+      </p>
       <div className="dw-grid">
         {years.map((yr) => {
           const info = index.years[String(yr)];
@@ -430,15 +483,17 @@ function AllYears({ index, data, years, isDelhi, onPick }: { index: DiwaliIndex;
               {ready(y) ? (
                 <span className="dw-mini-plot" aria-hidden="true">
                   <ResponsiveContainer width="100%" height="100%">
-                    <LineChart data={rowsFor(y)} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
+                    <ComposedChart data={rowsFor(y)} margin={{ top: 4, right: 4, bottom: 4, left: 4 }}>
                       <ReferenceArea x1={NIGHT[0]} x2={NIGHT[1]} fill={T.accent} fillOpacity={0.14} stroke="none" />
                       <XAxis dataKey="i" type="number" domain={[0, HOURS - 1]} hide />
                       <YAxis domain={[0, yTop]} hide />
                       {s?.baseline != null && <ReferenceLine y={s.baseline} stroke={T.text} strokeDasharray="4 3" strokeOpacity={0.7} />}
                       <ReferenceLine y={INDIA_24H} stroke={C.AXIS} strokeDasharray="1 3" />
+                      <Area type="linear" dataKey="band" stroke="none" fill={C.A} fillOpacity={0.18} connectNulls={false} isAnimationActive={false} activeDot={false} />
                       <Line type="linear" dataKey="gov" stroke={C.A} strokeWidth={1.5} dot={false} connectNulls={false} isAnimationActive={false} />
+                      <Line type="linear" dataKey="part" stroke={C.A} strokeWidth={1.5} strokeOpacity={0.55} strokeDasharray="2 2" dot={false} connectNulls={false} isAnimationActive={false} />
                       <Line type="linear" dataKey="emb" stroke={C.A} strokeWidth={1.5} strokeDasharray="4 2" dot={false} connectNulls={false} isAnimationActive={false} />
-                    </LineChart>
+                    </ComposedChart>
                   </ResponsiveContainer>
                 </span>
               ) : (
@@ -465,6 +520,11 @@ function AllYears({ index, data, years, isDelhi, onPick }: { index: DiwaliIndex;
                 </span>
               )}
               {ready(y) && y.embassy_hours > 84 && <span className="dw-mini-note muted">Mostly the US Embassy monitor alone</span>}
+              {s?.peak_partial && s.peak_monitors != null && (
+                <span className="dw-mini-note tile-warn">
+                  Only {s.peak_monitors} of {ready(y) ? y.stations_usual : "?"} monitors at the peak: likely understated
+                </span>
+              )}
             </button>
           );
         })}
@@ -503,6 +563,25 @@ function Notes({ index }: { index: DiwaliIndex | null | undefined }) {
         <li>
           <b>"Diwali night" follows Delhi's date.</b> It's the night of Lakshmi Puja (Drik Panchang, New Delhi). In much of South India, Deepavali crackers come on Naraka
           Chaturdashi, often that morning or the day before, so for those cities the peak can fall outside the shaded night.
+        </li>
+        <li>
+          <b>Monitors go quiet at the worst hours.</b> On Diwali night many government monitors stop reporting just as smoke peaks (in Delhi at midnight in 2026, 24 of
+          47), and the missing ones can be the most polluted: Delhi's pollution board released withheld readings a week later, one above 3,700 µg/m³. So the line is
+          the middle of the monitors that stayed on. Hours with fewer than ¾ of the usual monitors are faded and flagged, and the band and "worst single monitor" show
+          the hotspots (readings above 1,500 µg/m³ are dropped as likely instrument faults, so even that can understate it). Reported by{" "}
+          <a href="https://www.businesstoday.in/india/story/delhis-diwali-air-hit-3744-as-125-pollution-readings-went-missing-from-cpcb-records-heres-what-the-data-shows-566582-2026-11-10" target="_blank" rel="noopener">
+            Business Today
+          </a>{" "}
+          and{" "}
+          <a href="https://www.downtoearth.org.in/air/delhi-pollution-explained-firecrackers-farm-fires-and-missing-data" target="_blank" rel="noopener">
+            Down To Earth
+          </a>
+          .
+        </li>
+        <li>
+          <b>These are PM2.5 readings, not the AQI.</b> The official AQI is a 24-hour index capped at 500 (Delhi's was about 370 on Diwali night 2026); this chart
+          shows hour-by-hour PM2.5 in µg/m³, which spikes far higher for a few hours. Apps and news often quote the worst single monitor; the line here is the
+          city's middle.
         </li>
         <li>
           <b>Gaps stay gaps.</b> An hour needs at least 3 government monitors (half the usual number) to count. When OpenAQ has no government data for Delhi (most of

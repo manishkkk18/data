@@ -470,6 +470,10 @@ export type DiwaliStats = {
   night_mean: number | null; night_hours: number; pct_above: number | null;
   peak: { value: number; hour: string } | null;
   back_to_normal_h: number | null; back_note: string | null;
+  // What the median can hide (newer files): the highest single monitor on Diwali night, night
+  // hours with fewer than 3/4 of the usual monitors, and how many reported at the peak hour.
+  worst_monitor?: { value: number; hour: string } | null;
+  partial_night_hours?: number; peak_monitors?: number | null; peak_partial?: boolean;
 };
 export type DiwaliCityYear =
   | { date: string; available: false }
@@ -477,7 +481,9 @@ export type DiwaliCityYear =
       date: string; available: true;
       start: string; // IST, hour start of the first value
       pm25: (number | null)[]; pm10: (number | null)[]; n: number[];
-      src: string; // per hour: c = government-station median, e = US Embassy alone, - = gap
+      src: string; // per hour: c = government-monitor median, p = same but partial (< 3/4 of usual monitors), e = US Embassy alone, - = gap
+      p90?: (number | null)[]; max?: (number | null)[]; // worst-hit tenth of monitors (10+ only), single highest monitor
+      partial_hours?: number;
       embassy_hours: number; stations_usual: number;
       stats: DiwaliStats;
     };
