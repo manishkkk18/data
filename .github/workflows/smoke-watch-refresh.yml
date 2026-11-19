@@ -43,7 +43,7 @@ env:
 jobs:
   refresh:
     runs-on: ubuntu-latest
-    timeout-minutes: 45
+    timeout-minutes: 75 # Open-Meteo can be slow from GitHub's servers; runs are 3 h apart
     outputs:
       published: ${{ steps.publish.outputs.published }}
     steps:
