@@ -186,7 +186,9 @@ function YearView({ index, data, year, name, isDelhi }: { index: DiwaliIndex; da
   const s = y.stats;
   const gaps = y.pm25.filter((v) => v == null).length;
   const yMax = Math.max(INDIA_24H, ...y.pm25.filter((v): v is number => v != null)) * 1.08;
-  const ticks = Array.from({ length: 7 }, (_, k) => k * 24);
+  // Phones: every other day, so the date labels don't run together.
+  const narrow = typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches;
+  const ticks = Array.from({ length: 7 }, (_, k) => k * 24).filter((_, k) => !narrow || k % 2 === 0);
   const peakT = s.peak ? new Date(`${s.peak.hour}:00Z`) : null;
 
   return (
@@ -255,7 +257,7 @@ function YearView({ index, data, year, name, isDelhi }: { index: DiwaliIndex; da
               <XAxis dataKey="i" type="number" domain={[0, HOURS - 1]} ticks={ticks} tickFormatter={(i: number) => dayName(at(y.start, i))} tick={{ fill: C.AXIS, fontSize: 11 }} tickLine={false} axisLine={{ stroke: C.GRID }} />
               <YAxis domain={[0, Math.ceil(yMax / 50) * 50]} tick={{ fill: C.AXIS, fontSize: 11 }} tickLine={false} axisLine={false} width={40} />
               <ReferenceLine y={INDIA_24H} stroke={C.AXIS} strokeDasharray="1 3" label={{ value: "India 24-h standard 60", position: "insideTopRight", fill: C.AXIS, fontSize: 10 }} />
-              <ReferenceLine y={WHO_24H} stroke={C.AXIS} strokeDasharray="1 3" label={{ value: "WHO 15", position: "insideBottomRight", fill: C.AXIS, fontSize: 10 }} />
+              <ReferenceLine y={WHO_24H} stroke={C.AXIS} strokeDasharray="1 3" label={{ value: "WHO 15", position: "insideBottomLeft", fill: C.AXIS, fontSize: 10 }} />
               {s.baseline != null && (
                 <ReferenceLine y={s.baseline} stroke={T.text} strokeDasharray="5 4" strokeOpacity={0.8} label={{ value: `Normal night ${fmtInt(s.baseline)}`, position: "insideTopLeft", fill: T.text, fontSize: 11 }} />
               )}
@@ -306,8 +308,9 @@ function Context({ info, terciles }: { info: DiwaliIndex["years"][string]; terci
   const days = weather.length ? weather.map((w) => w.date) : up.map((_, k) => k);
   return (
     <div className="dw-context-wrap">
-      <table className="dw-context">
-        <caption className="trend-title">Delhi, same days: what the weather and the fires upwind were doing</caption>
+      <p className="trend-title dw-context-title" id="dw-context-title">Delhi, same days: what the weather and the fires upwind were doing</p>
+      <div className="dw-context-scroll">
+      <table className="dw-context" aria-labelledby="dw-context-title">
         <thead>
           <tr>
             <th scope="col" />
@@ -385,6 +388,7 @@ function Context({ info, terciles }: { info: DiwaliIndex["years"][string]; terci
           </tr>
         </tbody>
       </table>
+      </div>
       <p className="trend-note muted">
         Upwind fire load: NOAA-20 fire detections along 48-hour back-trajectories of the air reaching Delhi, using ERA5 winds near the ground (10 m and 100 m) so every
         year is treated the same; low / medium / high compare with all the Diwali weeks shown. Ventilation below 6,000 m²/s means smoke is trapped near the ground (the
@@ -442,9 +446,13 @@ function AllYears({ index, data, years, isDelhi, onPick }: { index: DiwaliIndex;
               )}
               {s && (
                 <span className="dw-mini-stats">
-                  <span>
-                    Night <b className={s.pct_above != null && s.pct_above > 0 ? "worse" : ""}>{s.pct_above != null ? `${s.pct_above > 0 ? "+" : ""}${s.pct_above}%` : "–"}</b> vs normal
-                  </span>
+                  {s.pct_above != null ? (
+                    <span>
+                      Night <b className={s.pct_above > 0 ? "worse" : ""}>{`${s.pct_above > 0 ? "+" : ""}${s.pct_above}%`}</b> vs normal
+                    </span>
+                  ) : (
+                    <span>{s.night_hours < 9 ? `Night: monitor gaps (${s.night_hours} of 12 h)` : "No normal-night comparison"}</span>
+                  )}
                   <span>
                     Peak <b className="mono">{s.peak ? fmtInt(s.peak.value) : "–"}</b>
                   </span>

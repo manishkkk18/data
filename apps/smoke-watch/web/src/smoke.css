@@ -205,9 +205,10 @@
 .dw-plot { height: 300px; }
 .trend-legend i.dashed-a { background: repeating-linear-gradient(90deg, var(--chart-a) 0 5px, transparent 5px 8px); }
 .trend-legend i.dw-night-key { background: rgb(var(--accent-rgb) / 0.25); height: 10px; }
-.dw-context-wrap { display: grid; gap: 6px; overflow-x: auto; }
+.dw-context-wrap { display: grid; gap: 6px; min-width: 0; }
+.dw-context-scroll { overflow-x: auto; }
+.dw-context-title { margin: 0; }
 .dw-context { width: 100%; min-width: 560px; border-collapse: separate; border-spacing: 0; font-size: 13px; table-layout: fixed; }
-.dw-context caption { text-align: left; margin-bottom: 6px; }
 .dw-context th, .dw-context td { padding: 6px 4px; text-align: center; vertical-align: bottom; border-bottom: 1px solid var(--border); }
 .dw-context thead th { font-weight: 500; color: var(--muted); vertical-align: bottom; }
 .dw-context tbody th { text-align: left; font-weight: 500; width: 150px; }
