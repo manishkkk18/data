@@ -75,12 +75,13 @@ export function readFacts(appsDir: string, warn: (m: string) => void = console.w
     mn.push({ value: `${all.pct_of_lpa}%`, label: "of its normal monsoon rain fell on India (IMD)" });
     mnAsOf = "Season: 1 Jun – 30 Sep 2026";
   }
-  const wk = read<MonsoonWeekly>(appsDir, "monsoon/data/weekly_2026.json", warn);
-  if (wk) {
-    const ds = Object.values(wk.districts);
-    // IMD's buckets, as in the app: deficient or worse = −19.5% and below (rounded to −20%)
-    const dry = ds.filter((d) => d.d.length && d.d[d.d.length - 1] != null && d.d[d.d.length - 1]! <= -19.5).length;
-    mn.push({ value: `${int(dry)} of ${int(ds.length)}`, label: "districts had deficient or worse rain" });
+  const imd = read<MonsoonImd>(appsDir, "monsoon/data/imd_districts.json", warn);
+  if (imd) {
+    // IMD's own district table and categories (deficient, large deficient, no rain)
+    const c = imd.imd_counts;
+    const dry = (c.D ?? 0) + (c.LD ?? 0) + (c.NR ?? 0);
+    const to = imd.period.slice(-10);
+    mn.push({ value: `${int(dry)} of ${int(c.rows)}`, label: `districts had deficient or worse rain (IMD, to ${Number(to.slice(8))} ${MONTHS[Number(to.slice(5, 7)) - 1]})` });
   }
   const on = read<MonsoonOnset>(appsDir, "monsoon/data/onset_2026.json", warn);
   if (on) {
@@ -92,5 +93,5 @@ export function readFacts(appsDir: string, warn: (m: string) => void = console.w
 }
 
 type MonsoonMeta = { official: { regions: Record<string, { pct_of_lpa: number }> } };
-type MonsoonWeekly = { districts: Record<string, { d: (number | null)[] }> };
+type MonsoonImd = { period: string; imd_counts: Record<string, number> & { rows: number } };
 type MonsoonOnset = { cities: { lonlat: number[] | null; arrived: string | null; days_late?: number }[] };

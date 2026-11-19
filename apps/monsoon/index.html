@@ -73,7 +73,7 @@
       <div class="wrap">
         <p class="kicker">1 · Week by week</p>
         <h2 id="map-title">Where the rain ran ahead, and where it fell behind</h2>
-        <p class="lede">Each district is shaded by its rainfall since 1 June compared with its normal for the same dates. Press play to watch the season build, or drag through the weeks.</p>
+        <p class="lede">Each district is shaded by its monsoon rain against its normal for the same dates. The season view is IMD’s own figure for every district; press play to watch an estimate of how the season built up, week by week.</p>
       </div>
       <div class="wrap map-layout">
         <figure class="map-figure">
@@ -86,8 +86,13 @@
           <div class="tip" id="map-tip" hidden></div>
         </figure>
         <aside class="map-side">
+          <div class="mode" id="map-mode" role="group" aria-label="Map view">
+            <button type="button" data-mode="season" aria-pressed="true">Season result<small>IMD rain gauges</small></button>
+            <button type="button" data-mode="weekly" aria-pressed="false">Week by week<small>estimate</small></button>
+          </div>
+          <p class="note mode-note" id="map-mode-note"></p>
           <div class="player">
-            <button type="button" class="play" id="play" aria-label="Play the season">
+            <button type="button" class="play" id="play" aria-label="Play the season week by week">
               <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path class="i-play" d="M7 4.5v15l12-7.5z" /><g class="i-pause"><rect x="6" y="5" width="4" height="14" rx="1" /><rect x="14" y="5" width="4" height="14" rx="1" /></g></svg>
             </button>
             <div class="scrub">

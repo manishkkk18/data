@@ -57,43 +57,49 @@ export function buildIndex(districts, aliases) {
   return { idx, byId };
 }
 
-export async function showDistrict(id, { byId, weekly, aliasNote, label, check }) {
+export async function showDistrict(id, { byId, weekly, aliasNote, label, imd }) {
   const card = document.getElementById("card");
   const p = byId[id];
   if (!p) { card.innerHTML = `<p class="muted">That district isn't on the map.</p>`; return; }
   const series = (await load(`series/${slug(p.state)}.json`)).districts[id];
   const weeks = weekly.weeks;
   const rec = weekly.districts[id] || {};
-  const dep = rec.d?.[rec.d.length - 1] ?? null;
+  const gridDep = rec.d?.[rec.d.length - 1] ?? null;          // real-time grid estimate, whole season
+  const o = imd?.districts[id] || null;                         // IMD's official rain-gauge figure
+  const to = fmtDate(imd.period.slice(-10));
+  // The answer leads with IMD's figure; only districts IMD doesn't report fall back to the estimate.
+  const dep = o ? o.dep : gridDep;
   const cat = CAT[category(dep)];
-  const imd = check?.districts[id];
-  const flagged = !!imd?.flag; // gridded estimate 2+ categories from IMD's own figure: lead with IMD's number
-  const seasons = series?.season_dep || {};
+  // Six seasons: 2021-25 from IMD's final (quality-checked) grid; 2026 from IMD's gauges where reported.
+  const seasons = { ...(series?.season_dep || {}) };
+  if (o) seasons["2026"] = o.dep;
   const ranked = Object.entries(seasons).filter(([, v]) => v != null).sort((a, b) => a[1] - b[1]);
   const rank = ranked.findIndex(([y]) => y === "2026") + 1;
   const rankText = rank && ranked.length > 1
-    ? (rank === 1 ? `the driest of the last ${ranked.length} seasons` : rank === ranked.length ? `the wettest of the last ${ranked.length} seasons` : `${ordinal(rank)} driest of the last ${ranked.length} seasons`)
+    ? (rank === 1 ? `the driest of the last ${ranked.length} seasons` : rank === ranked.length ? `the wettest of the last ${ranked.length} seasons` : `the ${ordinal(rank)} driest of the last ${ranked.length} seasons`)
     : "";
+  const far = o?.flag;
 
   card.innerHTML = `
     <div class="card-head">
       <div><h3>${esc(label && !aliasNote ? label : p.name)}</h3><p class="card-state">${esc(p.state)}${label && !aliasNote && label.toLowerCase() !== p.name.toLowerCase() ? ` · shown as “${esc(p.name)}” on the 2021 map` : ""}</p>
         ${aliasNote ? `<p class="note">${esc(aliasNote)}. Its rainfall is part of ${esc(p.name)} on this map.</p>` : ""}</div>
       <div class="card-stat">
-        ${flagged
-          ? `<p class="dep" style="color:${imd.imd < 0 ? tok("--dry") : tok("--rain")}">${fmtPct(imd.imd)}</p>
-             <p><span class="chip"><i style="${swatch(category(imd.imd))}"></i>${CAT[category(imd.imd)].label}</span> IMD, 1 Jun – ${fmtDate(check.period.slice(-10))}</p>`
-          : `<p class="dep" style="color:${dep != null && dep < 0 ? tok("--dry") : tok("--rain")}">${fmtPct(dep)}</p>
-             <p><span class="chip"><i style="${swatch(cat.key)}"></i>${cat.label}</span></p>`}
-        ${imdLine(check, id)}
-        <p>${rec.a != null ? `${fmtMm(rec.a)} fell, against ${fmtMm(rec.n)} normally` : "No complete 2026 data"}${rankText ? `.<br>2026 was ${rankText}.` : ""}</p>
+        <p class="dep" style="color:${dep != null && dep < 0 ? tok("--dry") : tok("--rain")}">${fmtPct(dep)}</p>
+        <p><span class="chip"><i style="${swatch(cat.key)}"></i>${cat.label}</span></p>
+        ${o
+          ? `<p>IMD rain gauges, 1 Jun – ${to}:<br>${fmtMm(o.actual)} fell, against ${fmtMm(o.normal)} normally.</p>`
+          : `<p>Estimate from IMD’s real-time grid, whole season: IMD publishes no figure for this map district.</p>`}
+        ${rankText ? `<p>2026 was ${rankText}.</p>` : ""}
       </div>
     </div>
     <div class="card-grid">
       <div>
-        <p class="chart-title">Rain since 1 June, week by week (mm)</p>
+        <p class="chart-title">How the season built up, week by week (mm)</p>
+        <p class="chart-sub">Estimate from IMD’s real-time rainfall grid: shows when the rain fell more reliably than how much.</p>
+        ${far ? `<p class="warn">⚠ Here the estimate ends at ${fmtPct(o.grid)}, far from IMD’s figure (${fmtPct(o.dep)}). Few rain gauges fed the real-time grid, so read this chart for timing only.</p>` : ""}
         <div class="legend-inline">
-          <span><svg width="22" height="8"><line x1="0" x2="22" y1="4" y2="4" stroke="${tok("--rain")}" stroke-width="3"/></svg>2026</span>
+          <span><svg width="22" height="8"><line x1="0" x2="22" y1="4" y2="4" stroke="${tok("--rain")}" stroke-width="3"/></svg>2026 (estimate)</span>
           <span><svg width="22" height="8"><line x1="0" x2="22" y1="4" y2="4" stroke="${tok("--ink")}" stroke-width="2" stroke-dasharray="5 3"/></svg>Normal (1971–2020)</span>
           <span><svg width="22" height="8"><line x1="0" x2="22" y1="4" y2="4" stroke="${tok("--past")}" stroke-width="1.5"/></svg>2021–2025</span>
         </div>
@@ -101,24 +107,15 @@ export async function showDistrict(id, { byId, weekly, aliasNote, label, check }
       </div>
       <div>
         <p class="chart-title">Whole-season departure, last six years</p>
-        <p class="chart-sub">June–September rain against normal</p>
+        <p class="chart-sub">June–September rain against normal${o ? `. 2026: IMD rain gauges, to ${to}` : ""}</p>
         <div id="years-chart"></div>
       </div>
     </div>
-    <p class="note">District rainfall from IMD's 0.25° gridded daily data, averaged over the district (see Method). IMD's own district figures use rain-gauge averages and can differ by a few points.</p>`;
+    <p class="note">2021–2025 and the weekly 2026 line come from IMD’s 0.25° gridded rainfall averaged over the district; the final grids for past years are quality-checked, the 2026 one is IMD’s quicker real-time version. See Method.</p>`;
   if (series) {
     lineChart(document.getElementById("line-chart"), series, weeks);
     yearsChart(document.getElementById("years-chart"), seasons);
   }
-}
-
-function imdLine(check, id) {
-  const c = check?.districts[id];
-  if (!c) return "";
-  const to = fmtDate(check.period.slice(-10));
-  return c.flag
-    ? `<p class="warn">⚠ Few rain gauges fed the gridded data here, so this site’s own estimate (${fmtPct(c.ours)}) is unreliable and the figure above is IMD’s station-based one. The charts below use the gridded data: read their shape, not their level.</p>`
-    : `<p>IMD’s own figure to ${to}: ${fmtPct(c.imd)}</p>`;
 }
 
 function ordinal(n) { return n + (["th", "st", "nd", "rd"][(n % 100 > 10 && n % 100 < 14) ? 0 : n % 10] || "th"); }
@@ -145,7 +142,7 @@ function lineChart(el, s, weeks) {
   svg.append("path").attr("d", line(s["2026"])).attr("fill", "none").attr("stroke", tok("--rain")).attr("stroke-width", 3).attr("stroke-linecap", "round");
   // end labels (direct labels for the two lines that matter)
   const last = weeks.length - 1;
-  const ends = [{ v: s["2026"][last], t: "2026", c: "lbl-strong" }, { v: s.normal[last], t: "Normal", c: "lbl" }].filter((e) => e.v != null);
+  const ends = [{ v: s["2026"][last], t: "2026 est.", c: "lbl-strong" }, { v: s.normal[last], t: "Normal", c: "lbl" }].filter((e) => e.v != null);
   if (ends.length === 2 && Math.abs(y(ends[0].v) - y(ends[1].v)) < 16) {
     const up = ends[0].v >= ends[1].v ? 0 : 1; ends[up].dy = -8; ends[1 - up].dy = 8;
   }
@@ -190,18 +187,19 @@ function yearsChart(el, seasons) {
   }).attr("fill", (y) => { const c = CAT[category(seasons[y])]; return c.key === "NR" ? c.color : c.color; })
     .attr("stroke", (y) => (category(seasons[y]) === "N" ? tok("--past") : "none")).attr("stroke-width", 1);
   row.append("text").attr("class", (y) => (y === "2026" ? "lbl-strong" : "lbl"))
-    .attr("x", (y) => (seasons[y] == null ? x(0) + 6 : seasons[y] >= 0 ? x(seasons[y]) + 6 : x(seasons[y]) - 6))
-    .attr("text-anchor", (y) => (seasons[y] != null && seasons[y] < 0 ? "end" : "start"))
+    // positive: after the bar's end; negative: just right of the zero line, so it never meets the year label
+    .attr("x", (y) => (seasons[y] != null && seasons[y] > 0 ? x(seasons[y]) + 6 : x(0) + 6))
+    .attr("text-anchor", "start")
     .attr("y", rowH / 2).attr("dy", "0.32em").text((y) => fmtPct(seasons[y]));
   d3.select(el).append("p").attr("class", "note").style("margin", "4px 0 0").text("Dashed lines mark ±20%, IMD's edge of “normal”.");
 }
 
-export function initDistrict({ districts, aliases, weekly, map, check }) {
+export function initDistrict({ districts, aliases, weekly, map, imd }) {
   const { idx, byId } = buildIndex(districts, aliases);
   let last = null;
   const pick = (id, note = null, label = null) => {
     last = [id, note, label];
-    showDistrict(id, { byId, weekly, aliasNote: note, label, check });
+    showDistrict(id, { byId, weekly, aliasNote: note, label, imd });
     map.focus(id);
     history.replaceState(null, "", `#d=${id}`);
   };
@@ -216,7 +214,7 @@ export function initDistrict({ districts, aliases, weekly, map, check }) {
     if (Math.abs(innerWidth - width) < 40 || !last) return;
     width = innerWidth;
     clearTimeout(pick.t);
-    pick.t = setTimeout(() => showDistrict(last[0], { byId, weekly, aliasNote: last[1], label: last[2], check }), 200);
+    pick.t = setTimeout(() => showDistrict(last[0], { byId, weekly, aliasNote: last[1], label: last[2], imd }), 200);
   });
   const fromHash = decodeURIComponent((location.hash.match(/^#d=(.+)$/) || [])[1] || "");
   addEventListener("hashchange", () => {

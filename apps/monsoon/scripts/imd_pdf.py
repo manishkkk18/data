@@ -21,7 +21,7 @@ TAIL = re.compile(rf"(?:{NUM}\s+)?(?:{NUM}\s+)?(?:(-?\d+)%?\s+)?{CAT}\s*$")
 def parse(pdf: Path) -> dict:
     text = "\n".join(p.extract_text() or "" for p in pypdf.PdfReader(str(pdf)).pages)
     period = re.search(r"PERIOD:\s*(\d\d-\d\d-\d{4})\s*to\s*(\d\d-\d\d-\d{4})", text)
-    rows, state = [], None
+    rows, groups, state = [], {}, None
     for line in text.splitlines():
         line = line.rstrip()
         m = re.match(r"^\s*(\d+)\s+(.+)$", line)
@@ -47,7 +47,8 @@ def parse(pdf: Path) -> dict:
             rows.append({**rec, "state": state})
         elif re.match(r"[A-Za-z]", name):
             state = name  # a subdivision or state header (wrapped numeric lines are skipped)
-    return {"from": period.group(1) if period else None, "to": period.group(2) if period else None, "rows": rows}
+            groups.setdefault(name, rec)  # its own totals (first occurrence; some repeat)
+    return {"from": period.group(1) if period else None, "to": period.group(2) if period else None, "rows": rows, "groups": groups}
 
 
 if __name__ == "__main__":

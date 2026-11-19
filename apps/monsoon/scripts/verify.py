@@ -22,6 +22,7 @@ from aggregate import NORMAL_YEARS, THIS_YEAR, season_dates
 from common import CACHE, DATA, category, write_json
 from imd_pdf import parse
 
+FLAG_PTS = 25  # grid estimate this many percentage points from IMD's figure -> warn on the card
 SALIENT = "https://mausam.imd.gov.in/Forecast/marquee_data/Salient_Features_SW_MONSOON%20_2026_30_sep.pdf"
 WAYBACK = "https://web.archive.org/web/{ts}/https://mausam.imd.gov.in/Rainfall/DISTRICT_RAINFALL_DISTRIBUTION_COUNTRY_INDIA_cd.pdf"
 
@@ -65,15 +66,19 @@ def compare(pdf: Path) -> dict | None:
     upto = date(y, m, d)
     ours = ours_cum(upto)
     mapping = {(r["imd_group"], r["imd_name"]): r for r in csv.DictReader((DATA / "name_mapping.csv").open(encoding="utf-8"))}
-    pairs = []
+    pairs, official_by_id = [], {}
     for r in rep["rows"]:
         mrow = mapping.get((r["state"], r["name"]))
         if not mrow or not mrow["district_id"] or "boundary changed" in mrow.get("note", "") or r["dep"] is None:
             continue
         a, n = ours[mrow["district_id"]]
-        if np.isnan(a) or n <= 0:
-            continue
-        pairs.append((r["dep"], round((a - n) / n * 100), r["name"], mrow["district_id"]))
+        grid = None if np.isnan(a) or n <= 0 else round((a - n) / n * 100)
+        official_by_id[mrow["district_id"]] = {"dep": r["dep"], "actual": r["actual"], "normal": r["normal"],
+                                               "cat": r["cat"], "grid": grid,
+                                               # the weekly grid estimate is far from IMD's own figure here
+                                               "flag": grid is not None and abs(grid - r["dep"]) >= FLAG_PTS}
+        if grid is not None:
+            pairs.append((r["dep"], grid, r["name"], mrow["district_id"]))
     if not pairs:
         return None
     imd = np.array([p[0] for p in pairs], float)
@@ -92,9 +97,11 @@ def compare(pdf: Path) -> dict | None:
         "same_category_pct": round(float((ci == cm).mean() * 100), 1),
         "within_one_category_pct": round(float((np.abs(ci - cm) <= 1).mean() * 100), 1),
         "largest_gaps": [{"district": p[2].title(), "imd": p[0], "ours": p[1]} for p in worst],
-        # two or more IMD categories apart: the gridded estimate is not reliable for that district
-        "flagged": int((np.abs(ci - cm) >= 2).sum()),
-        "_pairs": {p[3]: {"imd": p[0], "ours": p[1], "flag": bool(abs(order.index(category(p[0])) - order.index(category(p[1]))) >= 2)} for p in pairs},
+        "flagged": int((np.abs(diff) >= FLAG_PTS).sum()),
+        "_official": official_by_id,
+        "_counts": {c: sum(1 for r in rep["rows"] if r["cat"] == c) for c in ["LE", "E", "N", "D", "LD", "NR", "ND"]},
+        "_n_rows": len(rep["rows"]),
+        "_groups": {k: v["dep"] for k, v in rep["groups"].items()},
     }
 
 
@@ -120,9 +127,21 @@ def main() -> None:
              "map_districts": len(json.loads((CACHE / "districts_full.geojson").read_text("utf-8"))["features"])}
     latest = checks["districts"][-1] if checks["districts"] else None
     if latest:
-        write_json("imd_check.json", {"period": latest["period"], "snapshot": latest["snapshot"], "districts": latest["_pairs"]})
+        # IMD's official station-based district figures: what the site leads with.
+        write_json("imd_districts.json", {
+            "period": latest["period"], "snapshot": latest["snapshot"], "flag_pts": FLAG_PTS,
+            "districts": latest["_official"],
+            "imd_counts": {"rows": latest["_n_rows"], **latest["_counts"]},
+            "groups": latest["_groups"],
+            # IMD's state / subdivision totals (cumulative from 1 June) at every archived date
+            "group_snapshots": {c["period"][-10:]: c["_groups"] for c in checks["districts"]},
+        })
+        old = DATA / "imd_check.json"
+        if old.exists():
+            old.unlink()  # replaced by imd_districts.json
     for c in checks["districts"]:
-        c.pop("_pairs", None)
+        for k in ("_official", "_counts", "_n_rows", "_groups"):
+            c.pop(k, None)
     weekly = json.loads((DATA / "weekly_2026.json").read_text("utf-8"))
     write_json("meta.json", {"generated": date.today().isoformat(), "official": off, "checks": checks, "names": names,
                              "missing_days_2026": weekly["missing_days"], "normal_years": india["normal_years"]})

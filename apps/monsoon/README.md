@@ -57,17 +57,22 @@ hero/OG text in `index.html`.
 
 If these drift apart, look before publishing.
 
-Results for 2026 (snapshot to 24 Sep, 697 districts with matching boundaries): 97% of
-districts are within one IMD category of IMD's own figure, the median gap is 10 percentage
-points and the rank correlation is 0.74. All-India comes out at 90% against IMD's 87%: the
-rain that fell agrees (756 mm vs 759 mm), but the grid's 1971–2020 normal (840 mm) is below
-IMD's LPA (868.6 mm), so percentages here run 2–3 points wetter. The page leads with IMD's
-official 87%.
+### Which numbers the page shows
 
-Where few gauges fed the grid (northeastern hills, Ladakh, parts of J&K) the gridded normal
-can be far off: 19 districts are two or more categories from IMD's figure. `verify.py`
-writes them to `data/imd_check.json`; the map gives them a dashed outline and their card
-leads with IMD's station-based number instead of the gridded one.
+* **The season result** (map default view, the headline on every district card, the sowing
+  chart's state rainfall, the home-page card) is **IMD's own rain-gauge figure**, from its
+  district table (`data/imd_districts.json`, written by `verify.py`). The last copy archived
+  during the season runs to 24 Sep; it covers 701 of the 735 map districts.
+* **The weekly view** (map animation, the weekly line on each card) and **2021–2025** come from
+  IMD's 0.25° gridded rainfall. Past years use IMD's final, quality-checked grids; 2026 can only
+  use the real-time grid, which is built from far fewer gauges.
+
+Why: the 2026 real-time grid agrees with IMD for India as a whole (756 mm of rain vs IMD's 759 mm)
+but not district by district. Against IMD's 24 Sep table only two-thirds of districts land in
+the same category, and 113 are 25+ points off (Satara: −38% from the grid, +20% from IMD's
+gauges), mostly where rain changes sharply over short distances (Western Ghats, northeastern
+hills, Ladakh). Those districts get a dashed outline in the weekly view and a warning on their
+card. When IMD publishes its final 2026 grid, rerun the pipeline with it to tighten the weekly view.
 
 ## Sources
 
@@ -75,7 +80,7 @@ leads with IMD's station-based number instead of the gridded one.
 |---|---|---|
 | District rainfall, normals, history | IMD Pune 0.25° gridded daily rainfall (Pai et al. 2014): [final 1901–2025](https://imdpune.gov.in/cmpg/Griddata/Rainfall_25_NetCDF.html), real-time 2026 | IMD's weekly district PDFs are overwritten weekly and not archived, so they can't give a 2026 week-by-week series. Normal = 1971–2020. |
 | Official season totals | [IMD Salient Features of the 2026 SW Monsoon](https://mausam.imd.gov.in/Forecast/marquee_data/Salient_Features_SW_MONSOON%20_2026_30_sep.pdf) | headline 87% of LPA |
-| District cross-check | IMD district rainfall PDF via the Wayback Machine | verification only |
+| District season results, state totals | IMD district rainfall PDF (`DISTRICT_RAINFALL_DISTRIBUTION_COUNTRY_INDIA_cd.pdf`) via the Wayback Machine, 29 Jul – 24 Sep snapshots | the season figure the page leads with; also used to check the grid |
 | Monsoon advance | IMD daily [press releases](https://internal.imd.gov.in/pages/press_release_mausam.php) ("Northern Limit of Monsoon passes through …") | places geocoded once with OpenStreetMap Nominatim, cached in `scripts/geocode_cache.json` |
 | Normal onset dates | [IMD CRS Research Report 3/2020](https://internal.imd.gov.in/press_release/20200515_pr_804.pdf), Table 2 (1961–2019 normals, 135 cities parsed) | IMD's normal isochrones exist only as a map figure, so they are shown as city dates |
 | Kharif sowing | Agriculture Ministry weekly area reports via PIB ([4 Sep 2026](https://www.pib.gov.in/PressReleasePage.aspx?PRID=2307791)) | the state-wise table (agriwelfare.gov.in / UPAG) was unreachable; only states each release names are used, others are missing, not zero |

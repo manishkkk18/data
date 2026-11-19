@@ -2,17 +2,17 @@
 import { CAT, category, esc, fmtDate, fmtPct, placeTip, tok } from "./common.js";
 
 const CROPS = ["Rice", "Pulses", "Coarse cereals", "Oilseeds", "Cotton"];
-const PIB_TO_MAP = { "Jammu & Kashmir": "Jammu and Kashmir" };
+// "TAMILNADU", "JAMMU & KASHMIR (UT)", "Tamil Nadu" -> one key
+const key = (s) => s.toLowerCase().replace(/(ut)/g, "").replace(/&/g, "and").replace(/[^a-z]/g, "");
 
-export function initSowing({ sowing, states, weekly }) {
+export function initSowing({ sowing, imd }) {
   const rel = sowing.releases[sowing.latest];
-  // rainfall up to the IMD week that ends just before the sowing date
-  const wk = weekly.weeks.reduce((best, w, i) => (w <= sowing.latest ? i : best), 0);
-  const asOf = weekly.weeks[wk];
-  const rows = Object.entries(rel.states).map(([name, crops]) => {
-    const st = states[PIB_TO_MAP[name] || name];
-    return { name, crops, dep: st ? st.weekly_dep[wk] : null };
-  });
+  // State rainfall: IMD's official state totals, from the last archived IMD table on or before the sowing date
+  // (or the first one after, if none is earlier).
+  const dates = Object.keys(imd.group_snapshots).sort();
+  const asOf = dates.filter((d) => d <= sowing.latest).pop() || dates[0];
+  const byKey = Object.fromEntries(Object.entries(imd.group_snapshots[asOf]).map(([k, v]) => [key(k), v]));
+  const rows = Object.entries(rel.states).map(([name, crops]) => ({ name, crops, dep: byKey[key(name)] ?? null }));
   const tabs = document.getElementById("crop-tabs");
   tabs.innerHTML = CROPS.map((c, i) => `<button role="tab" type="button" aria-selected="${i === 0}" data-crop="${c}">${c}</button>`).join("");
   tabs.addEventListener("click", (e) => {
@@ -52,13 +52,13 @@ export function initSowing({ sowing, states, weekly }) {
     svg.append("line").attr("x1", m.l).attr("x2", W - m.r).attr("y1", y(0)).attr("y2", y(0)).attr("stroke", tok("--ink")).attr("stroke-width", 1);
     svg.append("line").attr("x1", x(0)).attr("x2", x(0)).attr("y1", m.t).attr("y2", H - m.b).attr("stroke", tok("--ink")).attr("stroke-width", 1);
     svg.append("text").attr("class", "lbl").attr("x", m.l + 6).attr("y", H - m.b - 8).text("Drier, and sowed less");
-    svg.append("text").attr("class", "lbl").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text(`Rainfall against normal, 1 Jun – ${fmtDate(asOf)}`);
+    svg.append("text").attr("class", "lbl").attr("x", (m.l + W - m.r) / 2).attr("y", H - 8).attr("text-anchor", "middle").text(`State rainfall against normal, 1 Jun – ${fmtDate(asOf)} (IMD)`);
     svg.append("text").attr("class", "lbl").attr("x", 4).attr("y", 12).text(`Change in ${crop.toLowerCase()} area vs last year (lakh ha)`);
     const g = svg.append("g").selectAll("g").data(data).join("g").attr("transform", (r) => `translate(${x(r.dep)},${y(r.crops[crop])})`);
     g.append("circle").attr("r", 8).attr("fill", (r) => CAT[category(r.dep)].color).attr("stroke", tok("--ink")).attr("stroke-width", 1);
     g.append("circle").attr("r", 18).attr("fill", "transparent")
       .on("pointermove", (e, r) => {
-        tip.innerHTML = `<b>${esc(r.name)}</b><br>Rain ${fmtPct(r.dep)} (to ${fmtDate(asOf)})<br>${crop}: ${d3.format("+.2f")(r.crops[crop])} lakh ha vs last year`;
+        tip.innerHTML = `<b>${esc(r.name)}</b><br>Rain ${fmtPct(r.dep)} (IMD, to ${fmtDate(asOf)})<br>${crop}: ${d3.format("+.2f")(r.crops[crop])} lakh ha vs last year`;
         placeTip(tip, fig, e);
       }).on("pointerleave", () => { tip.hidden = true; });
     // labels: right of the dot (left near the right edge), nudged apart vertically where they would overlap
@@ -89,7 +89,8 @@ export function initSowing({ sowing, states, weekly }) {
       `${data.length} states named for ${crop.toLowerCase()} in the release; other states’ changes were not published, so they are not shown (not zero).` +
       (tot ? ` All India: ${d3.format(",.2f")(tot.this_year)} lakh ha sown vs ${d3.format(",.2f")(tot.last_year)} last year.` : "") +
       (missing.length ? ` No rainfall match for: ${missing.map(esc).join(", ")}.` : "") +
-      ` Dot colour = IMD rainfall category. Source: <a href="${rel.url}">PIB, area as on ${fmtDate(sowing.latest)}</a>.`;
+      ` Rainfall: IMD’s official state totals to ${fmtDate(asOf)}, the last archived IMD table before the sowing report; most kharif sowing is done by then.` +
+      ` Dot colour = IMD rainfall category. Sowing: <a href="${rel.url}">PIB, area as on ${fmtDate(sowing.latest)}</a>.`;
   }
   draw("Rice");
 

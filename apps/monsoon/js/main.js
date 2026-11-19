@@ -25,25 +25,31 @@ function hero(meta) {
     <p class="months-caption">Each month’s rain as a share of its normal. Dashed line = 100%. Bar colour uses the map’s categories.</p>`;
 }
 
-function method(meta) {
+function method(meta, imd) {
   const c = meta.checks, a = c.all_india;
   const latest = c.districts[c.districts.length - 1];
   const fmt = (v) => (v == null ? "–" : v);
   document.getElementById("method-body").innerHTML = `
   <div>
-    <h3>Rainfall</h3>
-    <p>District rainfall comes from IMD Pune’s <a href="https://imdpune.gov.in/cmpg/Griddata/Rainfall_25_NetCDF.html">0.25° gridded daily rainfall</a>
+    <h3>Rainfall: the season’s answer</h3>
+    <p>The season result for each district, on the map and at the top of every district card, is <b>IMD’s own figure from its rain gauges</b>:
+      the cumulative rainfall from 1 June to ${fmtDate(imd.period.slice(-10))} against the district’s normal, from IMD’s district table
+      (<a href="${imd.snapshot}">archived copy</a>). IMD overwrites that table every week and doesn’t archive it, and the last copy saved
+      during the season is from ${fmtDate(imd.period.slice(-10))}, six days before the season ended. ${Object.keys(imd.districts).length} of the map’s
+      ${meta.names.map_districts} districts have one; the rest are shown as having no IMD figure.
+      The all-India headline (${a.imd_pct_of_lpa}%) is IMD’s end-of-season figure.</p>
+    <h3>Rainfall: week by week (an estimate)</h3>
+    <p>The weekly animation, the weekly line on each card and the earlier seasons come from IMD Pune’s <a href="https://imdpune.gov.in/cmpg/Griddata/Rainfall_25_NetCDF.html">0.25° gridded daily rainfall</a>
       (Pai et al. 2014): the final quality-checked grids for 1971–2025 and IMD’s real-time daily grids for 2026. Each district is the area-weighted
       average of the grid cells it overlaps. “Normal” is the 1971–2020 average for the same dates, the base period of IMD’s long-period average.
       Departure is cumulative from 1 June, to the end of each IMD week (Wednesday), and the categories are IMD’s.</p>
-    <p><b>Why not IMD’s district tables?</b> IMD publishes its district statistics as PDFs that are overwritten every week and not archived, so a
-      week-by-week 2026 series can’t be rebuilt from them. The gridded data is IMD’s own product and covers every week and year the same way.
-      The headline figure (${a.imd_pct_of_lpa}%) is IMD’s official one.</p>
-    <p><b>How far to trust it.</b> The grid’s 1971–2020 normal for India is ${fmt(a.ours_normal_mm)} mm, a little below IMD’s long-period
-      average of ${fmt(a.imd_lpa_mm)} mm, so percentages here run about 2–3 points wetter than IMD’s (the rain that actually fell matches closely).
-      Where few rain gauges fed the grid, mainly the northeastern hills, Ladakh and parts of Jammu &amp; Kashmir, the gridded normal can be far off.
-      ${latest ? `${latest.flagged} districts whose figure here is two or more categories away from IMD’s own are marked with a dashed outline on the map
-      and a warning on their card, which also shows IMD’s figure.` : ""}</p>
+    <p><b>How far to trust the estimate.</b> For India as a whole it is close: the rain that fell matches IMD’s total (the grid’s normal,
+      ${fmt(a.ours_normal_mm)} mm, is a little below IMD’s ${fmt(a.imd_lpa_mm)} mm, so its percentages run 2–3 points wetter).
+      District by district it is much rougher. The 2026 real-time grid is built from far fewer rain gauges than IMD’s final grids (not yet published
+      for 2026), and where rain changes sharply over a few kilometres, as along the Western Ghats or in the northeastern hills, missing gauges can
+      put a district’s estimate far off${imd.districts["maharashtra--satara"] ? `: Satara, for example, comes out at ${fmtPct(imd.districts["maharashtra--satara"].grid)} against IMD’s ${fmtPct(imd.districts["maharashtra--satara"].dep)}` : ""}.
+      ${latest ? `In ${latest.flagged} districts the estimate ends 25 or more points from IMD’s figure; they get a dashed outline in the weekly view
+      and a warning on their card.` : ""} That is why the season result always comes from IMD.</p>
     ${meta.missing_days_2026.length ? `<p><b>Gaps:</b> no real-time grid was available for ${meta.missing_days_2026.map(fmtDate).join(", ")}; districts are shown as missing from those weeks on, never filled.</p>` : ""}
     <h3>Checked against IMD’s published figures</h3>
     <div class="tablewrap"><table>
@@ -52,7 +58,7 @@ function method(meta) {
       <tr><td>All-India normal (mm)</td><td>${fmt(a.imd_lpa_mm)}</td><td>${fmt(a.ours_normal_mm)}</td></tr>
       ${Object.entries(c.monthly).map(([k, v]) => `<tr><td>${["", "", "", "", "", "", "June", "July", "August", "September"][+k]}, % of normal</td><td>${fmt(v.imd)}%</td><td>${fmt(v.ours)}%</td></tr>`).join("")}
     </tbody></table></div>
-    ${latest ? `<p>District by district, against IMD’s own district table for ${esc(latest.period.replace(" to ", " – "))}
+    ${latest ? `<p>The weekly estimate district by district, against IMD’s own district table for ${esc(latest.period.replace(" to ", " – "))}
       (<a href="${latest.snapshot}">archived copy</a>), across ${latest.districts_compared} districts whose boundaries match: rank correlation
       ${latest.spearman_r}, median difference ${latest.median_abs_diff_pts} percentage points, same IMD category for ${latest.same_category_pct}%
       and within one category for ${latest.within_one_category_pct}%. Gridded averages smooth over individual rain gauges, so small or hilly districts differ most
@@ -79,14 +85,14 @@ function method(meta) {
 
 async function main() {
   try {
-    const [topo, weekly, aliases, meta, check] = await Promise.all([load("districts.topo.json"), load("weekly_2026.json"), load("aliases.json"), load("meta.json"), load("imd_check.json")]);
+    const [topo, weekly, aliases, meta, imd] = await Promise.all([load("districts.topo.json"), load("weekly_2026.json"), load("aliases.json"), load("meta.json"), load("imd_districts.json")]);
     hero(meta);
-    const map = initMap({ topo, weekly, check });
-    initDistrict({ districts: map.districts, aliases, weekly, map, check });
-    method(meta);
-    const [onset, sowing, states] = await Promise.all([load("onset_2026.json"), load("sowing_2026.json"), load("states.json")]);
+    const map = initMap({ topo, weekly, imd });
+    initDistrict({ districts: map.districts, aliases, weekly, map, imd });
+    method(meta, imd);
+    const [onset, sowing] = await Promise.all([load("onset_2026.json"), load("sowing_2026.json")]);
     initOnset({ topo, onset });
-    initSowing({ sowing, states, weekly });
+    initSowing({ sowing, imd });
   } catch (err) {
     console.error(err);
     const p = document.createElement("p");

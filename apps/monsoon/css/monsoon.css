@@ -134,6 +134,15 @@ figure { margin: 0; position: relative; }
 .tip b { font-weight: 600; }
 @media (hover: none) { .tip { display: none !important; } }
 
+/* map view toggle */
+.mode { display: grid; grid-template-columns: 1fr 1fr; gap: 0; border: 1.5px solid var(--ink); border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
+.mode button { font: 600 15px/1.2 var(--sans); padding: 10px 8px; border: 0; background: #fffdf8; color: var(--ink); cursor: pointer; display: grid; gap: 2px; text-align: center; }
+.mode button + button { border-left: 1.5px solid var(--ink); }
+.mode button small { font-weight: 500; font-size: 12px; color: var(--muted); }
+.mode button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+.mode button[aria-pressed="true"] small { color: var(--rule); }
+.mode-note { margin: 0 0 16px; }
+
 /* player */
 .player { display: flex; gap: 14px; align-items: center; margin-bottom: 18px; }
 .play { flex: 0 0 auto; width: 52px; height: 52px; border-radius: 50%; border: 0; background: var(--rain); color: var(--paper); cursor: pointer; display: grid; place-items: center; }
@@ -172,6 +181,7 @@ input[type="range"] { width: 100%; accent-color: var(--rain); height: 32px; marg
 .card-stat { text-align: right; }
 .card-stat .dep { font: 700 clamp(40px, 7vw, 56px)/1 var(--serif); margin: 0; }
 .card-stat p { margin: 4px 0 0; color: var(--ink-2); font-size: 15px; }
+.card-grid .warn { margin: 4px 0 10px; max-width: none; }
 .card-stat .warn, .warn { text-align: left; max-width: 360px; margin: 10px 0 0 auto; padding: 8px 10px; border-radius: 8px; background: #fbefd9; border: 1px solid #e3c48a; color: var(--ink); font-size: 14px; }
 .card-grid { display: grid; grid-template-columns: 1fr; gap: 24px; }
 @media (min-width: 860px) { .card-grid { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); } }
