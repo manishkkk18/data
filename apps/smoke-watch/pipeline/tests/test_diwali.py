@@ -84,3 +84,31 @@ def test_archive_file_is_read_as_hour_start_ist():
 def test_years_spec():
     assert diwali._years("2020-2022,2026") == [2020, 2021, 2022, 2026]
     assert diwali._years("2019-2020") == [2020]
+
+
+def test_partial_hours_and_spread():
+    hours = pd.date_range("2026-11-08T00:00", periods=4, freq="h")
+    rows = []
+    # 12 monitors usually; hour 3 has only 7 of them (more than half, less than three-quarters)
+    for loc in range(12):
+        for k, h in enumerate(hours):
+            if k == 3 and loc >= 7:
+                continue
+            rows.append({"location_id": loc, "hour": h, "parameter": "pm25", "value": 100 + loc * 10})
+    g = diwali.city_hours(pd.DataFrame(rows), hours, "pm25")
+    assert list(g["n"]) == [12, 12, 12, 7]
+    assert list(g["partial"]) == [False, False, False, True]
+    assert g["max"].iloc[0] == 210 and g["median"].iloc[0] == 155
+    assert abs(g["p90"].iloc[0] - 199) < 1e-9  # 90th percentile of 100..210
+    assert np.isnan(g["p90"].iloc[3])  # fewer than 10 monitors: no percentile
+
+
+def test_night_extras_flags_a_partial_peak():
+    hours = pd.date_range("2026-11-08T00:00", periods=36, freq="h")
+    g = pd.DataFrame({"median": 100.0, "p90": 150.0, "max": 200.0, "n": 40, "partial": False}, index=hours)
+    peak = pd.Timestamp("2026-11-09T00:00")
+    g.loc[peak, ["median", "max", "n", "partial"]] = [500.0, 980.0, 20, True]
+    src = pd.Series(np.where(g["partial"], "p", "c"), index=hours)
+    out = diwali.night_extras(g, src, D)
+    assert out["worst_monitor"] == {"value": 980, "hour": "2026-11-09T00:00"}
+    assert out["partial_night_hours"] == 1 and out["peak_partial"] and out["peak_monitors"] == 20

@@ -3,6 +3,11 @@
 For each year and city: hourly PM2.5 and PM10 from 7 days before to 8 days after Diwali.
   - Each hour's city value is the MEDIAN across government (CPCB/DPCC) reference stations,
     kept only when enough stations reported (same rule as the live map), with the count.
+  - Monitors often go silent at the worst hours of Diwali night (and the silent ones can be
+    the hotspots), so an hour where fewer than 3/4 of the usual monitors reported is marked
+    PARTIAL: its median likely understates the city. Each hour also keeps the 90th
+    percentile across monitors (the worst-hit tenth; only with 10+ monitors) and the single
+    highest monitor, so hotspots stay visible.
   - Delhi only: hours that still have no value use the US Embassy monitor alone, labelled.
   - Anything else stays a gap. Nothing is interpolated.
 Source: OpenAQ's public archive (S3, no key), which also covers 2022-24, when OpenAQ's API
@@ -58,6 +63,8 @@ NIGHT_START_H, NIGHT_HOURS = 18, 12
 MIN_NIGHT_HOURS = 9
 BASELINE_OFFSETS = [-7, -6, -5, -4, -3, 3, 4, 5, 6, 7]
 MIN_BASELINE_NIGHTS = 4
+PARTIAL_SHARE = 0.75  # below this share of the usual monitors, an hour is "partial"
+MIN_FOR_P90 = 10  # a 90th percentile needs enough monitors to mean something
 VI_TRAPPED = 6000  # m²/s
 NON_CPCB = ("airnow", "stateair")  # US Embassy / consulate monitors: not part of the city median
 
@@ -166,17 +173,27 @@ def fetch_api_hours(key: str, sensors: pd.DataFrame, start: date, end: date) -> 
     return df[df["value"].between(lo, hi, inclusive="neither")]
 
 
-def city_median(station_hours: pd.DataFrame, hours: pd.DatetimeIndex, parameter: str) -> tuple[pd.Series, pd.Series]:
-    """Hourly median across stations on the full `hours` index, and the station count.
-    An hour needs at least 3 stations (or all of a city's usual 1-2) and at least half the
-    usual count; otherwise it's NaN (a gap)."""
+def city_hours(station_hours: pd.DataFrame, hours: pd.DatetimeIndex, parameter: str) -> pd.DataFrame:
+    """Per hour on the full `hours` index: median, p90 and max across stations, n (count) and
+    partial. An hour needs at least 3 stations (or all of a city's usual 1-2) and at least half
+    the usual count, otherwise its values are NaN (a gap); with fewer than PARTIAL_SHARE of the
+    usual count it is kept but marked partial."""
     d = station_hours[station_hours["parameter"] == parameter]
-    g = d.groupby("hour")["value"].agg(["median", "count"]).reindex(hours)
-    n = g["count"].fillna(0).astype(int)
+    g = d.groupby("hour")["value"].agg(median="median", p90=lambda s: s.quantile(0.9), max="max", n="count").reindex(hours)
+    n = g["n"].fillna(0).astype(int)
     usual = float(n[n > 0].median()) if (n > 0).any() else 0.0
     need = min(openaq.MIN_STATIONS, usual)
     ok = (n >= max(need, 1)) & (n >= openaq.MIN_SHARE * usual)
-    return g["median"].where(ok), n
+    out = pd.DataFrame({"median": g["median"].where(ok), "p90": g["p90"].where(ok & (n >= MIN_FOR_P90)),
+                        "max": g["max"].where(ok), "n": n, "partial": ok & (n < PARTIAL_SHARE * usual)}, index=hours)
+    out.attrs["usual"] = usual
+    return out
+
+
+def city_median(station_hours: pd.DataFrame, hours: pd.DatetimeIndex, parameter: str) -> tuple[pd.Series, pd.Series]:
+    """Hourly median across stations (NaN where too few reported) and the station count."""
+    g = city_hours(station_hours, hours, parameter)
+    return g["median"], g["n"]
 
 
 # ---- Statistics --------------------------------------------------------------------------
@@ -235,18 +252,19 @@ def city_year(key: str, city_id: str, year: int, sensors: pd.DataFrame, today: d
     cpcb = sensors[~sensors["provider"].str.lower().str.contains("|".join(NON_CPCB), na=False)]
     locs = sorted({int(x) for x in cpcb["location_id"]})
     sh = fetch_archive_hours(locs, days) if locs else pd.DataFrame(columns=["location_id", "hour", "parameter", "value"])
-    pm25, n25 = city_median(sh, hours, "pm25")
+    g25 = city_hours(sh, hours, "pm25")
     # Recent days may not be in the archive yet: take them from the API instead.
     if (today - last).days < 30 and len(cpcb):
-        missing_days = sorted({h.date() for h in pm25[pm25.isna()].index})
+        missing_days = sorted({h.date() for h in g25.index[g25["median"].isna() | g25["partial"]]})
         if missing_days:
             api = fetch_api_hours(key, cpcb, missing_days[0], missing_days[-1])
             if len(api):
                 sh = pd.concat([sh, api]).groupby(["location_id", "hour", "parameter"], as_index=False)["value"].mean()
-                pm25, n25 = city_median(sh, hours, "pm25")
+                g25 = city_hours(sh, hours, "pm25")
+    pm25, n25 = g25["median"].copy(), g25["n"].copy()
     pm10, _ = city_median(sh, hours, "pm10")
 
-    src = pd.Series(np.where(pm25.notna(), "c", ""), index=hours)
+    src = pd.Series(np.where(pm25.notna(), np.where(g25["partial"], "p", "c"), ""), index=hours)
     if city_id == "delhi":
         gaps = pm25[pm25.isna()].index
         if len(gaps):
@@ -269,10 +287,31 @@ def city_year(key: str, city_id: str, year: int, sensors: pd.DataFrame, today: d
         "pm25": as_list(pm25),
         "pm10": as_list(pm10),
         "n": [int(v) for v in n25.reindex(show).fillna(0)],
-        "src": "".join(c if c else "-" for c in shown_src),  # c = CPCB median, e = US Embassy alone, - = gap
+        "p90": as_list(g25["p90"]),  # worst-hit tenth of monitors (10+ monitors only)
+        "max": as_list(g25["max"]),  # the single highest monitor
+        # c = government-monitor median, p = the same but partial (< 3/4 of usual monitors),
+        # e = US Embassy alone, - = gap
+        "src": "".join(c if c else "-" for c in shown_src),
         "embassy_hours": int((shown_src == "e").sum()),
-        "stations_usual": int(n25[n25 > 0].median()) if (n25 > 0).any() else 0,
-        "stats": stats(pm25, d),
+        "partial_hours": int((shown_src == "p").sum()),
+        "stations_usual": int(round(g25.attrs["usual"])),
+        "stats": {**stats(pm25, d), **night_extras(g25, src, d)},
+    }
+
+
+def night_extras(g25: pd.DataFrame, src: pd.Series, d: date) -> dict:
+    """What the median can hide on Diwali night: the highest single monitor, how many hours had
+    too few monitors reporting, and how many monitors reported at the median's peak hour."""
+    start = pd.Timestamp(datetime.combine(d, datetime.min.time())) + pd.Timedelta(hours=NIGHT_START_H)
+    night = pd.date_range(start, periods=NIGHT_HOURS, freq="h")
+    mx = g25["max"].reindex(night)
+    med = g25["median"].reindex(night)
+    peak_t = med.idxmax() if med.notna().any() else None
+    return {
+        "worst_monitor": {"value": _r(mx.max()), "hour": mx.idxmax().strftime("%Y-%m-%dT%H:%M")} if mx.notna().any() else None,
+        "partial_night_hours": int((src.reindex(night) == "p").sum()),
+        "peak_monitors": int(g25["n"][peak_t]) if peak_t is not None and src.get(peak_t) in ("c", "p") else None,
+        "peak_partial": bool(src.get(peak_t) == "p") if peak_t is not None else False,
     }
 
 
