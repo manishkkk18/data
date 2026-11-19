@@ -65,6 +65,19 @@ jobs:
           echo "daily=$DAILY" >> "$GITHUB_OUTPUT"; echo "year=$YEAR" >> "$GITHUB_OUTPUT"
           echo "IST $MD, UTC hour $HOUR: in season $IN_SEASON, run $RUN, season update $SEASON"
 
+      # Without its keys the pipeline would fall back to dev-only public files; never publish that.
+      - name: Check the secrets are set (values are never printed)
+        if: steps.gate.outputs.run == 'true'
+        env:
+          FIRMS_MAP_KEY: ${{ secrets.FIRMS_MAP_KEY }}
+          OPENAQ_API_KEY: ${{ secrets.OPENAQ_API_KEY }}
+        run: |
+          missing=""
+          [ -n "$FIRMS_MAP_KEY" ] || missing="$missing FIRMS_MAP_KEY"
+          [ -n "$OPENAQ_API_KEY" ] || missing="$missing OPENAQ_API_KEY"
+          if [ -n "$missing" ]; then echo "::error::Missing repository secrets:$missing. Nothing is published."; exit 1; fi
+          echo "Both secrets are set."
+
       - uses: actions/checkout@v7
         if: steps.gate.outputs.run == 'true'
 
