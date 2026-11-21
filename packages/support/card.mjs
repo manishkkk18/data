@@ -41,7 +41,7 @@ export async function supportCardHtml({ track = "india-from-data" } = {}, c = re
   const intl = (c.international?.url ?? "").trim() ? c.international : null;
   if (!link && !intl) return "";
   const upiButton = link
-    ? `<a class="sp-btn sp-primary" data-sp="upi" href="${esc(link)}"><span class="sp-rupee" aria-hidden="true">₹</span> Buy me a chai (UPI)</a>`
+    ? `<button type="button" class="sp-btn sp-primary" data-sp="upi" aria-haspopup="dialog"><span class="sp-rupee" aria-hidden="true">₹</span> Buy me a chai (UPI)</button>`
     : "";
   const intlButton = intl
     ? `<a class="sp-btn" data-sp="intl" href="${esc(intl.url)}" target="_blank" rel="noopener">${esc(intl.label || "Support from abroad")} <span aria-hidden="true">↗</span></a>`
@@ -50,14 +50,19 @@ export async function supportCardHtml({ track = "india-from-data" } = {}, c = re
     ? `
   <dialog class="sp-dialog" aria-labelledby="sp-title" aria-describedby="sp-help">
     <h3 id="sp-title">Buy me a chai</h3>
-    <div class="sp-qr" role="img" aria-label="QR code to pay ${esc(c.upi.name)} by UPI">${await qrSvg(link)}</div>
-    <p id="sp-help">Scan with any UPI app</p>
+    <!-- UPI apps decline payments that start from a website link to a personal UPI ID (PhonePe
+         refuses at once, Paytm after the PIN), so there is no "open the app" link: paying the
+         UPI ID or the QR code works everywhere. Phones lead with copying the ID. -->
+    <p class="sp-phone sp-lead">Copy my UPI ID, then pay it from your UPI app (Pay → To UPI ID).</p>
     <div class="sp-id">
       <span class="sp-id-label">UPI ID</span>
       <code data-sp="id">${esc(c.upi.id)}</code>
       <button type="button" class="sp-btn" data-sp="copy">Copy</button>
     </div>
     <p class="sp-status" role="status" aria-live="polite"></p>
+    <div class="sp-qr" role="img" aria-label="QR code to pay ${esc(c.upi.name)} by UPI">${await qrSvg(link)}</div>
+    <p id="sp-help"><span class="sp-desk">Scan with any UPI app</span><span class="sp-phone">Or save this QR code and open it with “scan from gallery” in your UPI app.</span></p>
+    <button type="button" class="sp-btn sp-phone" data-sp="save">Save QR image</button>
     <button type="button" class="sp-btn sp-close" data-sp="close">Close</button>
   </dialog>`
     : "";

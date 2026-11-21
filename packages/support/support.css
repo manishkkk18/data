@@ -54,3 +54,25 @@
 .sp-id code { font-family: var(--sp-mono); font-size: 15px; padding: 8px 10px; border-radius: 10px; background: var(--sp-page); border: 1px solid var(--sp-border); user-select: all; }
 .sp-status { min-height: 1.5em; font-size: 13px; }
 .sp-close { margin-top: 6px; width: 100%; }
+
+/* One dialog, two layouts. Computer: QR first, ID below. Phone: copy the ID first (the main
+   action, since UPI apps decline website-started payments), then the QR to save. */
+.sp-dialog[open] { display: flex; flex-direction: column; align-items: stretch; }
+.sp-dialog h3 { order: 0; }
+.sp-dialog .sp-qr { order: 1; }
+.sp-dialog #sp-help { order: 2; }
+.sp-dialog .sp-id { order: 3; }
+.sp-dialog .sp-status { order: 4; }
+.sp-dialog .sp-close { order: 9; }
+.sp-dialog .sp-phone { display: none; }
+.sp-dialog[data-phone] .sp-desk { display: none; }
+.sp-dialog[data-phone] .sp-phone { display: block; }
+.sp-dialog[data-phone] button.sp-phone { display: inline-flex; }
+.sp-dialog[data-phone] .sp-lead { order: 1; margin: 0 0 4px; color: var(--sp-text); }
+.sp-dialog[data-phone] .sp-id { order: 2; margin-top: 8px; }
+.sp-dialog[data-phone] .sp-status { order: 3; }
+.sp-dialog[data-phone] .sp-qr { order: 4; width: 168px; height: 168px; margin-top: 6px; }
+.sp-dialog[data-phone] #sp-help { order: 5; font-size: 13px; }
+.sp-dialog[data-phone] [data-sp="save"] { order: 6; margin: 10px auto 0; }
+.sp-dialog[data-phone] [data-sp="copy"] { background: var(--sp-accent); border-color: var(--sp-accent); color: var(--sp-on-accent); }
+.sp-dialog[data-phone] { margin: auto auto 12px; max-height: calc(100dvh - 24px); overflow-y: auto; }
