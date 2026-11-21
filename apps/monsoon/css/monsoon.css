@@ -246,3 +246,14 @@ th { font-weight: 600; color: var(--ink-2); font-size: 14px; }
   .month-bar { height: 90px; }
   .hero-question { margin-top: 28px; }
 }
+
+/* The support card (packages/support), on monsoon paper */
+:root {
+  --support-accent: var(--rain); --support-on-accent: var(--paper);
+  --support-bg: var(--paper-2); --support-border: var(--rule); --support-page: var(--paper);
+  --support-text: var(--ink); --support-muted: var(--ink-2);
+  --support-font-head: var(--serif); --support-font-body: var(--sans); --support-font-mono: ui-monospace, monospace;
+  --support-margin: 8px 0 0;
+}
+/* Footer links (All projects, Connect, Support): a full 44px tap height without changing the line. */
+.foot .connect a { display: inline-block; padding: 11px 0; margin: -11px 0; }

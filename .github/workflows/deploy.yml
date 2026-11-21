@@ -48,6 +48,7 @@ jobs:
           cache: npm
           cache-dependency-path: |
             apps/home/package-lock.json
+            packages/support/package-lock.json
             apps/night-lights/web/package-lock.json
             apps/smoke-watch/web/package-lock.json
 

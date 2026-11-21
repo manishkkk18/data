@@ -1,0 +1,10 @@
+{
+  "_about": "Support settings for every /data/india page: the ONE place these live. Read at build time by packages/support/card.mjs. Leave a value empty to hide what it powers.",
+  "upi": {
+    "id": "manish.kukrejam@ybl",
+    "name": "Manish Kukreja",
+    "note": "Thanks for India from data"
+  },
+  "_international": "For supporters outside India, e.g. { \"label\": \"Ko-fi\", \"url\": \"https://ko-fi.com/...\" }. Empty url = no button.",
+  "international": { "label": "", "url": "" }
+}

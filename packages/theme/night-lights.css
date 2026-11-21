@@ -10,3 +10,6 @@
   --blue: #6ea8ff;        /* selection, links */
   --red: #ff7a7a;
 }
+
+/* The support card (packages/support) in Night Lights' amber */
+:root { --support-accent: var(--amber); --support-on-accent: #1a1205; }

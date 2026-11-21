@@ -1,0 +1,10 @@
+{
+  "name": "india-from-data-support",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "The support card (UPI button and QR dialog) shared by every /data/india page.",
+  "dependencies": {
+    "qrcode": "^1.5.4"
+  }
+}

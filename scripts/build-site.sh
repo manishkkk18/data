@@ -14,6 +14,9 @@ OUT="$ROOT/_site"
 rm -rf "$OUT"
 mkdir -p "$OUT/india"
 
+# The support card (QR code drawn at build time) is shared by every page.
+(cd "$ROOT/packages/support" && npm ci --no-audit --no-fund)
+
 build_app() { # <folder with package.json> <destination under _site>
   echo "::group::Build $1"
   (cd "$ROOT/$1" && npm ci --no-audit --no-fund && npm run build)
@@ -30,6 +33,7 @@ build_app apps/home india
 # The Monsoon is a static site with no build step: copy its pages and data, not its pipeline.
 mkdir -p "$OUT/india/monsoon"
 (cd "$ROOT/apps/monsoon" && cp -R index.html favicon.svg og.png css js vendor data "$OUT/india/monsoon/")
+node "$ROOT/packages/support/inject.mjs" "$OUT/india/monsoon" monsoon
 
 cp "$ROOT/site/index.html" "$ROOT/site/404.html" "$OUT/"
 touch "$OUT/.nojekyll"

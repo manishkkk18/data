@@ -11,6 +11,8 @@ import "@theme/night-lights.css";
 import "./styles.css";
 import "./stage.css";
 import "./phone.css";
+import "@support/support.css";
+import "../../../../packages/support/client.js"; // the support card at the end of the page
 import App from "./App";
 import { scrollToHashWhenReady } from "./scrollToHash";
 

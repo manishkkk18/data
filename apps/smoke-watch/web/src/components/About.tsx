@@ -77,7 +77,7 @@ export default function About({ data }: { data: AppData }) {
             <span className="sep"> · </span>
             <a href="/data/india/">All projects</a>
             <span className="sep"> · </span>
-            <a href="/data/india/#support" onClick={() => track("support")}>
+            <a href="#support" onClick={() => track("support")}>
               Support ☕
             </a>
           </p>

@@ -1,11 +1,12 @@
 import { defineConfig, type Plugin } from "vite";
 import { fileURLToPath } from "node:url";
 import { readFacts, type Fact } from "./scripts/facts";
-import { supportCard } from "./scripts/support";
+import { supportCard } from "../../packages/support/vite.mjs";
 
 // Served from GitHub Pages at https://manishkkk18.github.io/data/india/.
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
 const theme = fileURLToPath(new URL("../../packages/theme", import.meta.url));
+const support = fileURLToPath(new URL("../../packages/support", import.meta.url));
 const apps = fileURLToPath(new URL("..", import.meta.url));
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
@@ -29,19 +30,9 @@ function facts(): Plugin {
   };
 }
 
-/** The support card (UPI button, QR dialog), built from packages/config/support.ts. */
-function support(): Plugin {
-  return {
-    name: "support-card",
-    async transformIndexHtml(html) {
-      return html.replace("<!--support:card-->", await supportCard());
-    },
-  };
-}
-
 export default defineConfig(({ command, isPreview }) => ({
   base: command === "build" || isPreview ? "/data/india/" : "/",
-  plugins: [facts(), support()],
-  resolve: { alias: { "@theme": theme } },
+  plugins: [facts(), supportCard({ track: "india-from-data" })],
+  resolve: { alias: { "@theme": theme, "@support": support } },
   server: { fs: { allow: [repoRoot] } },
 }));
