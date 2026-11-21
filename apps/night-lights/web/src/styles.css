@@ -515,3 +515,5 @@ h1, h2, h3 { font-family: var(--font-head); font-weight: 500; margin: 0; }
 .connect { font-weight: 500; }
 .connect a, .also-by a { color: var(--amber); }
 .connect .sep { color: var(--muted); }
+/* Footer links (All projects, Connect, Support): a full 44px tap height without changing the line. */
+.connect a { display: inline-block; padding: 12px 0; margin: -12px 0; }

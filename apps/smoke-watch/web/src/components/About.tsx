@@ -1,5 +1,6 @@
 /** Sources, honest limits and credits. Same card layout as India Night Lights' "About the data". */
 import { ago, timeLabel, type AppData } from "../data";
+import { track } from "../analytics";
 
 export default function About({ data }: { data: AppData }) {
   return (
@@ -75,6 +76,10 @@ export default function About({ data }: { data: AppData }) {
             Liked the data and visuals? <a href="/data/india/#contact">Connect with me →</a>
             <span className="sep"> · </span>
             <a href="/data/india/">All projects</a>
+            <span className="sep"> · </span>
+            <a href="/data/india/#support" onClick={() => track("support")}>
+              Support ☕
+            </a>
           </p>
         </div>
       </div>

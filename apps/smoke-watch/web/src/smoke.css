@@ -254,3 +254,5 @@
 .dw .trend-head { flex-wrap: wrap; }
 .dw .trend-legend { flex-wrap: wrap; row-gap: 4px; min-width: 0; }
 .dw .trend, .dw > * { min-width: 0; }
+/* Footer links (All projects, Connect, Support): a full 44px tap height without changing the line. */
+.connect a { display: inline-block; padding: 12px 0; margin: -12px 0; }

@@ -1,4 +1,5 @@
 import { monthLabel, type Monthly } from "../data";
+import { track } from "../analytics";
 
 export default function About({ monthly }: { monthly: Monthly }) {
   const first = monthly.months[0];
@@ -72,6 +73,10 @@ export default function About({ monthly }: { monthly: Monthly }) {
             Liked the data and visuals? <a href="/data/india/#contact">Connect with me →</a>
             <span className="sep"> · </span>
             <a href="/data/india/">All projects</a>
+            <span className="sep"> · </span>
+            <a href="/data/india/#support" onClick={() => track("support")}>
+              Support ☕
+            </a>
           </p>
         </div>
       </div>

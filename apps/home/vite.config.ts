@@ -1,6 +1,7 @@
 import { defineConfig, type Plugin } from "vite";
 import { fileURLToPath } from "node:url";
 import { readFacts, type Fact } from "./scripts/facts";
+import { supportCard } from "./scripts/support";
 
 // Served from GitHub Pages at https://manishkkk18.github.io/data/india/.
 const repoRoot = fileURLToPath(new URL("../..", import.meta.url));
@@ -28,9 +29,19 @@ function facts(): Plugin {
   };
 }
 
+/** The support card (UPI button, QR dialog), built from packages/config/support.ts. */
+function support(): Plugin {
+  return {
+    name: "support-card",
+    async transformIndexHtml(html) {
+      return html.replace("<!--support:card-->", await supportCard());
+    },
+  };
+}
+
 export default defineConfig(({ command, isPreview }) => ({
   base: command === "build" || isPreview ? "/data/india/" : "/",
-  plugins: [facts()],
+  plugins: [facts(), support()],
   resolve: { alias: { "@theme": theme } },
   server: { fs: { allow: [repoRoot] } },
 }));
