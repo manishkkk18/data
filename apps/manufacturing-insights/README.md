@@ -90,6 +90,17 @@ eSankhyiki's state x industry data some time after the press note.
 
 ## Which numbers the page shows
 
+* **Headlines** (`headline.json`, from `build_headline` in `build.py`): every number in the
+  hero, the verdict summary, the share text and the home-page card. Two windows, never mixed:
+  the factory output index (IIP, 2011-12 series, 2013-14 to its last full year) and the
+  registered-factory figures (ASI value added, jobs and value added per worker, all 2013-14 to
+  the latest ASI year). It also holds the same-window IIP vs ASI comparison, the linked
+  alternative for the output index (2022-23 series x MoSPI's factor, shown only in the method
+  notes) and the latest year's deflation effect. `build.py` writes the share text into
+  `index.html`'s og/twitter descriptions (link previews don't run JavaScript); `verify.py`
+  fails if any headline window, same-window figure or share text drifts from the data, or if
+  `index.html` gains a hard-coded statistic.
+
 * **Monthly output** (`iip.json` `monthly`): Manufacturing, Mining, Electricity, General. Before
   April 2023, the 2011-12 index divided by MoSPI's official linking factor (PIB, 1 June 2026:
   Manufacturing 1.3700, Mining 1.1890, Electricity 1.8495, General 1.3834); from April 2023, the

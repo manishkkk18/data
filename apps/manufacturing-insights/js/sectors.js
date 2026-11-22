@@ -3,6 +3,12 @@
 //   "Since 2022-23": the new 2022-23 series (a newer item basket), FY2022-23 = 100 -> latest.
 import { C, pct, esc, segmented, tooltip, rel, track } from "./common.js";
 
+// Why the two baskets disagree, for the PLI focus industries.
+const BASKET_NOTE = {
+  "26": "The old 2011-12 basket under-counts smartphone and electronics assembly; the new basket captures it better.",
+  "21": "Old basket fixed in 2011-12, so newer products may be under-counted; compare with the new basket.",
+};
+
 export function sectors(iip) {
   const fys = iip.annual.fys;
   const from = fys.indexOf(iip.sector_years[0]);
@@ -18,12 +24,12 @@ export function sectors(iip) {
 
   const rankNew = [...iip.sectors].sort((a, b) => b.new.change_pct - a.new.change_pct);
   document.getElementById("sectors-lede").innerHTML =
-    `Production indices for 23 manufacturing industries. Since ${iip.sector_years[0]}, manufacturing as a whole is up <b>${pct(iip.headline.mfg_change_pct)}</b>. ` +
+    `Production indices for 23 manufacturing industries. Since ${iip.sector_years[0]}, manufacturing as a whole is up <b>${pct(iip.headline.mfg_change_pct)}</b> on the 2011-12 index. ` +
     `Pharmaceuticals doubled, but most of that jump came in 2015-16 to 2017-18, before the Production Linked Incentive (PLI) schemes began in 2020-21. ` +
     `Electronics shows only ${pct(elec.change_pct)} on the old index, whose item basket was fixed in 2011-12 and barely counts smartphones. ` +
     `On MoSPI's new basket it is up ${pct(elec.new.change_pct)} in three years, the ${ordinal(rankNew.indexOf(elec) + 1)} fastest of 23.`;
   document.getElementById("sectors-caption").innerHTML =
-    `Each card is on a single base year; the two views are never joined, because MoSPI publishes no linking factor below the sector level. ` +
+    `Each card shows both measures: the big number and line follow the selected view, and the line below gives the other one. They are never joined into one series, because MoSPI publishes no linking factor below the sector level. ` +
     `Old view: 2011-12 series, financial years ${fys[from]} to ${fys.at(-1)}, rebased so ${fys[from]} = 100. New view: 2022-23 series (2022-23 = 100) to ${newFys.at(-1)}. ` +
     `PLI tags show which industry group each scheme mostly falls in (a scheme can be a small part of its group).`;
 
@@ -41,7 +47,9 @@ export function sectors(iip) {
         <h3>${esc(r.s.name)}${r.s.pli ? `<span class="badge" title="${esc(r.s.pli_note)}">PLI</span>` : ""}</h3>
         <p class="chg${r.chg < 0 ? " neg" : ""}">${pct(r.chg, 0)}</p>
         <p class="sub">${r.yrs[0]} → ${r.yrs.at(-1)}</p>
+        <p class="sub2">${basket === "old" ? `New basket, 2022-23 → ${newFys.at(-1)}: ${pct(r.s.new.change_pct, 0)}` : `Old series, ${fys[from]} → ${fys.at(-1)}: ${pct(r.s.change_pct, 0)}`}</p>
         <svg viewBox="0 0 140 46" width="100%" height="46" role="img" aria-label="${esc(r.s.name)}: ${pct(r.chg)} from ${r.yrs[0]} to ${r.yrs.at(-1)}"></svg>
+        ${BASKET_NOTE[r.s.nic] ? `<p class="basket-note">${BASKET_NOTE[r.s.nic]}</p>` : ""}
       </div>`;
     }).join("");
     host.querySelectorAll(".mini").forEach((card) => {

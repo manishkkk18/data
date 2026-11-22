@@ -89,30 +89,27 @@ export function readFacts(appsDir: string, warn: (m: string) => void = console.w
     const late = cities.filter((x) => x.days_late! > 2).length;
     mn.push({ value: `${int(late)} of ${int(cities.length)}`, label: "cities got the rains more than 2 days late" });
   }
-  // Factory India: the app's own headline figures (MoSPI IIP and ASI), same definitions as its hero.
+  // Factory India: the app's own headline block (data/headline.json), so the card and the page agree.
+  // Output (IIP) and the factory figures (ASI) have different windows; each fact names its own.
   const mi: Fact[] = [];
   let miAsOf: string | null = null;
-  const iip = read<MfgIip>(appsDir, "manufacturing-insights/data/iip.json", warn);
+  const hl = read<MfgHeadline>(appsDir, "manufacturing-insights/data/headline.json", warn);
   const signed = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(0)}%`;
-  if (iip) {
-    const h = iip.headline;
-    mi.push({ value: signed(h.mfg_change_pct), label: `factory output, ${h.from_fy} to ${h.to_fy} (IIP)` });
+  if (hl) {
+    const o = hl.output, f = hl.factory;
+    mi.push({ value: signed(o.change_pct), label: `factory output index, ${o.from_fy} to ${o.to_fy} (IIP)` });
+    mi.push({ value: signed(f.gva_real_change_pct), label: `real value added in registered factories, ${f.from_fy} to ${f.to_fy} (ASI)` });
+    mi.push({ value: signed(f.persons_change_pct), label: `people employed in them, same years: output per worker up ${f.gva_per_person_cagr.toFixed(1)}% a year` });
   }
-  const asi = read<MfgAsi>(appsDir, "manufacturing-insights/data/asi.json", warn);
-  if (asi) {
-    const p = asi.india.series.persons;
-    const a = p[asi.years.indexOf(asi.base)];
-    const b = p[p.length - 1];
-    if (a && b) mi.push({ value: signed(((b - a) / a) * 100), label: `people working in factories, ${asi.base} to ${asi.latest} (ASI)` });
-    const g = asi.india.growth.gva_per_person;
-    if (g != null) mi.push({ value: `${g >= 0 ? "+" : "−"}${Math.abs(g).toFixed(1)}%`, label: "a year: real value added per factory worker" });
-  }
-  if (iip && asi) miAsOf = `Latest: IIP ${monthLabel(iip.latest_month)}, ASI ${asi.latest}`;
+  const iip = read<{ latest_month: string }>(appsDir, "manufacturing-insights/data/iip.json", warn);
+  if (hl && iip) miAsOf = `Latest: IIP ${monthLabel(iip.latest_month)}, ASI ${hl.factory.to_fy}`;
   return { nl, nlAsOf, sw, swAsOf, mn, mnAsOf, mi, miAsOf };
 }
 
-type MfgIip = { latest_month: string; headline: { mfg_change_pct: number; from_fy: string; to_fy: string } };
-type MfgAsi = { years: string[]; base: string; latest: string; india: { series: { persons: number[] }; growth: { gva_per_person: number | null } } };
+type MfgHeadline = {
+  output: { change_pct: number; from_fy: string; to_fy: string };
+  factory: { gva_real_change_pct: number; persons_change_pct: number; gva_per_person_cagr: number; from_fy: string; to_fy: string };
+};
 
 type MonsoonMeta = { official: { regions: Record<string, { pct_of_lpa: number }> } };
 type MonsoonImd = { period: string; imd_counts: Record<string, number> & { rows: number } };

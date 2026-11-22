@@ -113,6 +113,12 @@ section.block { padding: 56px 0; border-top: 1px solid var(--rule); }
 .stat .big { margin: 0; font: 700 clamp(56px, 12vw, 88px)/.92 var(--cond); font-variant-numeric: tabular-nums; }
 .stat .big small { font-size: .42em; font-weight: 600; color: var(--ink-2); margin-left: 6px; }
 .stat .cap { margin: 8px 0 0; font-size: 15px; color: var(--ink-2); }
+.stat .pair { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.stat .pair .big { font-size: clamp(48px, 10vw, 76px); }
+.stat .unit { margin: 2px 0 0; font: 600 13px/1.3 var(--mono); letter-spacing: .04em; text-transform: uppercase; color: var(--ink-2); }
+.mini .sub2 { margin: 0 0 4px; font: 500 12px/1.35 var(--mono); color: var(--ink-2); }
+.mini .basket-note { margin: 4px 0 0; font-size: 11.5px; line-height: 1.35; color: var(--accent-ink); }
+.gap-note { margin: 14px 0 0; padding: 12px 14px; background: var(--paper); border-left: 4px solid var(--steel); font-size: 15px; color: var(--ink-2); max-width: 80ch; }
 .stat .src { margin: 8px 0 0; font: 400 12px/1.4 var(--mono); color: var(--muted); }
 .asof { margin: 22px 0 0; font: 500 13px/1.4 var(--mono); color: var(--ink-2); }
 .asof b { background: var(--ink); color: var(--paper); padding: 2px 6px; font-weight: 500; }
@@ -204,6 +210,8 @@ th { font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .05e
 .map-legend .scale span { flex: 1; }
 .map-legend .ticks { display: flex; justify-content: space-between; max-width: 420px; font: 400 11.5px var(--mono); color: var(--muted); }
 .map-legend .extra { margin-top: 6px; display: flex; gap: 14px; flex-wrap: wrap; font-size: 12.5px; color: var(--muted); }
+.small-sw { display: inline-block; width: 14px; height: 12px; border: 1px solid var(--steel); vertical-align: -2px; margin-right: 4px;
+  background: radial-gradient(circle, var(--steel) 1px, transparent 1.4px) 0 0 / 6px 6px, var(--d0); }
 .hatch-sw { display: inline-block; width: 14px; height: 12px; border: 1px solid var(--steel); vertical-align: -2px; margin-right: 4px;
   background: repeating-linear-gradient(45deg, var(--paper) 0 3px, var(--steel) 3px 4px); }
 

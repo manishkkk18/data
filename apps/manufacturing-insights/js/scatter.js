@@ -2,7 +2,7 @@
 // Above the diagonal output grew faster than jobs (more output per worker); below it, the reverse.
 import { C, pct, pa, lakh, rsLakh, esc, segmented, tooltip, rel, onResize, track } from "./common.js";
 
-export function scatter(asi) {
+export function scatter(asi, HL) {
   const el = document.getElementById("scatter");
   const tip = tooltip(document.getElementById("scatter-tip"), el.parentElement);
   let mode = "states";
@@ -10,23 +10,30 @@ export function scatter(asi) {
 
   const ig = asi.india.growth;
   const states = Object.entries(asi.states)
-    .filter(([n, s]) => s.growth.gva_real != null && s.latest?.persons > 50000 && n !== "Ladakh")
-    .map(([n, s]) => ({ name: n === "Jammu and Kashmir" ? "J&K + Ladakh" : n, x: s.growth.persons, y: s.growth.gva_real, size: s.latest.persons, pp: s.latest.gva_per_person, lead: false }));
+    .filter(([, s]) => s.growth.gva_real != null && !s.small_base && s.latest?.persons > 50000)
+    .map(([n, s]) => ({ name: s.growth_label ? "J&K incl. Ladakh" : n, x: s.growth.persons, y: s.growth.gva_real, size: s.latest.persons, pp: s.latest.gva_per_person, lead: false }));
   const inds = asi.sectors.filter((s) => s.growth.gva_real != null && s.growth.persons != null)
     .map((s) => ({ name: s.name, x: s.growth.persons, y: s.growth.gva_real, size: s.persons, pp: s.gva_per_person, cap: s.capital_per_person, lead: s.pli === "lead" }));
-  const jobShare = Math.log1p(ig.persons / 100) / Math.log1p(ig.gva_real / 100);
+  const F = HL.factory, SW = HL.same_window;
   const below = states.filter((d) => d.y < d.x);
   const labourHeavy = [...inds].sort((a, b) => (a.cap ?? 0) - (b.cap ?? 0)).slice(0, 3).map((d) => d.name.toLowerCase());
 
   document.getElementById("jobs-lede").innerHTML =
-    `Across India, factory jobs grew ${pa(ig.persons)} and real value added ${pa(ig.gva_real)} between ${asi.base} and ${asi.latest}, ` +
-    `so output per worker rose ${pa(ig.gva_per_person)}. Roughly ${Math.round(jobShare * 100)}% of the output growth came from more people working, and ${100 - Math.round(jobShare * 100)}% from each producing more. ` +
+    `Across India's registered factories, jobs grew ${pa(F.persons_cagr)} and real value added ${pa(F.gva_real_cagr)} between ${F.from_fy} and ${F.to_fy}, ` +
+    `so output per worker rose ${pa(F.gva_per_person_cagr)}. Roughly ${F.jobs_share_of_growth_pct}% of the growth came from more people working, and ${100 - F.jobs_share_of_growth_pct}% from each producing more. ` +
     `In ${below.length} of ${states.length} states shown, jobs grew faster than output (below the line). ` +
     `The industries with the least fixed capital per worker are ${labourHeavy.join(", ")}.`;
   document.getElementById("scatter-caption").innerHTML =
     `Average change a year, ${asi.base} to ${asi.latest} (ASI, all registered factories). Real GVA deflated with WPI Manufactured products. ` +
-    `Circle size: persons engaged in ${asi.latest}. States with fewer than 50,000 factory workers, and those without a ${asi.base} figure, are left out; ` +
-    `J&amp;K and Ladakh are shown together. Dashed line: output and jobs growing at the same pace.`;
+    `Circle size: persons engaged in ${asi.latest}. States with fewer than 50,000 factory workers, and those without a ${asi.base} figure, are left out, ` +
+    `so are small bases (see the map). J&amp;K includes Ladakh. Dashed line: output and jobs growing at the same pace.`;
+  const gap = document.createElement("p");
+  gap.className = "gap-note";
+  gap.innerHTML =
+    `<b>Why is this bigger than the output index?</b> Over the same years (${SW.from_fy} to ${SW.to_fy}) the IIP manufacturing index rose ${pct(SW.iip_change_pct)} but ASI real value added rose ${pct(SW.asi_gva_real_change_pct)}. ` +
+    `The IIP counts the volume of a fixed list of products chosen in 2011-12, so newer products and upgrades are missed. ASI measures the value factories add, turned into real terms with one price index, ` +
+    `which can overstate real growth in years when that index falls (as in ${HL.deflation_latest.latest_fy}). <a href="#method">More in the method notes</a>.`;
+  document.getElementById("scatter-caption").after(gap);
 
   function draw() {
     el.innerHTML = "";

@@ -14,7 +14,7 @@
   <meta property="og:type" content="article" />
   <meta property="og:site_name" content="India from data" />
   <meta property="og:title" content="Is India Actually Becoming a Factory?" />
-  <meta property="og:description" content="Factory output is up 46% since 2013-14 and factory jobs 45%, but output per worker grew only about 2% a year. What MoSPI's data says about Make in India." />
+  <meta property="og:description" data-headline="share" content="India's factory output index is up 46% from 2013-14 to 2025-26. In registered factories, real value added rose 79% and jobs 45% from 2013-14 to 2023-24, so output per worker grew about 2% a year." />
   <meta property="og:url" content="https://manishkkk18.github.io/data/india/manufacturing-insights/" />
   <meta property="og:image" content="https://manishkkk18.github.io/data/india/og/manufacturing-insights.jpg" />
   <meta property="og:image:type" content="image/jpeg" />
@@ -23,7 +23,7 @@
   <meta property="og:image:alt" content="Is India actually becoming a factory? Headline figures for manufacturing output and factory jobs on a blueprint-grid background." />
   <meta name="twitter:card" content="summary_large_image" />
   <meta name="twitter:title" content="Is India Actually Becoming a Factory?" />
-  <meta name="twitter:description" content="Factory output is up 46% since 2013-14 and factory jobs 45%, but output per worker grew only about 2% a year. What MoSPI's data says about Make in India." />
+  <meta name="twitter:description" data-headline="share" content="India's factory output index is up 46% from 2013-14 to 2025-26. In registered factories, real value added rose 79% and jobs 45% from 2013-14 to 2023-24, so output per worker grew about 2% a year." />
   <meta name="twitter:image" content="https://manishkkk18.github.io/data/india/og/manufacturing-insights.jpg" />
   <meta name="author" content="Manish" />
 
@@ -58,16 +58,19 @@
         <p class="hero-sub" id="hero-sub">Make in India launched in September 2014. Here is what the government's own factory statistics show for output, jobs and productivity, and where the change is happening.</p>
         <div class="stats">
           <div class="stat">
-            <p class="label">Factory output</p>
+            <p class="label" id="stat-output-label">Factory output index</p>
             <p class="big num" id="stat-output">–</p>
             <p class="cap" id="stat-output-cap"></p>
-            <p class="src">Index of Industrial Production, Manufacturing (MoSPI)</p>
+            <p class="src">Index of Industrial Production, manufacturing, 2011-12 series (MoSPI)</p>
           </div>
           <div class="stat">
-            <p class="label">People working in factories</p>
-            <p class="big num" id="stat-jobs">–</p>
-            <p class="cap" id="stat-jobs-cap"></p>
-            <p class="src">Annual Survey of Industries, persons engaged (MoSPI)</p>
+            <p class="label" id="stat-factory-label">Registered factories</p>
+            <div class="pair">
+              <div><p class="big num" id="stat-gva">–</p><p class="unit">real value added</p></div>
+              <div><p class="big num" id="stat-jobs">–</p><p class="unit">people employed</p></div>
+            </div>
+            <p class="cap" id="stat-factory-cap"></p>
+            <p class="src">Annual Survey of Industries (MoSPI); value added at 2011-12 prices</p>
           </div>
         </div>
         <p class="asof" id="asof"></p>

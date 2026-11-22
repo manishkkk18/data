@@ -50,12 +50,12 @@ export function stateMap(asi, topo) {
     if (mode === "growth") {
       L.innerHTML = `<div class="scale">${C.div.map((c) => `<span style="background:${c}"></span>`).join("")}</div>` +
         `<div class="ticks"><span>shrinking</span>${GROWTH_T.map((t) => `<span>${t > 0 ? "+" : ""}${t}%</span>`).join("")}<span>growing</span></div>` +
-        `<div class="extra"><span>${m.long}: average change a year, ${asi.base} to ${asi.latest}</span><span><i class="hatch-sw"></i>No ${asi.base} figure</span></div>`;
+        `<div class="extra"><span>${m.long}: average change a year, ${asi.base} to ${asi.latest}</span><span><i class="hatch-sw"></i>No ${asi.base} figure, or no separate data (Ladakh, counted in J&amp;K)</span><span><i class="small-sw"></i>Small base: rate not comparable</span></div>`;
     } else {
       const q = sc.quantiles();
       L.innerHTML = `<div class="scale">${C.seq.map((c) => `<span style="background:${c}"></span>`).join("")}</div>` +
-        `<div class="ticks"><span>low</span>${q.map((t) => `<span>${short(t)}</span>`).join("")}<span>high</span></div>` +
-        `<div class="extra"><span>${m.long}, ${asi.latest} (six equal groups of states)</span><span><i class="hatch-sw"></i>No data</span></div>`;
+        `<div class="ticks"><span>&lt;${short(q[0])}</span>${q.slice(1, -1).map((t) => `<span>${short(t)}</span>`).join("")}<span>≥${short(q.at(-1))}</span></div>` +
+        `<div class="extra"><span>${m.long}, ${asi.latest}. Six equal-sized groups of states, so outliers don't stretch the scale.</span><span><i class="hatch-sw"></i>No data</span></div>`;
     }
   }
   const short = (v) => (metric === "gva_per_person" ? v.toFixed(1) : metric === "gva_real" ? (v >= 1e5 ? `${(v / 1e5).toFixed(1)}L cr` : `${Math.round(v / 1e3)}k cr`) : v >= 1e5 ? `${(v / 1e5).toFixed(1)}L` : `${Math.round(v / 1e3)}k`);
@@ -72,10 +72,16 @@ export function stateMap(asi, topo) {
     const defs = svg.append("defs");
     defs.append("pattern").attr("id", "hatch").attr("width", 5).attr("height", 5).attr("patternUnits", "userSpaceOnUse").attr("patternTransform", "rotate(45)")
       .call((p) => { p.append("rect").attr("width", 5).attr("height", 5).attr("fill", C.paper); p.append("line").attr("x1", 0).attr("y1", 0).attr("x2", 0).attr("y2", 5).attr("stroke", C.steel).attr("stroke-width", 1.2); });
+    defs.append("pattern").attr("id", "small").attr("width", 6).attr("height", 6).attr("patternUnits", "userSpaceOnUse")
+      .call((p) => { p.append("rect").attr("width", 6).attr("height", 6).attr("fill", C.div[3]); p.append("circle").attr("cx", 3).attr("cy", 3).attr("r", 1.1).attr("fill", C.steel); });
     svg.append("g").selectAll("path").data(feats).join("path")
       .attr("class", (d) => `state${d.properties.state === selected ? " sel" : ""}`)
       .attr("d", path)
-      .attr("fill", (d) => { const v = value(d.properties.state); return v == null ? "url(#hatch)" : sc(v); })
+      .attr("fill", (d) => {
+        const n = d.properties.state, v = value(n);
+        if (v == null) return "url(#hatch)";
+        return mode === "growth" && S[n]?.small_base ? "url(#small)" : sc(v);
+      })
       .on("pointermove", (ev, d) => hover(ev, d.properties.state))
       .on("pointerleave", () => tip.hide())
       .on("click", (ev, d) => open(d.properties.state, false));
@@ -88,8 +94,14 @@ export function stateMap(asi, topo) {
     const v = value(name);
     const m = METRICS[metric];
     const [x, y] = rel(ev, el.parentElement);
-    tip.show(`<b>${esc(name)}</b><div class="row"><span>${m.name}${mode === "growth" ? " growth" : ""}</span><span>${mode === "growth" ? pa(v) : m.fmt(v)}</span></div>` +
-      (v == null ? `<div class="dim">${esc(S[name]?.flags?.[0] ?? "No ASI data")}</div>` : `<div class="dim">Click for details</div>`), x, y);
+    const s = S[name];
+    const growth = mode === "growth";
+    const title = growth && s?.growth_label ? s.growth_label : name;
+    const note = v == null ? (s?.flags?.[0] ?? "No ASI data")
+      : growth && s?.small_base ? s.small_base
+      : growth && s?.growth_label ? "Ladakh is reported separately only from 2019-20, so it is included here."
+      : "Click for details";
+    tip.show(`<b>${esc(title)}</b><div class="row"><span>${m.name}${growth ? " growth" : ""}</span><span>${growth ? pa(v) : m.fmt(v)}</span></div><div class="dim">${esc(note)}</div>`, x, y);
   }
 
   function open(name, fromSelect) {
@@ -103,14 +115,15 @@ export function stateMap(asi, topo) {
     if (!s) { panel.innerHTML = `<p class="panel-empty">No ASI data for ${esc(name)}.</p>`; return; }
     const L = s.latest || {};
     const g = s.growth;
+    const gNote = s.growth_label ? ", incl. Ladakh" : "";
     panel.innerHTML = `
       <div class="panel-head"><div><p class="kicker" style="margin:0">ASI ${asi.latest}</p><h3>${esc(name)}</h3></div>
         <button class="close" type="button" aria-label="Close state details">×</button></div>
       <div class="kpis">
-        ${kpi("Real GVA", crore(L.gva_real), g.gva_real)}
-        ${kpi("Jobs (persons engaged)", lakh(L.persons), g.persons)}
-        ${kpi("Factories", int(L.factories), g.factories)}
-        ${kpi("GVA per worker", rsLakh(L.gva_per_person), g.gva_per_person)}
+        ${kpi("Real GVA", crore(L.gva_real), g.gva_real, gNote)}
+        ${kpi("Jobs (persons engaged)", lakh(L.persons), g.persons, gNote)}
+        ${kpi("Factories", int(L.factories), g.factories, gNote)}
+        ${kpi("GVA per worker", rsLakh(L.gva_per_person), g.gva_per_person, gNote)}
       </div>
       <h4>Trend since ${asi.years[0]}</h4>
       <div class="trend-pair">
@@ -137,7 +150,7 @@ export function stateMap(asi, topo) {
   }
   document.addEventListener("keydown", (e) => e.key === "Escape" && selected && close());
 
-  const kpi = (k, v, g) => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="g">${g == null ? "growth: n/a" : `${pct(g)}/yr since ${asi.base}`}</div></div>`;
+  const kpi = (k, v, g, note = "") => `<div class="kpi"><div class="k">${k}</div><div class="v">${v}</div><div class="g">${g == null ? "growth: n/a" : `${pct(g)}/yr since ${asi.base}${note}`}</div></div>`;
 
   function spark(svgEl, vals, w, h, col, axis) {
     const svg = d3.select(svgEl);

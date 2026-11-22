@@ -28,11 +28,12 @@ from __future__ import annotations
 
 import json
 import math
+import re
 from collections import defaultdict
 
 import xlrd
 
-from common import CACHE, MONTHS, write
+from common import CACHE, MONTHS, ROOT, write
 
 LINK = {  # MoSPI official linking factors, 2011-12 series -> 2022-23 series (PIB, 1 June 2026)
     "Manufacturing": 1.3700,
@@ -103,7 +104,9 @@ ASI_TO_MAP = {
     "Sikkim": "Sikkim", "Tamil Nadu": "Tamil Nadu", "Telangana": "Telangana", "Tripura": "Tripura",
     "Uttarakhand": "Uttarakhand", "Uttar Pradesh": "Uttar Pradesh", "West Bengal": "West Bengal",
 }
-JK_GROUP = ("Jammu and Kashmir", "Ladakh")   # combined for growth
+JK_GROUP = ("Jammu and Kashmir", "Ladakh")   # combined for growth, shown on J&K only
+SMALL_SUPPRESSED = 50     # % of latest GVA in ASI's suppressed "Other" group
+SMALL_PERSONS = 10_000    # persons engaged in the base year
 ASI_KEYS = ["factories", "persons", "workers", "gva", "output", "fixed_capital", "wages"]
 MONEY = {"gva", "output", "fixed_capital", "wages"}  # Rs lakh, nominal
 
@@ -315,9 +318,13 @@ def build_asi(wpi: dict) -> dict:
         t = tot[st]
         series = {y: derived(t, y) for y in real_years}
         flags = []
-        if st in JK_GROUP:
+        if st == "Ladakh":
+            # Ladakh has no separate 2013-14 figure: its growth is inside J&K's combined number.
+            g = {m: None for m in GROWTH}
+            flags.append("No separate growth figure: Ladakh is reported only from 2019-20, so its growth is counted in Jammu & Kashmir's (shown as J&K incl. Ladakh).")
+        elif st == "Jammu and Kashmir":
             g = growth(jk)
-            flags.append("Growth is for Jammu & Kashmir and Ladakh together: Ladakh is reported separately only from 2019-20.")
+            flags.append("Growth is for Jammu & Kashmir including Ladakh: Ladakh is reported separately only from 2019-20.")
         elif BASE_FY not in raw_state_years[st]:
             g = {m: None for m in GROWTH}
             first = min(raw_state_years[st])
@@ -345,7 +352,19 @@ def build_asi(wpi: dict) -> dict:
             if len(top) == 5:
                 break
         other_share = r1(latest_g.get("99998", 0) / total_g * 100) if total_g else None
+        # Small base: growth rates from a tiny or mostly-suppressed base swing wildly; the map greys them.
+        base_persons = (jk if st == "Jammu and Kashmir" else t)["persons"].get(BASE_FY)
+        small = None
+        if any(v is not None for v in g.values()):
+            if other_share is not None and other_share > SMALL_SUPPRESSED:
+                small = f"Small base: {other_share}% of this state's factory output is in ASI's suppressed 'Other' group."
+            elif base_persons is not None and base_persons < SMALL_PERSONS:
+                small = f"Small base: only {int(base_persons):,} people worked in its registered factories in {BASE_FY}."
+        if small:
+            flags.append(small + " Its growth rate is in the table but greyed on the map.")
         states[st] = {
+            "small_base": small,
+            "growth_label": "Jammu & Kashmir incl. Ladakh" if st == "Jammu and Kashmir" else None,
             "latest": series.get(latest),
             "series": {k: [series[y][k] for y in real_years] for k in ["gva_real", "persons", "factories", "gva_per_person"]},
             "growth": g, "flags": flags, "top": top, "suppressed_share": other_share,
@@ -369,7 +388,15 @@ def build_asi(wpi: dict) -> dict:
         vals = sorted(((st, tot[st]["gva"].get(y, 0)) for st in tot if st != "All India"), key=lambda kv: -kv[1])
         return {"states": [v[0] for v in vals[:5]], "share": r1(sum(v[1] for v in vals[:5]) / india["gva"][y] * 100)}
     concentration = {BASE_FY: top5_share(BASE_FY), latest: top5_share(latest)}
+    nominal = india["gva"]
+    prev = real_years[-2]
+    deflation = {  # the latest year's real growth leans on one price index; shown in the method notes
+        "prev_fy": prev, "latest_fy": latest, "wpi_prev": wpi[prev], "wpi_latest": wpi[latest],
+        "nominal_growth_pct": r1((nominal[latest] / nominal[prev] - 1) * 100, 2),
+        "real_growth_pct": r1((real(nominal[latest], latest) / real(nominal[prev], prev) - 1) * 100, 2),
+    }
     return {
+        "deflation_latest": deflation,
         "concentration": concentration,
         "years": real_years, "latest": latest, "base": BASE_FY, "span_years": span,
         "deflator": {"name": "WPI Manufactured products (base 2011-12 = 100), financial-year average",
@@ -385,12 +412,89 @@ def build_asi(wpi: dict) -> dict:
     }
 
 
+def pct_change(a, b):
+    return r1((b / a - 1) * 100)
+
+
+def build_headline(iip: dict, asi: dict) -> dict:
+    """Every headline number on the page, the share text and the home card, computed in one place."""
+    h = iip["headline"]
+    fys = iip["annual"]["fys"]
+    mfg = dict(zip(fys, iip["annual"]["manufacturing_2011"]))
+    yrs = asi["years"]
+    b, l = yrs.index(asi["base"]), len(yrs) - 1
+    s = asi["india"]["series"]
+    new_to = iip["annual"]["manufacturing_2022"][h["new_to_fy"]]
+    linked_to = r1(new_to * LINK["Manufacturing"])
+    output = {  # conservative headline: the 2011-12 series alone, which runs to 2025-26
+        "label": "Factory output index (IIP manufacturing)",
+        "series": "2011-12", "from_fy": h["from_fy"], "to_fy": h["to_fy"],
+        "years": fy_start(h["to_fy"]) - fy_start(h["from_fy"]),
+        "from": h["mfg_from"], "to": h["mfg_to"], "change_pct": h["mfg_change_pct"], "cagr": h["mfg_cagr"],
+    }
+    output_linked = {  # the 2022-23 series' latest year, put on the old base with MoSPI's factor
+        "label": "Same window, 2022-23 series linked with MoSPI's factor",
+        "from_fy": h["from_fy"], "to_fy": h["new_to_fy"], "from": h["mfg_from"],
+        "new_index": new_to, "factor": LINK["Manufacturing"], "to": linked_to,
+        "change_pct": pct_change(h["mfg_from"], linked_to),
+    }
+    factory = {  # like for like: one source (ASI), one window
+        "label": "Registered factories (ASI)", "from_fy": asi["base"], "to_fy": asi["latest"],
+        "years": asi["span_years"],
+        "gva_real_from": s["gva_real"][b], "gva_real_to": s["gva_real"][l],
+        "gva_real_change_pct": pct_change(s["gva_real"][b], s["gva_real"][l]),
+        "persons_from": s["persons"][b], "persons_to": s["persons"][l],
+        "persons_change_pct": pct_change(s["persons"][b], s["persons"][l]),
+        "gva_per_person_from": s["gva_per_person"][b], "gva_per_person_to": s["gva_per_person"][l],
+        "gva_per_person_change_pct": pct_change(s["gva_per_person"][b], s["gva_per_person"][l]),
+        "gva_real_cagr": asi["india"]["growth"]["gva_real"], "persons_cagr": asi["india"]["growth"]["persons"],
+        "gva_per_person_cagr": asi["india"]["growth"]["gva_per_person"],
+    }
+    # Without the latest year, whose real jump leans on a falling WPI (see deflation_latest):
+    pv = len(yrs) - 2
+    factory["prev_fy"] = yrs[pv]
+    factory["gva_per_person_cagr_to_prev"] = r1((math.pow(s["gva_per_person"][pv] / s["gva_per_person"][b], 1 / (pv - b)) - 1) * 100, 2)
+    factory["gva_real_cagr_to_prev"] = r1((math.pow(s["gva_real"][pv] / s["gva_real"][b], 1 / (pv - b)) - 1) * 100, 2)
+    factory["jobs_share_of_growth_pct"] = round(math.log1p(factory["persons_cagr"] / 100) / math.log1p(factory["gva_real_cagr"] / 100) * 100)
+    same_window = {  # IIP over ASI's window, to show the two measures disagree
+        "from_fy": asi["base"], "to_fy": asi["latest"],
+        "iip_from": mfg[asi["base"]], "iip_to": mfg[asi["latest"]],
+        "iip_change_pct": pct_change(mfg[asi["base"]], mfg[asi["latest"]]),
+        "asi_gva_real_change_pct": factory["gva_real_change_pct"],
+    }
+    share = (f"India's factory output index is up {output['change_pct']:.0f}% from {output['from_fy']} to {output['to_fy']}. "
+             f"In registered factories, real value added rose {factory['gva_real_change_pct']:.0f}% and jobs {factory['persons_change_pct']:.0f}% "
+             f"from {factory['from_fy']} to {factory['to_fy']}, so output per worker grew about {factory['gva_per_person_cagr']:.0f}% a year.")
+    return {"output": output, "output_linked": output_linked, "factory": factory, "same_window": same_window,
+            "ytd": {"months": h["ytd_months"], "mfg_avg_growth": h["ytd_mfg_avg_growth"]},
+            "deflation_latest": asi["deflation_latest"], "share_text": share}
+
+
+SHARE_TAG = re.compile(r'(<meta [^>]*data-headline="share"[^>]*content=")[^"]*(")')
+
+
+def write_meta(headline: dict) -> None:
+    """Put the generated share text into index.html's share tags (link previews don't run JS)."""
+    page = ROOT / "index.html"
+    html = page.read_text("utf-8")
+    text = headline["share_text"].replace("&", "&amp;").replace('"', "&quot;")
+    new, n = SHARE_TAG.subn(lambda m: m.group(1) + text + m.group(2), html)
+    if n != 2:
+        raise SystemExit(f"index.html: expected 2 share tags (og, twitter) marked data-headline=share, found {n}")
+    if new != html:
+        page.write_bytes(new.encode("utf-8"))
+        print("updated the share text in index.html")
+
+
 def main() -> None:
     iip = build_iip()
     wpi = build_wpi()
     asi = build_asi(wpi)
+    headline = build_headline(iip, asi)
     write("iip.json", iip)
     write("asi.json", asi)
+    write("headline.json", headline)
+    write_meta(headline)
 
 
 if __name__ == "__main__":
