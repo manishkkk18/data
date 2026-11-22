@@ -25,7 +25,9 @@ function facts(): Plugin {
         .replace("<!--asof:nl-->", f.nlAsOf ? `Latest month: ${esc(f.nlAsOf)}` : "")
         .replace("<!--asof:sw-->", f.swAsOf ? `Figures as of ${esc(f.swAsOf)}` : "")
         .replace("<!--facts:mn-->", factList(f.mn))
-        .replace("<!--asof:mn-->", f.mnAsOf ? esc(f.mnAsOf) : "");
+        .replace("<!--asof:mn-->", f.mnAsOf ? esc(f.mnAsOf) : "")
+        .replace("<!--facts:mi-->", factList(f.mi))
+        .replace("<!--asof:mi-->", f.miAsOf ? esc(f.miAsOf) : "");
     },
   };
 }

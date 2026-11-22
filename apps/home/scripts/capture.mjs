@@ -16,8 +16,10 @@ const APPS = [
   { id: "smoke-watch", path: "smoke-watch/" },
   // The Monsoon opens on a text hero: its card shows the district map section instead.
   { id: "monsoon", path: "monsoon/", anchor: "#map", settle: 3000 },
+  // Manufacturing opens on its headline figures: the card and share image show that hero.
+  { id: "manufacturing-insights", path: "manufacturing-insights/", settle: 3000 },
 ];
-// Only some apps: ONLY=monsoon npm run capture
+// Only some apps: ONLY=monsoon npm run capture (add "home" to ONLY to also redo home.jpg)
 const ONLY = process.env.ONLY ? process.env.ONLY.split(",") : null;
 const CHROME = [
   process.env.CHROME_PATH,
@@ -63,9 +65,11 @@ try {
     console.log(`captured ${app.id}`);
   }
   // The home page itself, at the share size (rendered at 2× for sharp text, then scaled down).
-  const home = await shoot(`${SITE}/`, { ...OG, deviceScaleFactor: 2 }, 1500);
-  await sharp(home).resize(OG).jpeg({ quality: 85, mozjpeg: true }).toFile(`${og}/home.jpg`);
-  console.log("captured home");
+  if (!ONLY || ONLY.includes("home")) {
+    const home = await shoot(`${SITE}/`, { ...OG, deviceScaleFactor: 2 }, 1500);
+    await sharp(home).resize(OG).jpeg({ quality: 85, mozjpeg: true }).toFile(`${og}/home.jpg`);
+    console.log("captured home");
+  }
 } finally {
   await browser.close();
 }

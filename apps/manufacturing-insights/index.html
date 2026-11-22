@@ -1,0 +1,227 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+  <title>Is India Actually Becoming a Factory?</title>
+  <meta name="description" content="Is Make in India visible in the data? Factory output, jobs and productivity across India's industries and states, from MoSPI's Index of Industrial Production and Annual Survey of Industries." />
+  <meta name="theme-color" content="#f4f3ef" />
+  <meta name="color-scheme" content="light" />
+  <link rel="icon" href="favicon.svg" type="image/svg+xml" />
+  <link rel="canonical" href="https://manishkkk18.github.io/data/india/manufacturing-insights/" />
+
+  <!-- Sharing. Image: apps/home/public/og/manufacturing-insights.jpg, made by apps/home/scripts/capture.mjs. -->
+  <meta property="og:type" content="article" />
+  <meta property="og:site_name" content="India from data" />
+  <meta property="og:title" content="Is India Actually Becoming a Factory?" />
+  <meta property="og:description" content="Factory output is up 46% since 2013-14 and factory jobs 45%, but output per worker grew only about 2% a year. What MoSPI's data says about Make in India." />
+  <meta property="og:url" content="https://manishkkk18.github.io/data/india/manufacturing-insights/" />
+  <meta property="og:image" content="https://manishkkk18.github.io/data/india/og/manufacturing-insights.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="Is India actually becoming a factory? Headline figures for manufacturing output and factory jobs on a blueprint-grid background." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <meta name="twitter:title" content="Is India Actually Becoming a Factory?" />
+  <meta name="twitter:description" content="Factory output is up 46% since 2013-14 and factory jobs 45%, but output per worker grew only about 2% a year. What MoSPI's data says about Make in India." />
+  <meta name="twitter:image" content="https://manishkkk18.github.io/data/india/og/manufacturing-insights.jpg" />
+  <meta name="author" content="Manish" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" />
+  <link rel="stylesheet" href="css/factory.css" />
+  <link rel="preload" href="data/iip.json" as="fetch" crossorigin="anonymous" />
+  <link rel="preload" href="data/asi.json" as="fetch" crossorigin="anonymous" />
+  <!-- Visitor counts: GoatCounter, same account as the other India-from-data pages (no cookies). -->
+  <script data-goatcounter="https://manishkukreja.goatcounter.com/count" async src="https://gc.zgo.at/count.js"></script>
+</head>
+<body>
+  <a class="skip" href="#verdict">Skip to the verdict</a>
+
+  <header class="masthead">
+    <div class="wrap masthead-row">
+      <span class="brand"><svg aria-hidden="true" viewBox="0 0 32 32" width="22" height="22"><use href="#factory" /></svg> Factory India</span>
+      <nav aria-label="Sections">
+        <a class="home-link" href="/data/india/" title="India from data: all projects"><span aria-hidden="true">←</span> All projects</a>
+        <a href="#output">Output</a><a href="#sectors">Sectors</a><a href="#states">States</a><a href="#jobs">Jobs</a><a href="#verdict">Verdict</a><a href="#method">Method</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <!-- 1. Hero -->
+    <section class="hero" aria-labelledby="hero-title">
+      <div class="wrap">
+        <p class="kicker">India from data <span class="tag">· Make in India, eleven years on</span></p>
+        <h1 id="hero-title">Is India actually becoming a factory<span class="q">?</span></h1>
+        <p class="hero-sub" id="hero-sub">Make in India launched in September 2014. Here is what the government's own factory statistics show for output, jobs and productivity, and where the change is happening.</p>
+        <div class="stats">
+          <div class="stat">
+            <p class="label">Factory output</p>
+            <p class="big num" id="stat-output">–</p>
+            <p class="cap" id="stat-output-cap"></p>
+            <p class="src">Index of Industrial Production, Manufacturing (MoSPI)</p>
+          </div>
+          <div class="stat">
+            <p class="label">People working in factories</p>
+            <p class="big num" id="stat-jobs">–</p>
+            <p class="cap" id="stat-jobs-cap"></p>
+            <p class="src">Annual Survey of Industries, persons engaged (MoSPI)</p>
+          </div>
+        </div>
+        <p class="asof" id="asof"></p>
+      </div>
+    </section>
+
+    <!-- 2. Output pulse -->
+    <section id="output" class="block" aria-labelledby="output-title">
+      <div class="wrap">
+        <p class="kicker">1 · The output pulse</p>
+        <h2 id="output-title">Month by month, are factories making more?</h2>
+        <p class="lede" id="output-lede"></p>
+        <div class="controls">
+          <span class="ctl-label" id="pulse-view-label">View</span>
+          <div class="seg" role="group" aria-labelledby="pulse-view-label" id="pulse-view">
+            <button type="button" data-v="level" aria-pressed="true">Index level</button>
+            <button type="button" data-v="yoy" aria-pressed="false">Year-on-year growth</button>
+          </div>
+          <div class="seg" role="group" aria-label="Sector for growth view" id="pulse-series" hidden>
+            <button type="button" data-s="manufacturing" aria-pressed="true">Manufacturing</button>
+            <button type="button" data-s="mining" aria-pressed="false">Mining</button>
+            <button type="button" data-s="electricity" aria-pressed="false">Electricity</button>
+          </div>
+        </div>
+        <div class="legend" id="pulse-legend"></div>
+        <figure style="margin:0">
+          <div class="chart" id="pulse"></div>
+          <div class="tip" id="pulse-tip" hidden></div>
+          <figcaption class="note" id="pulse-caption"></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 3. Sector slopes -->
+    <section id="sectors" class="block band" aria-labelledby="sectors-title">
+      <div class="wrap">
+        <p class="kicker">2 · Sector by sector</p>
+        <h2 id="sectors-title">Which industries grew, and did the PLI sectors take off?</h2>
+        <p class="lede" id="sectors-lede"></p>
+        <div class="controls">
+          <span class="ctl-label" id="basket-label">Compare</span>
+          <div class="seg" role="group" aria-labelledby="basket-label" id="basket">
+            <button type="button" data-b="old" aria-pressed="true" id="basket-old">Since 2013-14</button>
+            <button type="button" data-b="new" aria-pressed="false" id="basket-new">Since 2022-23 (new basket)</button>
+          </div>
+        </div>
+        <div class="legend">
+          <span class="key"><span class="sw" style="background:var(--accent)"></span>PLI focus sectors: electronics and pharma</span>
+          <span class="key"><span class="badge">PLI</span> other sectors with a PLI scheme</span>
+          <span class="key"><span class="sw" style="background:var(--ink-2)"></span>Others</span>
+        </div>
+        <div class="multiples" id="multiples"></div>
+        <div class="tip" id="multi-tip" hidden></div>
+        <p class="note" id="sectors-caption"></p>
+        <details class="table-view">
+          <summary>All 23 industries (table)</summary>
+          <div class="tbl-scroll" id="sectors-table"></div>
+        </details>
+      </div>
+    </section>
+
+    <!-- 4. State map -->
+    <section id="states" class="block" aria-labelledby="states-title">
+      <div class="wrap">
+        <p class="kicker">3 · State by state</p>
+        <h2 id="states-title">Where are the factories, and where are they growing?</h2>
+        <p class="lede" id="states-lede"></p>
+        <div class="controls">
+          <span class="ctl-label" id="metric-label">Measure</span>
+          <div class="seg" role="group" aria-labelledby="metric-label" id="metric">
+            <button type="button" data-m="gva_real" aria-pressed="true">Real GVA</button>
+            <button type="button" data-m="factories" aria-pressed="false">Factories</button>
+            <button type="button" data-m="persons" aria-pressed="false">Jobs</button>
+            <button type="button" data-m="gva_per_person" aria-pressed="false">GVA per worker</button>
+          </div>
+          <div class="seg" role="group" aria-label="Level or growth" id="mapmode">
+            <button type="button" data-k="level" aria-pressed="true" id="mode-level">Level</button>
+            <button type="button" data-k="growth" aria-pressed="false" id="mode-growth">Growth a year</button>
+          </div>
+        </div>
+        <div class="map-layout">
+          <div class="map-wrap">
+            <p class="map-hint">Tap or click a state for its top industries and trends. <label>Or choose: <select id="state-select" aria-label="Choose a state"><option value="">State…</option></select></label></p>
+            <div id="map"></div>
+            <div class="tip" id="map-tip" hidden></div>
+            <div class="map-legend" id="map-legend"></div>
+          </div>
+          <aside class="panel" id="panel" aria-live="polite" tabindex="-1">
+            <p class="panel-empty">Choose a state to see its top industries, its trend since 2011-12, and what changed since 2013-14.</p>
+          </aside>
+        </div>
+        <details class="table-view">
+          <summary>All states (table)</summary>
+          <div class="tbl-scroll" id="states-table"></div>
+        </details>
+      </div>
+    </section>
+
+    <!-- 5. Jobs vs output -->
+    <section id="jobs" class="block band" aria-labelledby="jobs-title">
+      <div class="wrap">
+        <p class="kicker">4 · Jobs vs output</p>
+        <h2 id="jobs-title">Did growth come from more workers or more output per worker?</h2>
+        <p class="lede" id="jobs-lede"></p>
+        <div class="controls">
+          <span class="ctl-label" id="scatter-label">Show</span>
+          <div class="seg" role="group" aria-labelledby="scatter-label" id="scatter-mode">
+            <button type="button" data-x="states" aria-pressed="true">States</button>
+            <button type="button" data-x="sectors" aria-pressed="false">Industries</button>
+          </div>
+        </div>
+        <figure style="margin:0">
+          <div class="chart" id="scatter"></div>
+          <div class="tip" id="scatter-tip" hidden></div>
+          <figcaption class="note" id="scatter-caption"></figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <!-- 6. Verdict -->
+    <section id="verdict" class="block" aria-labelledby="verdict-title">
+      <div class="wrap">
+        <p class="kicker">5 · The verdict</p>
+        <h2 id="verdict-title">So, is India becoming a factory?</h2>
+        <p class="answer" id="answer"></p>
+        <div class="verdict-grid" id="verdict-cards"></div>
+      </div>
+    </section>
+
+    <!-- 7. Method -->
+    <section id="method" class="band" aria-labelledby="method-title" style="border-top:1px solid var(--rule)">
+      <div class="wrap method">
+        <p class="kicker">Methodology &amp; sources</p>
+        <h2 id="method-title">How this was made</h2>
+        <div class="method-grid" id="method-body"></div>
+      </div>
+    </section>
+  </main>
+
+  <!-- The support card (packages/support), added when the site is built. -->
+  <div class="wrap"><!--support:card--></div>
+
+  <footer class="wrap foot">
+    <p class="connect">Liked the data and visuals? <a href="/data/india/#contact">Connect with me →</a><span class="sep"> · </span><a href="/data/india/">All projects</a><span class="sep"> · </span><a href="#support">Support ☕</a></p>
+    <p>Also by me: <a href="/data/india/night-lights/">India Night Lights</a>, <a href="/data/india/smoke-watch/">India Smoke Watch</a> and <a href="/data/india/monsoon/">The Monsoon, District by District</a>.</p>
+    <p>Made from public data by MoSPI (IIP and ASI, via eSankhyiki), the Office of the Economic Adviser (WPI) and geoBoundaries. Code and data pipeline are on <a href="https://github.com/manishkkk18/data/tree/main/apps/manufacturing-insights">GitHub</a>.</p>
+  </footer>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="factory" viewBox="0 0 32 32"><path d="M4 27V15l6.5 4.2V15l6.5 4.2V15l6.5 4.2V6H28v21z" fill="currentColor" /></symbol>
+  </svg>
+
+  <script src="vendor/d3.min.js"></script>
+  <script src="vendor/topojson-client.min.js"></script>
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>

@@ -19,4 +19,7 @@
   /* The Monsoon's "monsoon paper" (apps/monsoon/css/monsoon.css): light card, ink text, ochre accent */
   --mn-bg: #f6f1e7;  --mn-border: #d6ccb8;  --mn-accent: #8a4f15;  --mn-on-accent: #f6f1e7;
   --mn-text: #1b2832; --mn-muted: #44525d;  --mn-rain: #14507a;
+  /* Factory India's "industrial blueprint" (apps/manufacturing-insights/css/factory.css): off-white, steel ink, safety orange */
+  --mi-bg: #f4f3ef;  --mi-border: #c9c7c0;  --mi-accent: #a63f08;  --mi-on-accent: #f4f3ef;
+  --mi-text: #1c232b; --mi-muted: #434d57;  --mi-orange: #e8590c;
 }

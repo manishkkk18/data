@@ -5,6 +5,7 @@
 #   _site/india/night-lights/   -> India Night Lights               (apps/night-lights/web)
 #   _site/india/smoke-watch/    -> India Smoke Watch                (apps/smoke-watch/web)
 #   _site/india/monsoon/        -> The Monsoon, District by District (apps/monsoon, static, no build)
+#   _site/india/manufacturing-insights/ -> Is India Actually Becoming a Factory? (static, no build)
 # Each app builds from its own folder with its own lockfile; data comes from the repo
 # (Night Lights) or the smoke-watch-data branch checked out into apps/smoke-watch/data
 # beforehand (Smoke Watch's live files). Run from the repo root.
@@ -34,6 +35,11 @@ build_app apps/home india
 mkdir -p "$OUT/india/monsoon"
 (cd "$ROOT/apps/monsoon" && cp -R index.html favicon.svg og.png css js vendor data "$OUT/india/monsoon/")
 node "$ROOT/packages/support/inject.mjs" "$OUT/india/monsoon" monsoon
+
+# Is India Actually Becoming a Factory? is static too (its share image lives with the home page's).
+mkdir -p "$OUT/india/manufacturing-insights"
+(cd "$ROOT/apps/manufacturing-insights" && cp -R index.html favicon.svg css js vendor data "$OUT/india/manufacturing-insights/")
+node "$ROOT/packages/support/inject.mjs" "$OUT/india/manufacturing-insights" india-manufacturing
 
 cp "$ROOT/site/index.html" "$ROOT/site/404.html" "$OUT/"
 touch "$OUT/.nojekyll"

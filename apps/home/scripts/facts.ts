@@ -4,7 +4,7 @@
 import { existsSync, readFileSync } from "node:fs";
 
 export type Fact = { value: string; label: string };
-export type Facts = { nl: Fact[]; nlAsOf: string | null; sw: Fact[]; swAsOf: string | null; mn: Fact[]; mnAsOf: string | null };
+export type Facts = { nl: Fact[]; nlAsOf: string | null; sw: Fact[]; swAsOf: string | null; mn: Fact[]; mnAsOf: string | null; mi: Fact[]; miAsOf: string | null };
 
 const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const int = (n: number) => Math.round(n).toLocaleString("en-IN");
@@ -89,8 +89,30 @@ export function readFacts(appsDir: string, warn: (m: string) => void = console.w
     const late = cities.filter((x) => x.days_late! > 2).length;
     mn.push({ value: `${int(late)} of ${int(cities.length)}`, label: "cities got the rains more than 2 days late" });
   }
-  return { nl, nlAsOf, sw, swAsOf, mn, mnAsOf };
+  // Factory India: the app's own headline figures (MoSPI IIP and ASI), same definitions as its hero.
+  const mi: Fact[] = [];
+  let miAsOf: string | null = null;
+  const iip = read<MfgIip>(appsDir, "manufacturing-insights/data/iip.json", warn);
+  const signed = (v: number) => `${v >= 0 ? "+" : "−"}${Math.abs(v).toFixed(0)}%`;
+  if (iip) {
+    const h = iip.headline;
+    mi.push({ value: signed(h.mfg_change_pct), label: `factory output, ${h.from_fy} to ${h.to_fy} (IIP)` });
+  }
+  const asi = read<MfgAsi>(appsDir, "manufacturing-insights/data/asi.json", warn);
+  if (asi) {
+    const p = asi.india.series.persons;
+    const a = p[asi.years.indexOf(asi.base)];
+    const b = p[p.length - 1];
+    if (a && b) mi.push({ value: signed(((b - a) / a) * 100), label: `people working in factories, ${asi.base} to ${asi.latest} (ASI)` });
+    const g = asi.india.growth.gva_per_person;
+    if (g != null) mi.push({ value: `${g >= 0 ? "+" : "−"}${Math.abs(g).toFixed(1)}%`, label: "a year: real value added per factory worker" });
+  }
+  if (iip && asi) miAsOf = `Latest: IIP ${monthLabel(iip.latest_month)}, ASI ${asi.latest}`;
+  return { nl, nlAsOf, sw, swAsOf, mn, mnAsOf, mi, miAsOf };
 }
+
+type MfgIip = { latest_month: string; headline: { mfg_change_pct: number; from_fy: string; to_fy: string } };
+type MfgAsi = { years: string[]; base: string; latest: string; india: { series: { persons: number[] }; growth: { gva_per_person: number | null } } };
 
 type MonsoonMeta = { official: { regions: Record<string, { pct_of_lpa: number }> } };
 type MonsoonImd = { period: string; imd_counts: Record<string, number> & { rows: number } };

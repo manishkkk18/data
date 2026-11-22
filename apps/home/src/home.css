@@ -85,6 +85,9 @@ section { padding: 40px 0; }
 .card[data-app="mn"] { --c-bg: var(--mn-bg); --c-border: var(--mn-border); --c-accent: var(--mn-accent); --c-on-accent: var(--mn-on-accent); --c-text: var(--mn-text); --c-muted: var(--mn-muted); }
 .card[data-app="mn"]:hover { border-color: var(--mn-rain); }
 .card[data-app="mn"] .card-shot { background: var(--mn-bg); }
+.card[data-app="mi"] { --c-bg: var(--mi-bg); --c-border: var(--mi-border); --c-accent: var(--mi-accent); --c-on-accent: var(--mi-on-accent); --c-text: var(--mi-text); --c-muted: var(--mi-muted); }
+.card[data-app="mi"]:hover { border-color: var(--mi-orange); }
+.card[data-app="mi"] .card-shot { background: var(--mi-bg); }
 .card:hover { border-color: var(--c-accent); }
 @media (prefers-reduced-motion: no-preference) { .card:hover { transform: translateY(-2px); } }
 .card-shot { display: block; aspect-ratio: 16 / 10; background: var(--bg); border-bottom: 1px solid var(--c-border); }
