@@ -134,3 +134,43 @@ Light theme only, like Monsoon. Palettes were checked with a colourblind-simulat
 the three IIP sector colours (orange, blue, teal; worst pair under colour-vision deficiency
 ΔE 14.5), the one-hue steel-blue map ramp, and the purple/grey/teal growth scale. States with no
 data are hatched, not coloured.
+
+## Investment pipeline and momentum screen
+
+Sections 5 ("Follow the money") and 6 ("Where's the momentum?") are a **momentum screen backed
+by investment signals, not a forecast**. They are built by `scripts/invest.py` (called from
+`build.py`) into `data/invest.json` and `data/screen.json`; `verify.py` re-checks every signal,
+label and published total.
+
+```
+scripts/fetch_trade.py         TradeStat HS4 imports, FY2018-19 onwards (US$ and Rs crore) -> .cache/trade/
+scripts/mapping/make_map.py    writes mapping/industry_map.csv (reviewed; also published as data/industry_map.csv)
+scripts/raw/pli_schemes.csv    PLI figures typed from NITI Aayog's Nov 2026 assessment / PIB, with page refs
+scripts/raw/rbi_credit/        manual: RBI "Sectoral Deployment of Bank Credit" Excel files
+scripts/raw/rbi_obicus/        manual: RBI OBICUS Excel files
+scripts/raw/dpiit_fdi/         manual: DPIIT quarterly FDI factsheet PDFs
+```
+
+**Manual downloads** (the publishers' file servers block scripts). Until a folder has files, its
+signal shows "no data" and never counts as a check or a cross:
+
+1. `raw/rbi_credit/`: the Excel attachment ("SIBC...E.xlsx") of RBI's "Sectoral Deployment of Bank
+   Credit" press release for September of each of the last four years (latest plus three before).
+2. `raw/rbi_obicus/`: the Excel attachment ("OBICUS...xlsx") of the OBICUS release for the same
+   quarter in each of the last four years (each holds about five quarters).
+3. `raw/dpiit_fdi/`: DPIIT's quarterly FDI factsheet PDFs for the latest quarter and for March of
+   the latest year and three years earlier (each lists three financial years by sector).
+
+When the first files arrive, a parser for each goes into `read_raw.py` (not written yet: it needs
+the real layouts), the category names are checked against `industry_map.csv`, and the credit,
+capacity and FDI panels replace their "no data" boxes.
+
+**Refreshing.** Each year: run `fetch_trade.py` (the latest FY is always re-fetched), update
+`raw/pli_schemes.csv` from the newest official PLI release (keep one as-of date for all schemes,
+check the 14 rows sum to the published total), then `build.py` and `verify.py`. If TradeStat
+adds HS codes in chapters 84-85, `build.py` stops until `make_map.py` gives them a row.
+
+**The rules** (constants in `THRESHOLDS`, shown on the page): momentum is each industry's gap
+to all manufacturing on the new index (2022-23 onwards) minus its gap on the old index
+(2013-14 onwards). Rising/Fading beyond ±1 point; "Rising + backed" needs at least 3 of the 5
+signals at ✓.

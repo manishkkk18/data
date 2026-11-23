@@ -6,9 +6,11 @@ import { pulse } from "./pulse.js";
 import { sectors } from "./sectors.js";
 import { stateMap } from "./map.js";
 import { scatter } from "./scatter.js";
+import { invest } from "./invest.js";
+import { screenSection } from "./screen.js";
 
-const [iip, asi, meta, topo, HL] = await Promise.all(
-  ["data/iip.json", "data/asi.json", "data/meta.json", "data/states.topo.json", "data/headline.json"].map(getJSON),
+const [iip, asi, meta, topo, HL, INV, SCR] = await Promise.all(
+  ["data/iip.json", "data/asi.json", "data/meta.json", "data/states.topo.json", "data/headline.json", "data/invest.json", "data/screen.json"].map(getJSON),
 );
 
 const O = HL.output, OL = HL.output_linked, F = HL.factory, SW = HL.same_window, D = HL.deflation_latest;
@@ -49,6 +51,8 @@ pulse(iip);
 sectors(iip);
 stateMap(asi, topo);
 scatter(asi, HL);
+invest(INV);
+screenSection(SCR);
 
 // ---------- verdict
 const elec = iip.sectors.find((s) => s.nic === "26");
@@ -105,6 +109,20 @@ const cards = [
       `Among states with over 3 lakh factory jobs, ${fast.slice(0, 3).map((d) => d[0]).join(", ")} grew fastest; ${fast.at(-1)[0]} grew slowest (${pa(fast.at(-1)[1].growth.gva_real)}).`,
     cite: `ASI GVA (current prices) share of the top five states, ${asi.base} vs ${asi.latest}. State growth: real GVA a year; see the map.`,
   },
+  (() => {
+    const lead = SCR.rows.filter((r) => r.label === "Rising + backed");
+    const rising = SCR.rows.filter((r) => r.label === "Rising, unconfirmed").slice(0, 3);
+    const im = INV.imports, capG = (im.capital_all.at(-1) / im.capital_all.at(-3) - 1) * 100;
+    const nAvail = Object.values(SCR.signals_available).filter(Boolean).length;
+    return {
+      stamp: [lead.length ? "partly" : "notyet", lead.length ? "Early signs" : "Not yet"],
+      title: "Is the money following?",
+      body: `Capital-goods imports grew ${pct(capG, 0)} in two years (${im.fys.at(-3)} to ${im.fys.at(-1)}), and PLI firms report ₹${(INV.pli.total.investment / 1e5).toFixed(2)} lakh crore invested. ` +
+        (lead.length ? `On the momentum screen, ${lead.map((r) => r.name.toLowerCase()).join(", ")} ${lead.length === 1 ? "is" : "are"} both rising and backed by at least ${SCR.thresholds.checks_for_backed} investment signals. ` : `No industry yet passes the screen's "Rising + backed" test. `) +
+        `${rising.map((r) => r.name).join(", ")} are rising but not yet confirmed${nAvail < 5 ? `, partly because only ${nAvail} of 5 signals have data so far` : ""}.`,
+      cite: `Momentum screen: IIP old vs new index relative to manufacturing; signals from TradeStat, ASI and NITI Aayog (PLI). TradeStat capital goods within HS 84-85, US$: ${(im.capital_all.at(-3) / 1000).toFixed(1)} → ${(im.capital_all.at(-1) / 1000).toFixed(1)} bn.`,
+    };
+  })(),
   {
     stamp: ["notyet", "Not yet"],
     title: "Few new factories",
@@ -158,7 +176,26 @@ document.getElementById("method-body").innerHTML = `
     </ul>
   </div>
   <div style="grid-column:1/-1">
+    <h3>Investment pipeline and momentum screen</h3>
+    <ul>
+      <li><b>Sources</b>: capital-goods imports from <a href="${INV.imports.source}">TradeStat</a> (Department of Commerce, data by DGCI&amp;S), HS 4-digit, financial years ${INV.imports.fys[0]} to ${INV.imports.fys.at(-1)}, in US$ (so exchange-rate moves don't count as growth). PLI investment, production and jobs per scheme from <a href="${INV.pli.link}">${esc(INV.pli.source)}</a>, to ${INV.pli.as_of}, each figure stored with its page. ASI gross fixed capital formation and fixed capital by industry (MoSPI). ` +
+        `Still to be added by hand, because the publishers' file servers block automated downloads: ${["credit", "obicus", "fdi"].map((k) => INV[k]).filter((v) => v.status !== "ok").map((v) => esc(v.label)).join(", ") || "none"}. Until then they show "no data" and do not count in the screen.</li>
+      <li><b>Each source groups industries its own way.</b> RBI credit, DPIIT FDI, PLI schemes and HS trade codes are matched to ${Object.keys(INV.groups).length} industry groups, each match flagged exact, approximate or loose. Industries in the same group share that group's signals. <a href="data/industry_map.csv" download>Download the full mapping (CSV)</a>.</li>
+      <li><b>Capital-goods imports are a narrow signal.</b> Chapters 84-85 are mostly phones, chips, laptops and parts, which are left out. Of the machinery that remains, most is general-purpose (pumps, motors, transformers) and counts only in the all-industry total. Only machinery specific to one industry feeds that industry's signal, so chemicals, pharma, petroleum and other manufacturing have no import signal. Machine tools are shared between metal products, machinery and vehicles.</li>
+      <li><b>PLI "committed" figures</b> are published for only ${INV.pli.schemes.filter((s) => s.committed != null).length} of ${INV.pli.schemes.length} schemes; elsewhere the PLI signal is "no data". A target can be a minimum threshold, so beating it is not the same as the scheme being complete.</li>
+      <li><b>Momentum compares two indices.</b> The new 2022-23 index and the old 2011-12 one count different products, and the new one grows faster for manufacturing as a whole (${pct(SCR.reference.recent_all)} vs ${pct(SCR.reference.longrun_all)} a year over their windows). So each industry is judged by its gap to manufacturing on each index, never by its raw rates. The two index levels are never joined.</li>
+      <li><b>What this is</b>: a momentum screen, not a forecast, and not investment advice. It shows where recent growth and investment signals line up. Small bases, the basket change, one-off spikes and import-heavy assembly can all make an industry look stronger than it is; the watchlist names the relevant risk for each.</li>
+    </ul>
+    <div class="tbl-scroll"><table><thead><tr><th>Group</th><th>NIC</th><th>RBI credit</th><th>DPIIT FDI</th><th>PLI schemes</th><th>Import codes (HS4)</th></tr></thead><tbody>${mapRows()}</tbody></table></div>
+  </div>
+  <div style="grid-column:1/-1">
     <h3>Checked against MoSPI's published figures</h3>
     <div class="tbl-scroll"><table class="checks"><thead><tr><th>Figure</th><th>Published</th><th>This page</th><th>Result</th><th></th></tr></thead><tbody>${checks}</tbody></table></div>
     <p class="note">"Revised since": the press release had a quick estimate, and MoSPI's data now holds the revised number. Data built ${meta.built}. Pipeline and refresh steps: <a href="https://github.com/manishkkk18/data/tree/main/apps/manufacturing-insights">GitHub</a>.</p>
   </div>`;
+
+/** The mapping summary table for the method notes, from data/industry_map.csv. */
+function mapRows() {
+  return INV.mapping_summary.map((g) => `<tr><td>${esc(g.name)}</td><td>${esc(g.nic)}</td>${["rbi_credit", "dpiit_fdi", "pli", "hs4"].map((s) =>
+    `<td style="white-space:normal;text-align:left;font-family:var(--sans);font-size:12.5px">${g[s].length ? g[s].map((x) => `${esc(x.cat)} <span class="dim" style="color:var(--muted)">(${x.conf})</span>`).join("; ") : "no data"}</td>`).join("")}</tr>`).join("");
+}

@@ -143,6 +143,80 @@ need(O["from_fy"] in hl["share_text"] and O["to_fy"] in hl["share_text"] and F["
 need(all(v is None for v in asi["states"]["Ladakh"]["growth"].values()), "Ladakh has no separate growth figure")
 need(asi["states"]["Jammu and Kashmir"]["growth_label"] is not None, "J&K growth is labelled as including Ladakh")
 
+# ---------- investment pipeline and momentum screen
+import csv as _csv
+
+from invest import THRESHOLDS as T, CHECK, DASH, CROSS
+
+inv = json.loads((DATA / "invest.json").read_text("utf-8"))
+scr = json.loads((DATA / "screen.json").read_text("utf-8"))
+mp = list(_csv.DictReader((ROOT / "scripts" / "mapping" / "industry_map.csv").open(encoding="utf-8")))
+groups = {r["source_category"] for r in mp if r["source"] == "group"}
+
+# mapping: every row points at a known group (or is explicitly unused), every HS4 in 84-85 has a row
+bad_rows = [r for r in mp if r["source"] != "group" and any(g not in groups | {"-", "GENERAL", "REFERENCE"} for g in r["group"].split())]
+need(not bad_rows, f"every mapping row names a known group or is marked unused ({len(mp)} rows)")
+need(all(r["confidence"] in ("exact", "approximate", "loose") for r in mp if r["group"] not in ("-", "GENERAL", "REFERENCE") and r["source"] != "group"),
+     "every mapped row has a confidence flag")
+hs_rows = {r["source_category"] for r in mp if r["source"] == "hs4"}
+cache_hs = set()
+for f in (ROOT / "scripts" / ".cache" / "trade").glob("hs4_*.json"):
+    cache_hs |= {x["hs4"] for x in json.loads(f.read_text("utf-8")) if x["hs4"][:2] in ("84", "85")}
+need(cache_hs <= hs_rows, f"all {len(cache_hs)} HS4 codes seen in chapters 84-85 are in the mapping")
+
+# published figures: TradeStat's own chapter-84 total and NITI's PLI totals
+ch84 = sum(x["value"] or 0 for x in json.loads((ROOT / "scripts" / ".cache" / "trade" / "hs4_inr_crore_2024-25.json").read_text("utf-8")) if x["hs4"][:2] == "84")
+need(abs(ch84 - 543949.32) < 1, f"TradeStat chapter 84 imports 2024-25: HS4 rows sum to {ch84:,.2f} crore vs the published chapter total 543,949.32")
+pli_rows = list(_csv.DictReader((ROOT / "scripts" / "raw" / "pli_schemes.csv").open(encoding="utf-8")))
+for metric in ("investment", "employment"):
+    parts = sum(float(r["value"]) for r in pli_rows if r["metric"] == metric and r["kind"] == "actual" and r["scheme"] != "ALL 14 SCHEMES")
+    total = next(float(r["value"]) for r in pli_rows if r["metric"] == metric and r["scheme"] == "ALL 14 SCHEMES")
+    need(abs(parts - total) < 1, f"PLI {metric}: 14 schemes sum to {parts:,.1f}, NITI total {total:,.0f}")
+
+# no data is never zero, and every signal follows its documented threshold
+def rescore(v, lo, hi):
+    return CHECK if v >= hi else CROSS if v <= lo else DASH
+
+zero_nd, wrong = [], []
+for r in scr["rows"]:
+    for k, sg in r["signals"].items():
+        if sg["score"] is None and any(sg.get(x) == 0 for x in ("value", "diff")):
+            zero_nd.append(f"{r['nic']}:{k}")
+    im = r["signals"]["imports"]
+    if im["score"] is not None and im["score"] != rescore(im["diff"], -T["imports_pts"], T["imports_pts"]):
+        wrong.append(f"{r['nic']} imports")
+    a = r["signals"]["asi"]
+    if a["score"] is not None:
+        n = (a["fcpw_cagr"] > a["india_fcpw_cagr"]) + (a["factories_cagr"] > 0)
+        if a["score"] != [CROSS, DASH, CHECK][n]:
+            wrong.append(f"{r['nic']} asi")
+    pl = r["signals"]["pli"]
+    if pl["score"] is not None:
+        exp = CHECK if pl["value"] >= T["pli_hi"] else CROSS if pl["value"] < T["pli_lo"] else DASH
+        if pl["score"] != exp:
+            wrong.append(f"{r['nic']} pli")
+    checks = [sg["score"] for sg in r["signals"].values()].count(CHECK)
+    rel = r["relative"]
+    exp_label = ("Rising + backed" if checks >= T["checks_for_backed"] else "Rising, unconfirmed") if rel > T["momentum_pts"] \
+        else "Fading" if rel < -T["momentum_pts"] else "Steady"
+    if r["label"] != exp_label or r["checks"] != checks:
+        wrong.append(f"{r['nic']} label")
+    ref = scr["reference"]
+    if not math.isclose(rel, (r["recent"] - ref["recent_all"]) - (r["longrun"] - ref["longrun_all"]), abs_tol=0.02):
+        wrong.append(f"{r['nic']} relative momentum")
+need(not zero_nd, f"no 'no data' signal carries a zero ({zero_nd[:4]})")
+need(not wrong, f"every signal and label follows its rule ({wrong[:6]})")
+need(all(it.get("value") is None for st in inv["pipeline"] for it in st["items"] if it["status"] != "ok"),
+     "pipeline stages without data show no number")
+need(set(scr["watchlist"]) <= {r["nic"] for r in scr["rows"] if r["label"] == "Rising + backed"}, "watchlist only holds 'Rising + backed' industries")
+
+# framing: a momentum screen, never a forecast
+texts = [(ROOT / "index.html").read_text("utf-8")] + [f.read_text("utf-8") for f in (ROOT / "js").glob("*.js")] + \
+        [(DATA / n).read_text("utf-8") for n in ("screen.json", "invest.json", "headline.json")]
+flat = " ".join(t.lower() for t in texts).replace("not a forecast", "")
+banned = [w for w in ("predict", "will boom", "forecast") if w in flat]
+need(not banned, f"no forecasting language on the page, apart from 'not a forecast' (found: {banned})")
+
 if problems:
     raise SystemExit(f"consistency checks failed: {problems}")
 if bad:

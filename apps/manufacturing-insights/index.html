@@ -44,7 +44,7 @@
       <span class="brand"><svg aria-hidden="true" viewBox="0 0 32 32" width="22" height="22"><use href="#factory" /></svg> Factory India</span>
       <nav aria-label="Sections">
         <a class="home-link" href="/data/india/" title="India from data: all projects"><span aria-hidden="true">←</span> All projects</a>
-        <a href="#output">Output</a><a href="#sectors">Sectors</a><a href="#states">States</a><a href="#jobs">Jobs</a><a href="#verdict">Verdict</a><a href="#method">Method</a>
+        <a href="#output">Output</a><a href="#sectors">Sectors</a><a href="#states">States</a><a href="#jobs">Jobs</a><a href="#money">Money</a><a href="#momentum">Momentum</a><a href="#verdict">Verdict</a><a href="#method">Method</a>
       </nav>
     </div>
   </header>
@@ -190,10 +190,72 @@
       </div>
     </section>
 
+    <!-- 5b. Follow the money: the investment pipeline -->
+    <section id="money" class="block" aria-labelledby="money-title">
+      <div class="wrap">
+        <p class="kicker">5 · Follow the money</p>
+        <h2 id="money-title">Where is money going into factories now?</h2>
+        <p class="lede" id="money-lede"></p>
+        <div class="pipeline" id="pipeline" role="list" aria-label="Investment pipeline, from announced to output"></div>
+        <p class="note" id="pipeline-note"></p>
+
+        <h3 class="sub-title">Capital-goods imports</h3>
+        <p class="sub-lede" id="imports-lede"></p>
+        <div class="legend" id="imports-legend"></div>
+        <figure style="margin:0">
+          <div class="chart" id="imports-chart"></div>
+          <div class="tip" id="imports-tip" hidden></div>
+          <figcaption class="note" id="imports-caption"></figcaption>
+        </figure>
+
+        <div class="two-up">
+          <div>
+            <h3 class="sub-title">Bank credit by industry</h3>
+            <div id="credit-panel"></div>
+          </div>
+          <div>
+            <h3 class="sub-title">Factory capacity in use</h3>
+            <div id="obicus-panel"></div>
+          </div>
+        </div>
+
+        <h3 class="sub-title">PLI tracker: investment so far</h3>
+        <p class="sub-lede" id="pli-lede"></p>
+        <div class="legend" id="pli-legend"></div>
+        <div class="chart" id="pli-chart"></div>
+        <div class="tip" id="pli-tip" hidden></div>
+        <p class="note" id="pli-caption"></p>
+      </div>
+    </section>
+
+    <!-- 5c. Where's the momentum? The screen -->
+    <section id="momentum" class="block band" aria-labelledby="momentum-title">
+      <div class="wrap">
+        <p class="kicker">6 · Where's the momentum?</p>
+        <h2 id="momentum-title">Which industries look like the next risers?</h2>
+        <p class="lede" id="momentum-lede"></p>
+        <div class="rule-box" id="rule-box"></div>
+        <div class="legend" id="quadrant-legend"></div>
+        <figure style="margin:0">
+          <div class="chart" id="quadrant"></div>
+          <div class="tip" id="quadrant-tip" hidden></div>
+          <figcaption class="note" id="quadrant-caption"></figcaption>
+        </figure>
+
+        <h3 class="sub-title">Signal grid</h3>
+        <p class="sub-lede" id="grid-lede"></p>
+        <div class="tbl-scroll grid-wrap" id="signal-grid"></div>
+        <div class="tip" id="grid-tip" hidden></div>
+
+        <h3 class="sub-title">Watchlist</h3>
+        <div class="watch-grid" id="watchlist"></div>
+      </div>
+    </section>
+
     <!-- 6. Verdict -->
     <section id="verdict" class="block" aria-labelledby="verdict-title">
       <div class="wrap">
-        <p class="kicker">5 · The verdict</p>
+        <p class="kicker">7 · The verdict</p>
         <h2 id="verdict-title">So, is India becoming a factory?</h2>
         <p class="answer" id="answer"></p>
         <div class="verdict-grid" id="verdict-cards"></div>

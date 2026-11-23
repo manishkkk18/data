@@ -33,7 +33,7 @@ from collections import defaultdict
 
 import xlrd
 
-from common import CACHE, MONTHS, ROOT, write
+from common import CACHE, DATA, MONTHS, ROOT, write
 
 LINK = {  # MoSPI official linking factors, 2011-12 series -> 2022-23 series (PIB, 1 June 2026)
     "Manufacturing": 1.3700,
@@ -495,6 +495,11 @@ def main() -> None:
     write("asi.json", asi)
     write("headline.json", headline)
     write_meta(headline)
+    from invest import build_invest
+    invest, screen = build_invest(iip, asi, wpi, headline)
+    write("invest.json", invest)
+    write("screen.json", screen)
+    (DATA / "industry_map.csv").write_bytes((ROOT / "scripts" / "mapping" / "industry_map.csv").read_bytes())  # downloadable
 
 
 if __name__ == "__main__":
