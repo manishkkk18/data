@@ -17,6 +17,7 @@ ASI_INDICATORS = {
     31: "persons",            # Total Number of Persons Engaged
     32: "workers",            # Total Number of Workers
     43: "wages",              # Wages and Salaries incl. employer's contribution (Rs lakh)
+    23: "gfcf",               # Gross Fixed Capital Formation (Rs lakh): the investment screen
 }
 
 

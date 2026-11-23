@@ -1,0 +1,234 @@
+source,source_category,group,confidence,note
+group,FOOD,FOOD,,"Food, beverages & tobacco; NIC 10 11 12"
+group,TEXT,TEXT,,Textiles & apparel; NIC 13 14
+group,LEATH,LEATH,,Leather; NIC 15
+group,WOOD,WOOD,,Wood; NIC 16
+group,PAPER,PAPER,,Paper & printing; NIC 17 18
+group,PETRO,PETRO,,Coke & refined petroleum; NIC 19
+group,CHEM,CHEM,,Chemicals (excl. pharma); NIC 20
+group,PHARMA,PHARMA,,Pharmaceuticals; NIC 21
+group,RUBBER,RUBBER,,Rubber & plastics; NIC 22
+group,NONMET,NONMET,,"Non-metallic minerals (cement, glass, ceramics); NIC 23"
+group,METAL,METAL,,Basic & fabricated metals; NIC 24 25
+group,ELEC,ELEC,,Computers & electronics; NIC 26
+group,ENG,ENG,,Electrical equipment & machinery; NIC 27 28
+group,TRANS,TRANS,,Motor vehicles & other transport; NIC 29 30
+group,OTHER,OTHER,,Furniture & other manufacturing; NIC 31 32
+rbi_credit,Mining & Quarrying (incl. Coal),-,,Not manufacturing
+rbi_credit,Food Processing,FOOD,approximate,"NIC 10; beverages and tobacco are a separate RBI line, added to the group"
+rbi_credit,Beverage & Tobacco,FOOD,exact,NIC 11-12
+rbi_credit,All Textiles,TEXT,approximate,"Cotton, jute, man-made and other textiles; garments partly inside 'Other Textiles'"
+rbi_credit,Leather & Leather Products,LEATH,exact,
+rbi_credit,Wood & Wood Products,WOOD,exact,
+rbi_credit,Paper & Paper Products,PAPER,approximate,Printing (NIC 18) has no RBI line of its own
+rbi_credit,"Petroleum, Coal Products & Nuclear Fuels",PETRO,exact,
+rbi_credit,Chemicals & Chemical Products,CHEM,approximate,"Used as the RBI total minus its Drugs & Pharmaceuticals sub-line (fertilisers, petrochemicals, others)"
+rbi_credit,Drugs & Pharmaceuticals,PHARMA,exact,Sub-line of Chemicals
+rbi_credit,"Rubber, Plastic & their Products",RUBBER,exact,
+rbi_credit,Glass & Glassware,NONMET,approximate,Glass and cement lines added; bricks and ceramics sit in 'Other Industries'
+rbi_credit,Cement & Cement Products,NONMET,approximate,See Glass & Glassware
+rbi_credit,Basic Metal & Metal Product,METAL,exact,Iron & steel plus other metals and metal products (NIC 24-25)
+rbi_credit,All Engineering,-,,Split into its two sub-lines below
+rbi_credit,Electronics,ELEC,approximate,Sub-line of All Engineering; RBI's electronics boundary is not published in NIC terms
+rbi_credit,Engineering - Others,ENG,approximate,"All Engineering minus Electronics: electrical equipment, machinery, some fabricated metal"
+rbi_credit,"Vehicles, Vehicle Parts & Transport Equipment",TRANS,exact,
+rbi_credit,Gems & Jewellery,OTHER,approximate,Part of NIC 32 only
+rbi_credit,Construction,-,,Not manufacturing
+rbi_credit,Infrastructure,-,,"Power, telecom, roads, ports etc.: not manufacturing"
+rbi_credit,Other Industries,-,,Unspecified mix: not used
+rbi_credit,Industry (total),REFERENCE,,All-industry line used as the comparison for signal (a); it includes infrastructure and construction
+dpiit_fdi,Food Processing Industries,FOOD,exact,
+dpiit_fdi,Sugar,FOOD,exact,
+dpiit_fdi,Vegetable Oils And Vanaspati,FOOD,exact,
+dpiit_fdi,Fermentation Industries,FOOD,approximate,Mostly alcoholic beverages (NIC 11)
+dpiit_fdi,Tea And Coffee (Processing & Warehousing Coffee & Rubber),FOOD,loose,Includes plantation-side activity
+dpiit_fdi,"Textiles (Includes Dyed, Printed)",TEXT,exact,
+dpiit_fdi,"Leather, Leather Goods And Pickers",LEATH,exact,
+dpiit_fdi,Timber Products,WOOD,exact,
+dpiit_fdi,Paper And Pulp (Including Paper Product),PAPER,exact,
+dpiit_fdi,Printing Of Books (Including Litho Printing Industry),PAPER,exact,
+dpiit_fdi,Petroleum & Natural Gas,PETRO,loose,"Includes exploration and marketing, not only refining"
+dpiit_fdi,Chemicals (Other Than Fertilizers),CHEM,exact,
+dpiit_fdi,Fertilizers,CHEM,exact,
+dpiit_fdi,Dye-Stuffs,CHEM,exact,
+dpiit_fdi,"Soaps, Cosmetics & Toilet Preparations",CHEM,exact,
+dpiit_fdi,Drugs & Pharmaceuticals,PHARMA,approximate,May include medical devices (NIC 32)
+dpiit_fdi,Rubber Goods,RUBBER,exact,Plastics have no DPIIT sector of their own
+dpiit_fdi,Cement And Gypsum Products,NONMET,exact,
+dpiit_fdi,Glass,NONMET,exact,
+dpiit_fdi,Ceramics,NONMET,exact,
+dpiit_fdi,Metallurgical Industries,METAL,approximate,Ferrous and non-ferrous metals; may include some mining
+dpiit_fdi,Electronics,ELEC,exact,
+dpiit_fdi,Computer Software & Hardware,-,,Mostly software (a service): not used
+dpiit_fdi,Scientific Instruments,ELEC,approximate,NIC 265
+dpiit_fdi,"Mathematical, Surveying And Drawing Instruments",ELEC,approximate,NIC 265
+dpiit_fdi,Electrical Equipments,ENG,approximate,NIC 27; older data folded some software into this sector
+dpiit_fdi,Industrial Machinery,ENG,exact,NIC 28
+dpiit_fdi,Machine Tools,ENG,exact,NIC 28
+dpiit_fdi,Agricultural Machinery,ENG,exact,NIC 28
+dpiit_fdi,Earth-Moving Machinery,ENG,exact,NIC 28
+dpiit_fdi,Boilers And Steam Generating Plants,ENG,exact,NIC 28
+dpiit_fdi,Prime Mover (Other Than Electrical Generators),ENG,exact,NIC 28
+dpiit_fdi,Industrial Instruments,ENG,approximate,Partly NIC 26
+dpiit_fdi,Automobile Industry,TRANS,exact,
+dpiit_fdi,Railway Related Components,TRANS,approximate,
+dpiit_fdi,Defence Industries,-,,Mixed products: not used
+dpiit_fdi,Medical And Surgical Appliances,OTHER,approximate,NIC 325
+dpiit_fdi,"Commercial, Office & Household Equipments",-,,Mixed: not used
+dpiit_fdi,Services Sector,-,,Not manufacturing
+dpiit_fdi,Trading,-,,Not manufacturing
+dpiit_fdi,Telecommunications,-,,Telecom services: not manufacturing
+dpiit_fdi,Construction (Infrastructure) Activities,-,,Not manufacturing
+dpiit_fdi,Construction Development,-,,Not manufacturing
+dpiit_fdi,Non-Conventional Energy,-,,"Power generation, not manufacturing"
+dpiit_fdi,Power,-,,Not manufacturing
+dpiit_fdi,Air Transport (Including Air Freight),-,,Service
+dpiit_fdi,Miscellaneous Industries,-,,Unspecified: not used
+pli,Large Scale Electronics Manufacturing (LSEM),ELEC,exact,"Mobile phones and specified components, NIC 26"
+pli,IT Hardware 2.0,ELEC,exact,"Laptops, servers etc., NIC 26"
+pli,Telecom & Networking Products,ELEC,exact,NIC 26
+pli,High Efficiency Solar PV Modules,ELEC,approximate,Solar cells and modules are NIC 26 (2610); a separate part of the electronics story
+pli,Pharmaceutical Drugs,PHARMA,exact,
+pli,Bulk Drugs (KSMs/DIs/APIs),PHARMA,exact,
+pli,Medical Devices,OTHER,approximate,"NIC 325, with some electro-medical equipment in NIC 26"
+pli,Automobiles & Auto Components,TRANS,exact,NIC 29
+pli,Drones & Drone Components,TRANS,approximate,NIC 30 (aircraft)
+pli,ACC Battery,ENG,exact,Batteries are NIC 27 (2720)
+pli,White Goods (ACs & LED),ENG,approximate,"ACs are NIC 28, LED lights NIC 27"
+pli,Textiles (MMF & technical),TEXT,approximate,Man-made fibre fabrics (13) and apparel (14)
+pli,Food Products,FOOD,approximate,"NIC 10, some 11"
+pli,Speciality Steel,METAL,exact,NIC 24
+hs4,8401,-,,"Nuclear Reactrs;Fuel Elmnts (Cartridges), Non-Irradiated,Fr Nuclr R.... Not capital goods (consumer, component or engine)"
+hs4,8402,GENERAL,,Stm/Othr Vapr Gnrtng Boilrs(Excl Cntrl Htng Hot Water Boilrs Cpb.... General-purpose capital goods (economy-wide total only)
+hs4,8403,-,,"Cntrl Htng Boilrs Excl Of Hdg No.8402. Not capital goods (consumer, component or engine)"
+hs4,8404,GENERAL,,"Axlry Plnt,Usd Wth Boilrs Of Hdg No.8402/ 8403(E.G. Ecnmsrs,Supr-Ht.... General-purpose capital goods (economy-wide total only)"
+hs4,8405,GENERAL,,"Prdcr/Wtr Gas Gnrtrs,Acetlen Gas Gnrtrs And Smlr Wtr Prcs Gnrtrs,W/.... General-purpose capital goods (economy-wide total only)"
+hs4,8406,GENERAL,,Steam Turbines And Other Vapour Turbines. General-purpose capital goods (economy-wide total only)
+hs4,8407,-,,"Spark-Ignition Reciprocating Or Rotary Internal Combustion Pisto.... Not capital goods (consumer, component or engine)"
+hs4,8408,-,,"Compression-Ignition Internal Combustion Piston Engines (Diesel Or.... Not capital goods (consumer, component or engine)"
+hs4,8409,-,,"Parts Suitable For Use Solely Or Principally With The Engi.... Not capital goods (consumer, component or engine)"
+hs4,8410,GENERAL,,"Hydraulic Turbines, Water Wheels, Andregulators Therefor. General-purpose capital goods (economy-wide total only)"
+hs4,8411,-,,"Turbo-Jets, Turbo-Propellers And Other Gas Turbines. Not capital goods (consumer, component or engine)"
+hs4,8412,GENERAL,,Other Engines And Motors. General-purpose capital goods (economy-wide total only)
+hs4,8413,GENERAL,,"Pumps For Liquids, Whether Or Not Fitted With A. General-purpose capital goods (economy-wide total only)"
+hs4,8414,GENERAL,,"Air/Vacuum Pumps,Air/Othr Gas Comprsrs And Fans;Vntltng/Rcyclng Ho.... General-purpose capital goods (economy-wide total only)"
+hs4,8415,-,,"Aircondtng Mchns,Cmprsng Motr-Drvn Fan And Elmnts Fr Chng Tmprtr A.... Not capital goods (consumer, component or engine)"
+hs4,8416,GENERAL,,"Furnc Burnrs Fr Liquid Fuel,Fr Pulvrsd Solid Fuel/Fr Gas;Mchncl .... General-purpose capital goods (economy-wide total only)"
+hs4,8417,GENERAL,,"Industrial Or Laboratory Furnaces And Ovens, Including Incinera.... General-purpose capital goods (economy-wide total only)"
+hs4,8418,-,,"Rfrgrtrs,Frzrs And Othr Rfrgrtng/Frzng Eqpmnt,Elctrc/Othr;Ht P.... Not capital goods (consumer, component or engine)"
+hs4,8419,GENERAL,,"Mchnry,Plnt/Laboratory Eqpmnt,W/N Elctrclyheatd,Fr Heatng,Cookng,Et.... General-purpose capital goods (economy-wide total only)"
+hs4,8420,GENERAL,,"Calendering Or Other Rolling Machines, Other Than For Metals Or .... General-purpose capital goods (economy-wide total only)"
+hs4,8421,GENERAL,,"Centrifuges, Including Centrifugal Dryers; Filtering Or Purifying M.... General-purpose capital goods (economy-wide total only)"
+hs4,8422,GENERAL,,Dish Washing Machines; Machinery For Cleaning Or Drying Bottle.... General-purpose capital goods (economy-wide total only)
+hs4,8423,GENERAL,,Weighing Machinery (Excluding Balances Of A Sensitivity Of 5 Centig.... General-purpose capital goods (economy-wide total only)
+hs4,8424,GENERAL,,"Mchncl Applncs (W/N Hnd-Oprtd)Fr Prjctng, Dsprsng Lqds/Pwdr;Fire Ex.... General-purpose capital goods (economy-wide total only)"
+hs4,8425,GENERAL,,Pulley Tackle And Hoists Other Than Skip Hoists;. General-purpose capital goods (economy-wide total only)
+hs4,8426,GENERAL,,"Derricks;Crns,Incl Cable Crns;Mobl Lftng Frms,Strdl Crrs And Wrks .... General-purpose capital goods (economy-wide total only)"
+hs4,8427,GENERAL,,Fork-Lift Trucks; Other Works Trucks Fitted With Lifting Or Ha.... General-purpose capital goods (economy-wide total only)
+hs4,8428,GENERAL,,"Other Lifting, Handling, Loading Or Unloading Machinery (For .... General-purpose capital goods (economy-wide total only)"
+hs4,8429,GENERAL,,"Slf-Prpld Bulldozers,Angledozers,Graders Levlrs,Scrprs,Mchncl Shov.... General-purpose capital goods (economy-wide total only)"
+hs4,8430,GENERAL,,"Othr Movng,Grdng,Levlng,Scrpng,Excvtng, Tmpng,Cmpctng,Extrctng/Bo.... General-purpose capital goods (economy-wide total only)"
+hs4,8431,GENERAL,,Prts Suitbl Fr Use Solely/Prncply Wth The Mchnry Of Hdgs.Nos.8425 T.... General-purpose capital goods (economy-wide total only)
+hs4,8432,GENERAL,,"Agrcltrl,Hrtcltrl/Frstry Mchnry Fr Soil Prprtion/Cltvtn;Lawn/Sprt.... General-purpose capital goods (economy-wide total only)"
+hs4,8433,GENERAL,,Hrvstng/Thrshng Mchnry Incl Straw/Fodr Blrs;Grass Mowrs;Mchns Fr.... General-purpose capital goods (economy-wide total only)
+hs4,8434,FOOD,approximate,Milking Machines And Dairy Machinery. Dairy machinery
+hs4,8435,FOOD,approximate,"Prsses,Crshrs And Smlr,Mchnry Usd In Mnfctr Of Wine,Cider,Fruit Jui.... Juice/wine presses"
+hs4,8436,GENERAL,,"Othr Agrcltrl,Hrtcltrl,Poltry/Bee-Keepng Mchnry Incl Grmntn Plnt F.... General-purpose capital goods (economy-wide total only)"
+hs4,8437,FOOD,approximate,"Mchn Fr Clng,Srtng Seed,Grain/Lgmns Vgtbl;Mchnry For Mlng Indstry/F.... Grain milling"
+hs4,8438,FOOD,exact,"Mchnry,N.E.S.,Fr Indstrl Prptn/Mnfctr Of Food/Drnk,Excl Mchnry Fr .... Industrial food and drink machinery"
+hs4,8439,PAPER,exact,Mchnry Fr Mkng Pulp Of Fibrous Cellulosic Mtrl/Fr Mkng/Fnshng Paper....
+hs4,8440,PAPER,exact,"Book-Binding Machinery, Including Book- Sewing Machines."
+hs4,8441,PAPER,exact,"Other Machinery For Making Up Paper Pulp, Paper Or Paperboard, Incl...."
+hs4,8442,PAPER,exact,"Mchnry,Apprts And Eqpmnt(Excl Of 8456 To 8465),Fr Type-Foundn...."
+hs4,8443,PAPER,loose,"Printng Machnry,Incl Ink-Jet Printng Mchnsexcl Hdng. No 8471; .... Printing presses, but also office printers and copiers"
+hs4,8444,TEXT,exact,"Mchns Fr Extruding,Drawing,Texturing Or Cutting Man-Made Textile ...."
+hs4,8445,TEXT,exact,"Mchns Fr Prprng Txtl Fbrs;Spng,Twstng Etc Mchnry Fr Prdcng Txtl Yrn...."
+hs4,8446,TEXT,exact,Weaving Machines (Looms).
+hs4,8447,TEXT,exact,"Kntng Mchns,Stch-Bndng Mchns And Mchns Fr Mkng Gmpd Yrn,Tulle,Lac...."
+hs4,8448,TEXT,exact,"Auxlry Mchnry Usd Wth Mchns Of Hdg 8444, 8445,8446/8447;Prts And A...."
+hs4,8449,TEXT,exact,Mchnry Fr Mnfctr Of Finshng Of Felt Or Non-Wovns In Piece/In Sha....
+hs4,8450,-,,"Household Or Laundry-Type Washing Machines, Including Machi.... Not capital goods (consumer, component or engine)"
+hs4,8451,TEXT,approximate,0Ther Parts Of Household Laundry Type Mchnetcandmchns Fr Applyng Ps.... Includes laundry machines
+hs4,8452,TEXT,approximate,"Sewng Mchns,Excl Book-Sewng Mchns Of Hdg No 8440;Furntr,Bases And .... Industrial and household sewing machines"
+hs4,8453,LEATH,exact,"Mchnry Fr Preparing,Tang/Wrkng Hides, Skins/Lthr/Fr Mkng/Repair...."
+hs4,8454,METAL,exact,"Cnvrtrs,Ladls,Ingot Moulds And Castng Mchns Usd In Metallurgy/In Me.... Converters, ladles, casting machines"
+hs4,8455,METAL,exact,Metal-Rolling Mills And Rolls Therefor. Rolling mills
+hs4,8456,METAL ENG TRANS,loose,"Mchn-Tolls Fr Wrkng Any Matrl By Rmvl Of Matrl,By Lasr/Othr Light/.... Machine tools: bought by metal products, machinery and vehicle makers alike (combined)"
+hs4,8457,METAL ENG TRANS,loose,"Machining Centres, Unit Construction Machines (Single Station).... Machine tools: bought by metal products, machinery and vehicle makers alike (combined)"
+hs4,8458,METAL ENG TRANS,loose,"Lathes (Including Turning Centres) For Removing Metal. Machine tools: bought by metal products, machinery and vehicle makers alike (combined)"
+hs4,8459,METAL ENG TRANS,loose,"Mchn-Tools (Incl Way-Type Unit Head Mchns)Fr Drllng,Borng,Mllng,Thr.... Machine tools: bought by metal products, machinery and vehicle makers alike (combined)"
+hs4,8460,METAL ENG TRANS,loose,"Machtools For Deburng,Sharpn,Grindg, Polishing Or Oth Fnsh Metal,Or.... Machine tools: bought by metal products, machinery and vehicle makers alike (combined)"
+hs4,8461,METAL ENG TRANS,loose,"Mchn-Tools Fr Plning,Shapng,Slotng,Brochng Gear Cutng/Grndng/Finsng.... Machine tools: bought by metal products, machinery and vehicle makers alike (combined)"
+hs4,8462,METAL ENG TRANS,loose,"Mchn-Tls Fr Wrkng Mtl By Forgn,Hammrng/ Die-Stmpng;Fr Wrkg Mtl By.... Machine tools: bought by metal products, machinery and vehicle makers alike (combined)"
+hs4,8463,METAL ENG TRANS,loose,"Other Machine-Tools For Working Metal, Or Cermets, Without Removing.... Machine tools: bought by metal products, machinery and vehicle makers alike (combined)"
+hs4,8464,NONMET,approximate,"Mchn-Tools Fr Wrkng Stone,Ceramics, Concrete,Asbestos-Cement/.... Stone, ceramics and concrete working"
+hs4,8465,WOOD,approximate,"Mchn-Tools(Incl Mchns Fr Nailng,Staplng, Glueng/Othrws Assemblng)F.... Woodworking; also plastics/hard-rubber working"
+hs4,8466,METAL ENG TRANS,loose,"Prts And Accssrs Suitbl Fr Use Wth Mchns Of Hdg Nos8456 To 8465,Inc.... Machine tools: bought by metal products, machinery and vehicle makers alike (combined)"
+hs4,8467,GENERAL,,"Tools For Working In The Hand, Pneumatic, Hydraulic Or With Self- C.... General-purpose capital goods (economy-wide total only)"
+hs4,8468,GENERAL,,"Mchnry And Apprts Fr Soldrng,Brazng/Weldng, W/N Cpbl Of Cutng,Excl .... General-purpose capital goods (economy-wide total only)"
+hs4,8470,-,,"Calcultng And Pockt-Size Data Recrdng, Reprducng And Displayng.... Not capital goods (consumer, component or engine)"
+hs4,8471,-,,"Automatic Data Processing Machines And Units. Not capital goods (consumer, component or engine)"
+hs4,8472,-,,"Other Office Machines (For Example, Hectograph Or Stencil Dup.... Not capital goods (consumer, component or engine)"
+hs4,8473,-,,"Parts And Accessories Oth Thn Covers, Carrying Cases)Suitable For U.... Not capital goods (consumer, component or engine)"
+hs4,8474,NONMET,approximate,"Mchnry Fr Sortng,Screng,Separtng,Washng, Crshng Etc Of Mnrl Substn.... Mineral crushing and mixing (cement, also mining)"
+hs4,8475,NONMET,approximate,"Mchns Fr Assmblnc Elctrc/Elctrnc Lamps, Tubes/Valve/Flash-Bulbs,I.... Glass and lamp assembly machines"
+hs4,8476,-,,"Automtc Goods-Vendng Mchns(E.G.Postage Stamp,Cigarette,Food/Beve.... Not capital goods (consumer, component or engine)"
+hs4,8477,RUBBER,exact,Mchnr Fr Wrkng Rubbr/Plstcs/Fr The Mnfctr Of Prdcts From These Mtrl....
+hs4,8478,FOOD,exact,"Mchnry Prprng/Mkng Up Tobacco,N.E.S.. Tobacco machinery"
+hs4,8479,GENERAL,,"Mchns And Mchncl Applncs Hvng Indvdl Functns,N.E.S.. General-purpose capital goods (economy-wide total only)"
+hs4,8480,GENERAL,,Moulding Boxes For Metal Foundry; Mould Bases; Moulding Patterns;.... General-purpose capital goods (economy-wide total only)
+hs4,8481,GENERAL,,"Taps, Cocks, Valves And Similar Appliances For Pipes, Boiler Shells.... General-purpose capital goods (economy-wide total only)"
+hs4,8482,-,,"Ball Or Roller Bearings. Not capital goods (consumer, component or engine)"
+hs4,8483,-,,"Trnsmsn Shfts And Crnks;Gears;Ball Screws; Bearing Housing Andothr.... Not capital goods (consumer, component or engine)"
+hs4,8484,-,,"Gaskets And Smlr Joints Of Mtl Shtng Cmbnd Wth Othr Mtrl;Sets/Assr.... Not capital goods (consumer, component or engine)"
+hs4,8485,GENERAL,,Machines For Additive Manufacturing. General-purpose capital goods (economy-wide total only)
+hs4,8486,ELEC,approximate,"Machines And Apparatus Of A Kind Used Solely For The Manufactur.... Semiconductor, display and PCB manufacturing machines; SMT assembly lines sit in 8479 (unmapped)"
+hs4,8487,-,,"Machines Parts, Not Containing Electrical Connectors, Insulators, C.... Not capital goods (consumer, component or engine)"
+hs4,8501,GENERAL,,Elctrc Motrs And Genrtrs(Excl Genrtng Sets). General-purpose capital goods (economy-wide total only)
+hs4,8502,GENERAL,,Electric Generating Sets And Rotary Converters. General-purpose capital goods (economy-wide total only)
+hs4,8503,GENERAL,,Parts Suitable For Use Solely Or Principally With The Mach.... General-purpose capital goods (economy-wide total only)
+hs4,8504,GENERAL,,"Electrical Transformers, Static Converters (For Example, Rectifiers.... General-purpose capital goods (economy-wide total only)"
+hs4,8505,GENERAL,,Elctro-Mgnt;Prmnent Mgnts And Artcls To Makeprmnent Mgnt;Elctro.... General-purpose capital goods (economy-wide total only)
+hs4,8506,-,,"Primary Cells And Primary Batteries. Not capital goods (consumer, component or engine)"
+hs4,8507,-,,"Elctrc Accumltrs,Incl Separators Therefor W/N Rectangular(.... Not capital goods (consumer, component or engine)"
+hs4,8508,-,,"Vacuum Cleaners. Not capital goods (consumer, component or engine)"
+hs4,8509,-,,"Elctro-Mechncl Domestic Appliances Wth Self-Contained Elctrc.... Not capital goods (consumer, component or engine)"
+hs4,8510,-,,"Shavers, Hair Clippers And Hair-Removing Appliances, With Self-Con.... Not capital goods (consumer, component or engine)"
+hs4,8511,-,,"Elctrcl Igntn/Strtng Eqpmnt Fr Sprk-Igntn Etc Gnrtrs Etc And Cut Ou.... Not capital goods (consumer, component or engine)"
+hs4,8512,-,,"Elecrcl Ligtng/Signalling Eqpmnt (Excl Artcls Of Hd No.853.... Not capital goods (consumer, component or engine)"
+hs4,8513,-,,"Portbl Elctrc Lamps Designed To Function By Their Own Source Of En.... Not capital goods (consumer, component or engine)"
+hs4,8514,GENERAL,,Indstrl/Laboratory Elctrc(Incl Inductn/ Dielctrc)Furnaces Etc;Oth.... General-purpose capital goods (economy-wide total only)
+hs4,8515,GENERAL,,"Elctr(Incl Elctaclly Htd Gas)Laser/Othr Light/Photon Beam Etc,Brz.... General-purpose capital goods (economy-wide total only)"
+hs4,8516,-,,"Elctrc Wtr And Imrsn Htr ; Elctrc Spaces And Htng Aprts;Elctro Thr.... Not capital goods (consumer, component or engine)"
+hs4,8517,-,,"Elctrcl Aparts Fr Line Telephny/Telgrphy, Incl Telphon Sets Wth Cor.... Not capital goods (consumer, component or engine)"
+hs4,8518,-,,"Mcrophonesandstnds Thrfr;Loudspkr,W/N Mntd Headphone,Earphone And .... Not capital goods (consumer, component or engine)"
+hs4,8519,-,,"Turntables (Recorddecks)Record-Players Cassette Players Etc Nt I.... Not capital goods (consumer, component or engine)"
+hs4,8521,-,,"Video Recording Or Reproducing Apparatus, Whether Or Not Incorporat.... Not capital goods (consumer, component or engine)"
+hs4,8522,-,,"Prts And Acssrs Of Apprts Of Hdgs Nos. 8519 To 8521. Not capital goods (consumer, component or engine)"
+hs4,8523,-,,"Preprd Unrecorded Media For Sound Recrdng/Smlr Recrdng Of O.... Not capital goods (consumer, component or engine)"
+hs4,8524,-,,"Flat Panel Display Modules, Whether Or Not Incorporating Touch-Sens.... Not capital goods (consumer, component or engine)"
+hs4,8525,-,,"Trnsmisn Aparats Fr Radio,Telephny Etc W/N Incrprtng Reception A.... Not capital goods (consumer, component or engine)"
+hs4,8526,GENERAL,,"Radar Apparatus, Radio Navigational Aid Apparatus And Radio Remot.... General-purpose capital goods (economy-wide total only)"
+hs4,8527,-,,"Reception Apparatus For Radio-Broadcasting Whether Or Not Combined,.... Not capital goods (consumer, component or engine)"
+hs4,8528,-,,"Reception Aparatus,Wh/Not Incorprtng Radiobrodcst Recivrs/Sound/Vid.... Not capital goods (consumer, component or engine)"
+hs4,8529,-,,"Prts Suitbl Fr Use Solely/Prncplly Wth Apprts Of Hdgs Nos 85.... Not capital goods (consumer, component or engine)"
+hs4,8530,-,,"Othe Parts Of Hdg 8525 To 8528 Eqpmnt Fr Rlwys, Trmwys,R.... Not capital goods (consumer, component or engine)"
+hs4,8531,-,,"Elctrc Sound/Visual Signllng Apprts(E.G. Bells Sirens Etc.)Othr Th.... Not capital goods (consumer, component or engine)"
+hs4,8532,-,,"Elctrcl Capacitors Fixd,Variable/ Adjustable(Pre-Set). Not capital goods (consumer, component or engine)"
+hs4,8533,-,,"Elctrcl Resistors(Incl Rheostats And Potentiometers)Othr Thn.... Not capital goods (consumer, component or engine)"
+hs4,8534,-,,"Printed Circuits. Not capital goods (consumer, component or engine)"
+hs4,8535,GENERAL,,Elctrcl Apprts Fr Swtchng/Protctng Elctrclcircuits Etc.(E.G. Swtchs.... General-purpose capital goods (economy-wide total only)
+hs4,8536,-,,"Elctrcls Apprts Fr Swtchng/Prtctng Elctrclcircuits Etc.(E.G.Swtchs .... Not capital goods (consumer, component or engine)"
+hs4,8537,GENERAL,,"Bords Panls Etc Equipd Wth Two Or More Apprts Of Hdg 8535/8536,I.... General-purpose capital goods (economy-wide total only)"
+hs4,8538,-,,"Prts Suitbl Fr Use Solely/Principally Wth The Apprts Of Hdg No.8535.... Not capital goods (consumer, component or engine)"
+hs4,8539,-,,"Elect Filament/ Discharge Lamps,Inclu Sealed Beam Lamp Units , Uv O.... Not capital goods (consumer, component or engine)"
+hs4,8540,-,,"Thermionic Cold Cathode/Photo-Cathode Valves And Tubes(E.G.Vacu.... Not capital goods (consumer, component or engine)"
+hs4,8541,-,,"Semcond Dvs[Scd]( Diod,Trnstr,Trnsdcer); P Senst [Scd],P Volt If Wi.... Not capital goods (consumer, component or engine)"
+hs4,8542,-,,"Elctrnc Integrtd Circuits And Micro-Assmbls. Not capital goods (consumer, component or engine)"
+hs4,8543,GENERAL,,"Elctrcl Mchns And Apprts,Hvng Individual Fnctns N.E.S.In This Ch.... General-purpose capital goods (economy-wide total only)"
+hs4,8544,-,,"Insulated (Incl Enamelled Or Anodised) Wire, Cable (Incl Co-Axial C.... Not capital goods (consumer, component or engine)"
+hs4,8545,-,,"Crbn Elctrds,Crbn Brshs,Lamp Crbns Etc. Othr Artcls Of Graphite/O.... Not capital goods (consumer, component or engine)"
+hs4,8546,-,,"Electrical Insulators Of Any Material. Not capital goods (consumer, component or engine)"
+hs4,8547,-,,"Insltng Fttngs Fr Elctrcl Mchns Etc. Electrcl Conduit Tubing A.... Not capital goods (consumer, component or engine)"
+hs4,8548,-,,"Wast And Scrap Of Primary Cells,Batrs And Electrc Acumultrs; Sp.... Not capital goods (consumer, component or engine)"
+hs4,8549,-,,"Elctrical And Electronic Waste And Scrap. Not capital goods (consumer, component or engine)"
