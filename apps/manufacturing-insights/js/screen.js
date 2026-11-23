@@ -11,7 +11,7 @@ export const LABEL_COLOR = {
 const SIGNALS = [
   ["credit", "Credit", "Bank credit growth, latest 12 months, vs all-industry credit"],
   ["imports", "Imports", "Capital-goods imports for the industry, last 2 FYs, vs all capital goods"],
-  ["fdi", "FDI", "FDI equity, latest 3 FYs vs the previous 3"],
+  ["fdi", "FDI", "Share of FDI into manufacturing, 2023-2025 vs 2000-2022 (calendar years)"],
   ["asi", "Factories", "ASI: fixed capital per worker vs India, and factory count"],
   ["pli", "PLI", "PLI actual investment as % of committed"],
 ];
@@ -21,6 +21,8 @@ function signalText(k, s, T) {
   if (s.score == null) return s.why ?? "No data";
   if (k === "imports") return `Imports ${pct(s.value)} (${s.from_fy} to ${s.to_fy}) vs ${pct(s.reference)} for all capital goods: ${s.diff > 0 ? "+" : ""}${s.diff} pts (✓ at +${T.imports_pts}, ✗ at −${T.imports_pts}). Mapping: ${s.confidence}${s.combined ? ", machine tools shared with other metal-using industries" : ""}.`;
   if (k === "asi") return `${s.from} to ${s.to}: real fixed capital per worker ${pct(s.fcpw_cagr)} a year (India ${pct(s.india_fcpw_cagr)}); factories ${pct(s.factories_cagr)} a year. ✓ both better, – one, ✗ neither.`;
+  if (k === "credit") return `Bank credit ${pct(s.value)} (${s.from} to ${s.to}) vs ${pct(s.reference)} for all industry: ${s.diff > 0 ? "+" : ""}${s.diff} pts (✓ at +${T.credit_pts}, ✗ at −${T.credit_pts}). Mapping: ${s.confidence}.`;
+  if (k === "fdi") return `Share of FDI into manufacturing: ${s.share_recent}% in ${s.recent} vs ${s.share_old}% in ${s.old}, a tilt of ${pct(s.value, 0)} (✓ at +${T.fdi_pct}%, ✗ at −${T.fdi_pct}%). Calendar years. Mapping: ${s.confidence}.`;
   if (k === "pli") return `${s.value}% of committed investment (${(s.used ?? []).join(", ")}). ✓ at ${T.pli_hi}%+, ✗ below ${T.pli_lo}%.`;
   return s.why ?? "";
 }
@@ -31,7 +33,7 @@ function evidence(k, s) {
   if (k === "asi") return `fixed capital per worker ${pct(s.fcpw_cagr)} a year vs India's ${pct(s.india_fcpw_cagr)}, factories ${pct(s.factories_cagr)} a year (${s.from} to ${s.to})`;
   if (k === "pli") return `PLI investment at ${s.value}% of the committed figure`;
   if (k === "credit") return `bank credit ${pct(s.value)} vs ${pct(s.reference)} for all industry`;
-  if (k === "fdi") return `FDI ${pct(s.value)} over the latest 3 FYs vs the previous 3`;
+  if (k === "fdi") return `its share of FDI into manufacturing up from ${s.share_old}% (${s.old}) to ${s.share_recent}% (${s.recent})`;
   return k;
 }
 
@@ -162,7 +164,7 @@ export function screenSection(scr) {
   const thr = document.createElement("p");
   thr.className = "note";
   thr.innerHTML = `Thresholds: Credit ✓ if at least ${T.credit_pts} pts above all-industry credit growth, ✗ if ${T.credit_pts} pts below. ` +
-    `Imports ✓ / ✗ at ±${T.imports_pts} pts against all capital-goods imports. FDI ✓ / ✗ at ±${T.fdi_pct}% (latest 3 FYs vs previous 3). ` +
+    `Imports ✓ / ✗ at ±${T.imports_pts} pts against all capital-goods imports. FDI: the industry's share of FDI into manufacturing in the three latest calendar years against its share in 2000-2022, ✓ / ✗ if at least ${T.fdi_pct}% higher / lower (a tilt, not growth: DPIIT's sector table is by calendar year). ` +
     `Factories (ASI, ${rows[0].signals.asi.from} to ${rows[0].signals.asi.to}): ✓ if real fixed capital per worker grew faster than India's and the number of factories grew; – if one; ✗ if neither. ` +
     `PLI ✓ at ${T.pli_hi}%+ of committed investment, ✗ below ${T.pli_lo}%. Consistency: share of the last 12 months (${R.last12[0]} to ${R.last12.at(-1)}) in which the industry's year-on-year growth beat its own long-run rate. ` +
     `Signals come from industry groups (sources are coarser than the 23 industries), so industries in one group share them; see the mapping in the method notes.`;

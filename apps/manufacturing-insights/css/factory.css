@@ -308,7 +308,7 @@ th { font: 600 12px var(--mono); text-transform: uppercase; letter-spacing: .05e
 .nodata-panel { padding: 16px; border: 1px dashed var(--steel); border-radius: var(--radius); background: repeating-linear-gradient(45deg, transparent 0 6px, rgba(138,147,156,.08) 6px 7px); color: var(--ink-2); font-size: 15px; }
 .nodata-panel b { font-family: var(--cond); font-size: 17px; letter-spacing: .04em; text-transform: uppercase; color: var(--ink); }
 .two-up { display: grid; gap: 18px; grid-template-columns: 1fr; }
-@media (min-width: 860px) { .two-up { grid-template-columns: 1fr 1fr; } }
+
 .two-up > * { min-width: 0; }
 .rule-box { margin: 0 0 18px; padding: 14px 16px; background: var(--paper); border: 1px solid var(--ink); border-left: 6px solid var(--accent); border-radius: var(--radius); font-size: 15px; max-width: 90ch; }
 .rule-box ul { margin: 6px 0 0; padding-left: 18px; }

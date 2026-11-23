@@ -173,6 +173,24 @@ for metric in ("investment", "employment"):
     total = next(float(r["value"]) for r in pli_rows if r["metric"] == metric and r["scheme"] == "ALL 14 SCHEMES")
     need(abs(parts - total) < 1, f"PLI {metric}: 14 schemes sum to {parts:,.1f}, NITI total {total:,.0f}")
 
+# the hand-downloaded sources: published figures match what we read
+if inv["credit"].get("status") == "ok":
+    import openpyxl
+    f = next(f for f in (ROOT / "scripts" / "raw" / "rbi_credit").glob("*.xlsx") if inv["credit"]["files"][-1]["file"] == f.name)
+    rows = list(openpyxl.load_workbook(f, read_only=True, data_only=True)["Statement 2"].iter_rows(values_only=True))
+    tot = next(r for r in rows if str(r[0] or "").strip().startswith("Industries"))
+    published = float(tot[7])   # RBI's own year-on-year % for the latest September
+    need(abs(published - inv["credit"]["total_yoy"]) < 0.06, f"RBI all-industry credit growth: published {published:.2f}%, ours {inv['credit']['total_yoy']}%")
+if inv["obicus"].get("status") == "ok":
+    last = inv["obicus"]["series"][-1]
+    need(last["quarter"] == "Q1:2026-27" and last["cu_sa"] == 76.3 or last["quarter"] != "Q1:2026-27",
+         f"OBICUS {last['quarter']} seasonally adjusted {last['cu_sa']}% (RBI release for Q1:2026-27: 76.3%)")
+if inv["fdi"].get("status") == "ok":
+    import read_raw
+    FD = read_raw.fdi()
+    sums = [round(sum((x["usd"][i] or 0) for x in FD["sectors"] if not x["name"].startswith("RBI")), 1) for i in range(5)]
+    need(all(abs(a - b) < 0.5 for a, b in zip(sums, FD["subtotal"])), f"DPIIT FDI: {len(FD['sectors'])} sector rows add up to the table's subtotal {FD['subtotal']}")
+
 # no data is never zero, and every signal follows its documented threshold
 def rescore(v, lo, hi):
     return CHECK if v >= hi else CROSS if v <= lo else DASH
@@ -190,6 +208,12 @@ for r in scr["rows"]:
         n = (a["fcpw_cagr"] > a["india_fcpw_cagr"]) + (a["factories_cagr"] > 0)
         if a["score"] != [CROSS, DASH, CHECK][n]:
             wrong.append(f"{r['nic']} asi")
+    cr = r["signals"]["credit"]
+    if cr["score"] is not None and cr["score"] != rescore(cr["diff"], -T["credit_pts"], T["credit_pts"]):
+        wrong.append(f"{r['nic']} credit")
+    fd = r["signals"]["fdi"]
+    if fd["score"] is not None and fd["score"] != rescore(fd["value"], -T["fdi_pct"], T["fdi_pct"]):
+        wrong.append(f"{r['nic']} fdi")
     pl = r["signals"]["pli"]
     if pl["score"] is not None:
         exp = CHECK if pl["value"] >= T["pli_hi"] else CROSS if pl["value"] < T["pli_lo"] else DASH

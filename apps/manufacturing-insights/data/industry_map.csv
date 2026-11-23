@@ -14,44 +14,47 @@ group,ELEC,ELEC,,Computers & electronics; NIC 26
 group,ENG,ENG,,Electrical equipment & machinery; NIC 27 28
 group,TRANS,TRANS,,Motor vehicles & other transport; NIC 29 30
 group,OTHER,OTHER,,Furniture & other manufacturing; NIC 31 32
-rbi_credit,Mining & Quarrying (incl. Coal),-,,Not manufacturing
-rbi_credit,Food Processing,FOOD,approximate,"NIC 10; beverages and tobacco are a separate RBI line, added to the group"
-rbi_credit,Beverage & Tobacco,FOOD,exact,NIC 11-12
-rbi_credit,All Textiles,TEXT,approximate,"Cotton, jute, man-made and other textiles; garments partly inside 'Other Textiles'"
-rbi_credit,Leather & Leather Products,LEATH,exact,
-rbi_credit,Wood & Wood Products,WOOD,exact,
-rbi_credit,Paper & Paper Products,PAPER,approximate,Printing (NIC 18) has no RBI line of its own
-rbi_credit,"Petroleum, Coal Products & Nuclear Fuels",PETRO,exact,
-rbi_credit,Chemicals & Chemical Products,CHEM,approximate,"Used as the RBI total minus its Drugs & Pharmaceuticals sub-line (fertilisers, petrochemicals, others)"
-rbi_credit,Drugs & Pharmaceuticals,PHARMA,exact,Sub-line of Chemicals
-rbi_credit,"Rubber, Plastic & their Products",RUBBER,exact,
-rbi_credit,Glass & Glassware,NONMET,approximate,Glass and cement lines added; bricks and ceramics sit in 'Other Industries'
-rbi_credit,Cement & Cement Products,NONMET,approximate,See Glass & Glassware
-rbi_credit,Basic Metal & Metal Product,METAL,exact,Iron & steel plus other metals and metal products (NIC 24-25)
-rbi_credit,All Engineering,-,,Split into its two sub-lines below
-rbi_credit,Electronics,ELEC,approximate,Sub-line of All Engineering; RBI's electronics boundary is not published in NIC terms
-rbi_credit,Engineering - Others,ENG,approximate,"All Engineering minus Electronics: electrical equipment, machinery, some fabricated metal"
-rbi_credit,"Vehicles, Vehicle Parts & Transport Equipment",TRANS,exact,
-rbi_credit,Gems & Jewellery,OTHER,approximate,Part of NIC 32 only
-rbi_credit,Construction,-,,Not manufacturing
-rbi_credit,Infrastructure,-,,"Power, telecom, roads, ports etc.: not manufacturing"
-rbi_credit,Other Industries,-,,Unspecified mix: not used
-rbi_credit,Industry (total),REFERENCE,,All-industry line used as the comparison for signal (a); it includes infrastructure and construction
+rbi_credit,2.1 Mining and Quarrying (incl. Coal),-,,Not manufacturing
+rbi_credit,2.2 Food Processing,FOOD,approximate,"NIC 10; beverages and tobacco are RBI's 2.3, added to the group"
+rbi_credit,2.3 Beverage and Tobacco,FOOD,exact,NIC 11-12
+rbi_credit,2.4 Textiles,TEXT,approximate,"Cotton, jute, man-made and other textiles; garments partly inside 'Other Textiles'"
+rbi_credit,2.5 Leather and Leather Products,LEATH,exact,
+rbi_credit,2.6 Wood and Wood Products,WOOD,exact,
+rbi_credit,2.7 Paper and Paper Products,PAPER,approximate,Printing (NIC 18) has no RBI line of its own
+rbi_credit,"2.8 Petroleum, Coal Products and Nuclear Fuels",PETRO,exact,
+rbi_credit,2.9 Chemicals and Chemical Products,CHEM,approximate,"Used as RBI's 2.9 minus 2.9.2 Drugs and Pharmaceuticals (fertilisers, petrochemicals, others)"
+rbi_credit,2.9.2 Drugs and Pharmaceuticals,PHARMA,exact,Sub-line of 2.9 Chemicals
+rbi_credit,"2.10 Rubber, Plastic and their Products",RUBBER,exact,
+rbi_credit,2.11 Glass and Glassware,NONMET,approximate,Glass and cement lines added; bricks and ceramics sit in 'Other Industries'
+rbi_credit,2.12 Cement and Cement Products,NONMET,approximate,See 2.11
+rbi_credit,2.13 Basic Metal and Metal Product,METAL,exact,Iron and steel plus other metals and metal products (NIC 24-25)
+rbi_credit,2.14 All Engineering,-,,Used through its two sub-lines below
+rbi_credit,2.14.1 Electronics,ELEC,approximate,Sub-line of 2.14; RBI's electronics boundary is not published in NIC terms
+rbi_credit,2.14.2 Others,ENG,approximate,"All Engineering minus Electronics: electrical equipment, machinery, some fabricated metal"
+rbi_credit,"2.15 Vehicles, Vehicle Parts and Transport Equipment",TRANS,exact,
+rbi_credit,2.16 Gems and Jewellery,OTHER,approximate,Part of NIC 32 only
+rbi_credit,2.17 Construction,-,,Not manufacturing
+rbi_credit,2.18 Infrastructure,-,,"Power, telecom, roads, ports etc.: not manufacturing"
+rbi_credit,2.19 Other Industries,-,,Unspecified mix: not used
+rbi_credit,Industries (2.1 to 2.19),REFERENCE,,"All-industry total, the comparison for signal (a); it includes infrastructure and construction"
 dpiit_fdi,Food Processing Industries,FOOD,exact,
 dpiit_fdi,Sugar,FOOD,exact,
 dpiit_fdi,Vegetable Oils And Vanaspati,FOOD,exact,
 dpiit_fdi,Fermentation Industries,FOOD,approximate,Mostly alcoholic beverages (NIC 11)
 dpiit_fdi,Tea And Coffee (Processing & Warehousing Coffee & Rubber),FOOD,loose,Includes plantation-side activity
-dpiit_fdi,"Textiles (Includes Dyed, Printed)",TEXT,exact,
+dpiit_fdi,"Textiles (Including Dyed, Printed)",TEXT,exact,
+dpiit_fdi,Coir,TEXT,approximate,"Coir products, NIC 13"
 dpiit_fdi,"Leather, Leather Goods And Pickers",LEATH,exact,
 dpiit_fdi,Timber Products,WOOD,exact,
-dpiit_fdi,Paper And Pulp (Including Paper Product),PAPER,exact,
+dpiit_fdi,Paper And Pulp (Including Paper Products),PAPER,exact,
 dpiit_fdi,Printing Of Books (Including Litho Printing Industry),PAPER,exact,
 dpiit_fdi,Petroleum & Natural Gas,PETRO,loose,"Includes exploration and marketing, not only refining"
 dpiit_fdi,Chemicals (Other Than Fertilizers),CHEM,exact,
 dpiit_fdi,Fertilizers,CHEM,exact,
 dpiit_fdi,Dye-Stuffs,CHEM,exact,
 dpiit_fdi,"Soaps, Cosmetics & Toilet Preparations",CHEM,exact,
+dpiit_fdi,Glue And Gelatin,CHEM,exact,
+dpiit_fdi,Photographic Raw Film And Paper,CHEM,approximate,NIC 20
 dpiit_fdi,Drugs & Pharmaceuticals,PHARMA,approximate,May include medical devices (NIC 32)
 dpiit_fdi,Rubber Goods,RUBBER,exact,Plastics have no DPIIT sector of their own
 dpiit_fdi,Cement And Gypsum Products,NONMET,exact,
@@ -59,7 +62,6 @@ dpiit_fdi,Glass,NONMET,exact,
 dpiit_fdi,Ceramics,NONMET,exact,
 dpiit_fdi,Metallurgical Industries,METAL,approximate,Ferrous and non-ferrous metals; may include some mining
 dpiit_fdi,Electronics,ELEC,exact,
-dpiit_fdi,Computer Software & Hardware,-,,Mostly software (a service): not used
 dpiit_fdi,Scientific Instruments,ELEC,approximate,NIC 265
 dpiit_fdi,"Mathematical, Surveying And Drawing Instruments",ELEC,approximate,NIC 265
 dpiit_fdi,Electrical Equipments,ENG,approximate,NIC 27; older data folded some software into this sector
@@ -70,20 +72,35 @@ dpiit_fdi,Earth-Moving Machinery,ENG,exact,NIC 28
 dpiit_fdi,Boilers And Steam Generating Plants,ENG,exact,NIC 28
 dpiit_fdi,Prime Mover (Other Than Electrical Generators),ENG,exact,NIC 28
 dpiit_fdi,Industrial Instruments,ENG,approximate,Partly NIC 26
+dpiit_fdi,Miscellaneous Mechanical & Engineering Industries,ENG,approximate,Mixed engineering goods
 dpiit_fdi,Automobile Industry,TRANS,exact,
 dpiit_fdi,Railway Related Components,TRANS,approximate,
-dpiit_fdi,Defence Industries,-,,Mixed products: not used
 dpiit_fdi,Medical And Surgical Appliances,OTHER,approximate,NIC 325
+dpiit_fdi,"Diamond, Gold Ornaments",OTHER,approximate,"Jewellery, NIC 32"
+dpiit_fdi,Defence Industries,-,,Mixed products: not used
 dpiit_fdi,"Commercial, Office & Household Equipments",-,,Mixed: not used
-dpiit_fdi,Services Sector,-,,Not manufacturing
+dpiit_fdi,Computer Software & Hardware,-,,Mostly software (a service): not used
+dpiit_fdi,Miscellaneous Industries,-,,Unspecified: not used
+dpiit_fdi,"Services Sector (Fin., Banking, Insurance, Non Fin/Business, Outsourcing, R&D, Courier, Tech. Testing And Analysis, Other)",-,,Not manufacturing
 dpiit_fdi,Trading,-,,Not manufacturing
+dpiit_fdi,Retail Trading,-,,Not manufacturing
 dpiit_fdi,Telecommunications,-,,Telecom services: not manufacturing
 dpiit_fdi,Construction (Infrastructure) Activities,-,,Not manufacturing
-dpiit_fdi,Construction Development,-,,Not manufacturing
+dpiit_fdi,"Construction Development: Townships, Housing, Built-Up Infrastructure And Construction-Development Projects",-,,Not manufacturing
 dpiit_fdi,Non-Conventional Energy,-,,"Power generation, not manufacturing"
 dpiit_fdi,Power,-,,Not manufacturing
+dpiit_fdi,Coal Production,-,,"Mining, not manufacturing"
+dpiit_fdi,Mining,-,,Not manufacturing
 dpiit_fdi,Air Transport (Including Air Freight),-,,Service
-dpiit_fdi,Miscellaneous Industries,-,,Unspecified: not used
+dpiit_fdi,Sea Transport,-,,Service
+dpiit_fdi,Ports,-,,Service
+dpiit_fdi,Hotel & Tourism,-,,Service
+dpiit_fdi,Hospital & Diagnostic Centres,-,,Service
+dpiit_fdi,Information & Broadcasting (Including Print Media),-,,Service
+dpiit_fdi,Consultancy Services,-,,Service
+dpiit_fdi,Education,-,,Service
+dpiit_fdi,Agriculture Services,-,,Not manufacturing
+dpiit_fdi,RBI's NRI Schemes,-,,Not allocated to a sector
 pli,Large Scale Electronics Manufacturing (LSEM),ELEC,exact,"Mobile phones and specified components, NIC 26"
 pli,IT Hardware 2.0,ELEC,exact,"Laptops, servers etc., NIC 26"
 pli,Telecom & Networking Products,ELEC,exact,NIC 26

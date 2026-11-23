@@ -164,6 +164,58 @@ def build_invest(iip: dict, asi: dict, wpi: dict, headline: dict) -> tuple[dict,
     tr = trade(rows_map)
     pli_by, pli_meta = pli()
     manual = manual_status()
+    import read_raw
+    CR = read_raw.credit() if manual["rbi_credit"]["status"] == "ok" else None
+    OB = read_raw.obicus() if manual["rbi_obicus"]["status"] == "ok" else None
+    FD = read_raw.fdi() if manual["dpiit_fdi"]["status"] == "ok" else None
+    conf_rank = ["exact", "approximate", "loose"]
+
+    def worst_conf(source, g):
+        cs = [r["confidence"] for r in rows_map if r["source"] == source and g in r["group"].split() and r["confidence"]]
+        return max(cs, key=conf_rank.index) if cs else None
+
+    # ---- bank credit by group (RBI), Septembers
+    credit_out = None
+    if CR:
+        cg = read_raw.credit_by_group(CR, set(groups))
+        septs = CR["septembers"]
+        last, prev = septs[-1], septs[-2]
+        three = next((d for d in septs if int(d[:4]) == int(last[:4]) - 3), None)
+        tot_yoy = (cg[last]["TOTAL"] / cg[prev]["TOTAL"] - 1) * 100
+        credit_out = {"septembers": septs, "last": last, "prev": prev, "total_yoy": r1(tot_yoy),
+                      "total": [r1(cg[d]["TOTAL"]) for d in septs], "groups": {},
+                      "files": CR["files"], "source": "https://www.rbi.org.in/Scripts/BS_PressReleaseDisplay.aspx?prid=63891"}
+        for g in groups:
+            if g not in cg[last] or not cg[prev].get(g):
+                continue
+            yoy = (cg[last][g] / cg[prev][g] - 1) * 100
+            cagr3 = cagr(cg[three][g], cg[last][g], 3) if three and cg[three].get(g) else None
+            credit_out["groups"][g] = {"series": [r1(cg[d].get(g)) for d in septs], "yoy": r1(yoy), "cagr3": r1(cagr3),
+                                       "diff": r1(yoy - tot_yoy), "confidence": worst_conf("rbi_credit", g)}
+        credit_out["manufacturing"] = [r1(sum(cg[d].get(g, 0) for g in groups)) for d in septs]
+
+    # ---- FDI by group (DPIIT), calendar years
+    fdi_out = None
+    if FD:
+        per = FD["periods"]
+        grp = defaultdict(lambda: [0.0] * len(per))
+        for sct in FD["sectors"]:
+            for g in sct["map"]["group"].split():
+                if g in groups:
+                    for i, v in enumerate(sct["usd"]):
+                        grp[g][i] += v or 0.0
+        mfg = [sum(grp[g][i] for g in grp) for i in range(len(per))]
+        old_i, recent_i = 0, [1, 2, 3]   # 2000-2022 vs the three latest full calendar years
+        recent_tot = sum(mfg[i] for i in recent_i)
+        fdi_out = {"periods": per, "manufacturing": [r1(v) for v in mfg], "all_sectors": FD["subtotal"],
+                   "groups": {}, "file": FD["file"],
+                   "source": "https://www.dpiit.gov.in/documents/publications/fourth-quarterly-fdi-newsletter-fy-2025-26-january-to-march-2026-2kDO1ETMtQWa?pageTitle=FDI-NEWSLETTER-VOL.-XXXIV-No.-4-APRIL,-2026"}
+        for g, v in grp.items():
+            sh_old = v[old_i] / mfg[old_i] * 100 if mfg[old_i] else None
+            sh_new = sum(v[i] for i in recent_i) / recent_tot * 100 if recent_tot else None
+            tilt = (sh_new / sh_old - 1) * 100 if sh_old and sh_new is not None else None
+            fdi_out["groups"][g] = {"usd": [r1(x) for x in v], "share_old": r1(sh_old), "share_recent": r1(sh_new),
+                                    "tilt": r1(tilt), "confidence": worst_conf("dpiit_fdi", g)}
     fys = tr["fys"]
 
     # ---- IIP: recent momentum inside the 2022-23 series
@@ -254,6 +306,26 @@ def build_invest(iip: dict, asi: dict, wpi: dict, headline: dict) -> tuple[dict,
                 "value": r1(pct, 0), "actual": act, "committed": com, "schemes": names,
                 "used": [b[0] for b in both], "confidence": min((c for s, c in schemes if s in [b[0] for b in both]), key=["exact", "approximate", "loose"].index)}
 
+    def credit_signal(g):
+        if not credit_out:
+            return no_data("rbi_credit")
+        c = credit_out["groups"].get(g)
+        if not c:
+            return {"score": None, "why": "No RBI credit line for this industry"}
+        return {"score": score(c["diff"], -THRESHOLDS["credit_pts"], THRESHOLDS["credit_pts"]), "value": c["yoy"],
+                "reference": credit_out["total_yoy"], "diff": c["diff"], "confidence": c["confidence"],
+                "from": credit_out["prev"], "to": credit_out["last"]}
+
+    def fdi_signal(g):
+        if not fdi_out:
+            return no_data("dpiit_fdi")
+        f = fdi_out["groups"].get(g)
+        if not f or f["tilt"] is None:
+            return {"score": None, "why": "No DPIIT FDI sector maps to this industry"}
+        return {"score": score(f["tilt"], -THRESHOLDS["fdi_pct"], THRESHOLDS["fdi_pct"]), "value": f["tilt"],
+                "share_old": f["share_old"], "share_recent": f["share_recent"], "confidence": f["confidence"],
+                "old": fdi_out["periods"][0], "recent": f"{fdi_out['periods'][1]}-{fdi_out['periods'][3]}"}
+
     def no_data(src):
         return {"score": None, "why": f"Awaiting the {manual[src]['label']} files" if manual[src]["status"] != "ok" else "Not yet parsed"}
 
@@ -276,7 +348,7 @@ def build_invest(iip: dict, asi: dict, wpi: dict, headline: dict) -> tuple[dict,
         asi_sig = {"score": None if f_c is None or fac is None else [CROSS, DASH, CHECK][sum(d_ok)],
                    "fcpw_cagr": r1(f_c), "india_fcpw_cagr": r1(india_fcpw), "factories_cagr": r1(fac),
                    "from": a0, "to": latest, "confidence": "exact"}
-        signals = {"credit": no_data("rbi_credit"), "imports": imports_signal(g), "fdi": no_data("dpiit_fdi"),
+        signals = {"credit": credit_signal(g), "imports": imports_signal(g), "fdi": fdi_signal(g),
                    "asi": asi_sig, "pli": pli_signal(g)}
         scores = [s["score"] for s in signals.values()]
         checks, crosses = scores.count(CHECK), scores.count(CROSS)
@@ -337,8 +409,15 @@ def build_invest(iip: dict, asi: dict, wpi: dict, headline: dict) -> tuple[dict,
         {"stage": "Announced", "items": [
             {"label": "PLI investment so far", "value": pli_total["investment"], "unit": "Rs crore", "period": pli_meta["ALL 14 SCHEMES"]["as_of"],
              "source": "NITI Aayog", "link": pli_meta["ALL 14 SCHEMES"]["link"], "trend": None, "status": "ok"},
-            {"label": "FDI equity into manufacturing", "status": manual["dpiit_fdi"]["status"]}]},
-        {"stage": "Financed", "items": [{"label": "Bank credit to industry", "status": manual["rbi_credit"]["status"]}]},
+            ({"label": "FDI equity into manufacturing", "value": round(fdi_out["manufacturing"][3] / 1000, 1), "unit": "US$ billion",
+              "period": f"calendar {fdi_out['periods'][3]}", "growth": r1((fdi_out["manufacturing"][3] / fdi_out["manufacturing"][2] - 1) * 100),
+              "trend": {"x": fdi_out["periods"][1:4], "y": fdi_out["manufacturing"][1:4]}, "status": "ok", "source": "DPIIT (mapped sectors)"}
+             if fdi_out else {"label": "FDI equity into manufacturing", "status": "no_data"})]},
+        {"stage": "Financed", "items": [
+            ({"label": "Bank credit to manufacturing", "value": credit_out["manufacturing"][-1], "unit": "Rs crore", "period": credit_out["last"],
+              "growth": r1((credit_out["manufacturing"][-1] / credit_out["manufacturing"][-2] - 1) * 100),
+              "trend": {"x": credit_out["septembers"], "y": credit_out["manufacturing"]}, "status": "ok", "source": "RBI (mapped industries)"}
+             if credit_out else {"label": "Bank credit to manufacturing", "status": "no_data"})]},
         {"stage": "Spent", "items": [
             {"label": "Capital-goods imports (HS 84-85)", "value": round(usd["CAPITAL_ALL"][-1] / 1000, 1), "unit": "US$ billion", "period": fys[-1],
              "growth": r1((usd["CAPITAL_ALL"][-1] / usd["CAPITAL_ALL"][-2] - 1) * 100), "trend": {"x": fys, "y": usd["CAPITAL_ALL"]}, "status": "ok", "source": "TradeStat (DGCI&S)"},
@@ -372,7 +451,9 @@ def build_invest(iip: dict, asi: dict, wpi: dict, headline: dict) -> tuple[dict,
                 "source": pli_meta["ALL 14 SCHEMES"]["source"], "link": pli_meta["ALL 14 SCHEMES"]["link"]},
         "capital_goods_iip": {"dates": [f"{y}-{m:02d}" for y, m in cap_months], "index": [capg[k][0] for k in cap_months], "yoy": [capg[k][1] for k in cap_months]},
         "gfcf_real": {"years": asi_years, "value": gfcf_real},
-        "credit": manual["rbi_credit"], "obicus": manual["rbi_obicus"], "fdi": manual["dpiit_fdi"],
+        "credit": {**manual["rbi_credit"], **(credit_out or {})}, "fdi": {**manual["dpiit_fdi"], **(fdi_out or {})},
+        "obicus": {**manual["rbi_obicus"], **({"series": OB["series"], "file": OB["file"],
+                   "source": "https://www.rbi.org.in/Scripts/PublicationsView.aspx?id=24087", "reference": 75} if OB else {})},
         "groups": {g: d["name"] for g, d in groups.items()},
         "mapping_summary": mapping_summary(rows_map, groups),
     }

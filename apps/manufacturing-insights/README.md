@@ -151,19 +151,23 @@ scripts/raw/rbi_obicus/        manual: RBI OBICUS Excel files
 scripts/raw/dpiit_fdi/         manual: DPIIT quarterly FDI factsheet PDFs
 ```
 
-**Manual downloads** (the publishers' file servers block scripts). Until a folder has files, its
-signal shows "no data" and never counts as a check or a cross:
+**Hand-downloaded sources** (the publishers' file servers block scripts; files are committed in `raw/`
+and read by `scripts/read_raw.py`, which stops on any category name not in `industry_map.csv`):
 
-1. `raw/rbi_credit/`: the Excel attachment ("SIBC...E.xlsx") of RBI's "Sectoral Deployment of Bank
-   Credit" press release for September of each of the last four years (latest plus three before).
-2. `raw/rbi_obicus/`: the Excel attachment ("OBICUS...xlsx") of the OBICUS release for the same
-   quarter in each of the last four years (each holds about five quarters).
-3. `raw/dpiit_fdi/`: DPIIT's quarterly FDI factsheet PDFs for the latest quarter and for March of
-   the latest year and three years earlier (each lists three financial years by sector).
+1. `raw/rbi_credit/`: the "Statements I and II" Excel of RBI's "Sectoral Deployment of Bank Credit"
+   press release for September of each of the last four years. Statement 2 is read; each file
+   gives five dates, the newest release wins for any date. Now: Sep 2023 to Sep 2026.
+2. `raw/rbi_obicus/`: the Excel of the latest RBI OBICUS release (one file holds every quarter
+   since 2008-09). Now: to Q1:2026-27.
+3. `raw/dpiit_fdi/fdi_sector_yearwise_*.pdf`: DPIIT Table 4 "Sector-wise/year-wise FDI equity
+   inflow" from the latest quarterly FDI Newsletter (dpiit.gov.in, Documents > Publications).
+   It is by calendar year (2000-2022 combined, then each year), so the FDI signal is a
+   **tilt**: an industry's share of FDI into manufacturing in the three latest calendar
+   years against its share in 2000-2022. The FY2025-26 sector table and the Q4 factsheet are
+   kept alongside for reference.
 
-When the first files arrive, a parser for each goes into `read_raw.py` (not written yet: it needs
-the real layouts), the category names are checked against `industry_map.csv`, and the credit,
-capacity and FDI panels replace their "no data" boxes.
+In Chrome, turn off Settings > Downloads > "Ask where to save each file" before fetching them,
+and open the Excel links directly (the RBI pages link to `rbidocs.rbi.org.in/...xlsx`).
 
 **Refreshing.** Each year: run `fetch_trade.py` (the latest FY is always re-fetched), update
 `raw/pli_schemes.csv` from the newest official PLI release (keep one as-of date for all schemes,

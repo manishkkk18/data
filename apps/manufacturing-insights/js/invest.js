@@ -1,7 +1,7 @@
 // 5. Follow the money: the investment pipeline (announced -> financed -> spent -> installed -> output),
 // capital-goods imports, bank credit, capacity in use and the PLI tracker. Reads data/invest.json.
 // Missing sources show "no data", never a zero.
-import { C, pct, esc, int, tooltip, rel, onResize, ym } from "./common.js";
+import { C, tok, pct, esc, int, tooltip, rel, onResize, ym } from "./common.js";
 
 const fmtCr = (v) => (v >= 1e5 ? `₹${(v / 1e5).toFixed(2)} lakh crore` : `₹${Math.round(v).toLocaleString("en-IN")} crore`);
 const isFY = (p) => /^\d{4}-\d{2}$/.test(p) && Number(p.slice(5)) === (Number(p.slice(2, 4)) + 1) % 100; // "2025-26"
@@ -116,13 +116,9 @@ export function invest(inv, screen) {
     `Phone and electronics assembly lines are filed under a general code (8479) and can't be split out. ` +
     `Not capital goods and left out: phones, chips, laptops, engines and appliances, ${share(im.not_capital)}% of 84-85 in ${im.fys.at(-1)}. <a href="${im.source}">Source</a>.`;
 
-  // ---------- credit and capacity (manual downloads)
-  if (inv.credit.status === "ok") noData(document.getElementById("credit-panel"), "Bank credit", "files received; parsing to be added");
-  else noData(document.getElementById("credit-panel"), "RBI Sectoral Deployment of Bank Credit",
-    "RBI's file server blocks automated downloads, so these files are added by hand. Until then credit growth is not used in the screen.");
-  if (inv.obicus.status === "ok") noData(document.getElementById("obicus-panel"), "Capacity utilisation", "files received; parsing to be added");
-  else noData(document.getElementById("obicus-panel"), "RBI OBICUS capacity utilisation",
-    "Same RBI file server. When added, the line will show the share of capacity in use, with about 75% marked as a common reference level (not a rule).");
+  // ---------- bank credit by industry (RBI) and capacity in use (OBICUS)
+  credit(inv);
+  capacity(inv);
 
   // ---------- PLI tracker
   const sch = inv.pli.schemes;
@@ -174,4 +170,90 @@ export function invest(inv, screen) {
   document.getElementById("pli-caption").innerHTML =
     `Actual figures: <a href="${inv.pli.link}">${esc(inv.pli.source)}</a> (released ${esc(sch[0].source_date)}), cumulative to ${period(inv.pli.as_of)}; the 14 schemes add up to the report's total of ${fmtCr(inv.pli.total.investment)}. ` +
     `Committed / target: ${cm}. A target can be a minimum threshold rather than a full plan, so "% of target" above 100 does not mean the scheme is finished.`;
+}
+
+/** Bank credit growth by industry group, latest 12 months, sorted, against the all-industry line. */
+function credit(inv) {
+  const host = document.getElementById("credit-panel");
+  const cr = inv.credit;
+  if (cr.status !== "ok" || !cr.groups) return noData(host, "RBI Sectoral Deployment of Bank Credit", "files not added yet");
+  const rows = Object.entries(cr.groups).map(([g, v]) => ({ g, name: inv.groups[g], ...v })).sort((a, b) => b.yoy - a.yoy);
+  const days = Math.round((new Date(cr.last) - new Date(cr.prev)) / 864e5);
+  host.innerHTML = `<p class="sub-lede">Outstanding bank credit, ${period(cr.prev)} to ${period(cr.last)}: growth by industry against ${pct(cr.total_yoy)} for all industry (dashed line).</p><div class="chart" id="credit-chart"></div><div class="tip" id="credit-tip" hidden></div>
+    <p class="note">RBI "Sectoral Deployment of Bank Credit" (41 banks, about 95% of non-food credit). From December 2025 RBI reports month-ends, so this comparison spans ${days} days rather than 365; that lifts every industry alike, so compare bars with the dashed line, not with earlier years. The all-industry line includes infrastructure and construction.</p>`;
+  const el = host.querySelector("#credit-chart");
+  const tip = tooltip(host.querySelector("#credit-tip"), host);
+  function draw() {
+    el.innerHTML = "";
+    const W = el.clientWidth, narrow = W < 600;
+    if (W < 200) return;
+    const lab = narrow ? 132 : 250, rowH = 24, mg = { t: 8, r: 46, b: 24, l: lab };
+    const H = mg.t + mg.b + rowH * rows.length;
+    const x = d3.scaleLinear().domain([0, d3.max(rows, (r) => r.yoy) * 1.05]).nice().range([mg.l, W - mg.r]);
+    const svg = d3.select(el).append("svg").attr("width", W).attr("height", H).attr("role", "img").attr("aria-label", "Bank credit growth by industry, latest year");
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - mg.b})`).call(d3.axisBottom(x).ticks(5).tickFormat((v) => `${v}%`));
+    rows.forEach((r, i) => {
+      const y = mg.t + i * rowH;
+      const max = narrow ? 17 : 32;
+      svg.append("text").attr("class", "dot-label").attr("x", mg.l - 8).attr("y", y + 15).attr("text-anchor", "end").text(r.name.length > max ? r.name.slice(0, max - 2) + "…" : r.name);
+      svg.append("rect").attr("x", x(0)).attr("y", y + 5).attr("width", Math.max(1, x(Math.max(0, r.yoy)) - x(0))).attr("height", 13).attr("rx", 2)
+        .attr("fill", r.diff >= 2 ? C.div[5] : r.diff <= -2 ? C.div[1] : C.steel);
+      svg.append("text").attr("class", "dot-label").attr("x", x(Math.max(0, r.yoy)) + 4).attr("y", y + 15).text(`${r.yoy.toFixed(0)}%`);
+      svg.append("rect").attr("x", 0).attr("y", y).attr("width", W).attr("height", rowH).attr("fill", "transparent")
+        .on("pointermove pointerdown", (ev) => {
+          const [px, py] = rel(ev, host);
+          tip.show(`<b>${esc(r.name)}</b><div class="row"><span>Growth, latest year</span><span>${pct(r.yoy)}</span></div>` +
+            `<div class="row"><span>vs all industry</span><span>${r.diff > 0 ? "+" : ""}${r.diff} pts</span></div>` +
+            (r.cagr3 != null ? `<div class="row"><span>3-year average</span><span>${pct(r.cagr3)} a year</span></div>` : "") +
+            `<div class="row"><span>Outstanding, ${period(cr.last)}</span><span>${fmtCr(r.series.at(-1))}</span></div><div class="dim">Mapping: ${esc(r.confidence ?? "")}</div>`, px, py);
+        })
+        .on("pointerleave", () => tip.hide());
+    });
+    svg.append("line").attr("class", "diag").attr("x1", x(cr.total_yoy)).attr("x2", x(cr.total_yoy)).attr("y1", mg.t).attr("y2", H - mg.b);
+    svg.append("text").attr("class", "q-label").attr("x", x(cr.total_yoy) + 4).attr("y", H - mg.b - 4).text(`all industry ${cr.total_yoy.toFixed(0)}%`);
+  }
+  draw();
+  onResize(el, draw);
+}
+
+/** RBI OBICUS capacity utilisation, quarterly, with a band at the reference level. */
+function capacity(inv) {
+  const host = document.getElementById("obicus-panel");
+  const ob = inv.obicus;
+  if (ob.status !== "ok" || !ob.series) return noData(host, "RBI OBICUS capacity utilisation", "files not added yet");
+  const S = ob.series, last = S.at(-1);
+  host.innerHTML = `<p class="sub-lede">Share of factory capacity in use, seasonally adjusted: <b>${last.cu_sa}%</b> in ${last.quarter}. Around ${ob.reference}% is often read as the level where firms start adding capacity; it is a reference, not a rule.</p><div class="chart" id="obicus-chart"></div><div class="tip" id="obicus-tip" hidden></div>
+    <p class="note">RBI Order Books, Inventories and Capacity Utilisation Survey, about 1,000 manufacturing firms a quarter. Solid: seasonally adjusted; dashed: unadjusted. <a href="${ob.source}">Source</a>.</p>`;
+  const el = host.querySelector("#obicus-chart");
+  const tip = tooltip(host.querySelector("#obicus-tip"), host);
+  function draw() {
+    el.innerHTML = "";
+    const W = el.clientWidth;
+    if (W < 200) return;
+    const H = 240, mg = { t: 12, r: 12, b: 26, l: 36 };
+    const x = d3.scaleLinear().domain([0, S.length - 1]).range([mg.l, W - mg.r]);
+    const vals = S.flatMap((d) => [d.cu, d.cu_sa]).filter((v) => v != null);
+    const y = d3.scaleLinear().domain([Math.min(55, d3.min(vals)), Math.max(82, d3.max(vals))]).nice().range([H - mg.b, mg.t]);
+    const svg = d3.select(el).append("svg").attr("width", W).attr("height", H).attr("role", "img").attr("aria-label", "Manufacturing capacity utilisation, quarterly since 2008-09");
+    svg.append("rect").attr("x", mg.l).attr("width", W - mg.l - mg.r).attr("y", y(ob.reference + 1)).attr("height", y(ob.reference - 1) - y(ob.reference + 1)).attr("fill", tok("concrete-2"));
+    svg.append("text").attr("class", "q-label").attr("x", W - mg.r - 4).attr("text-anchor", "end").attr("y", y(ob.reference - 1) + 13).text(`${ob.reference}% reference`);
+    svg.append("g").attr("class", "axis").attr("transform", `translate(${mg.l},0)`).call(d3.axisLeft(y).ticks(5).tickFormat((v) => `${v}%`));
+    const ticks = S.map((d, i) => [i, d.quarter]).filter(([, q]) => q.startsWith("Q1") && Number(q.slice(3, 7)) % 4 === 0).map((d) => d[0]);
+    svg.append("g").attr("class", "axis").attr("transform", `translate(0,${H - mg.b})`).call(d3.axisBottom(x).tickValues(ticks).tickFormat((i) => S[i].quarter.slice(3, 7)));
+    const line = (k) => d3.line().defined((d) => d[k] != null).x((_, i) => x(i)).y((d) => y(d[k]));
+    svg.append("path").attr("d", line("cu")(S)).attr("fill", "none").attr("stroke", C.steel).attr("stroke-width", 1.3).attr("stroke-dasharray", "3 3");
+    svg.append("path").attr("d", line("cu_sa")(S)).attr("fill", "none").attr("stroke", C.ink).attr("stroke-width", 2.2);
+    svg.append("circle").attr("cx", x(S.length - 1)).attr("cy", y(last.cu_sa)).attr("r", 3.5).attr("fill", tok("accent"));
+    const cross = svg.append("line").attr("stroke", C.ink).attr("y1", mg.t).attr("y2", H - mg.b).style("display", "none");
+    svg.append("rect").attr("x", mg.l).attr("width", W - mg.l - mg.r).attr("height", H).attr("fill", "transparent")
+      .on("pointermove pointerdown", (ev) => {
+        const [px, py] = rel(ev, el);
+        const i = Math.max(0, Math.min(S.length - 1, Math.round(x.invert(px))));
+        cross.attr("x1", x(i)).attr("x2", x(i)).style("display", null);
+        tip.show(`<b>${S[i].quarter}</b><div class="row"><span>Seasonally adjusted</span><span>${S[i].cu_sa ?? "–"}%</span></div><div class="row"><span>Unadjusted</span><span>${S[i].cu}%</span></div><div class="dim">${S[i].respondents} firms</div>`, x(i), Math.min(py, H - 60));
+      })
+      .on("pointerleave", () => { cross.style("display", "none"); tip.hide(); });
+  }
+  draw();
+  onResize(el, draw);
 }
